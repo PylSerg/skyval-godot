@@ -37,3 +37,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
             appearance.cycle_lpc_skin()
         KEY_6:
             appearance.cycle_footwear()
+        KEY_7:
+            appearance.cycle_shirt_style()
+        KEY_8:
+            appearance.cycle_pants_style()
+        KEY_9:
+            appearance.cycle_footwear_style()
