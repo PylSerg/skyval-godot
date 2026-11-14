@@ -31,13 +31,8 @@ var _root: Control
 var _tab_appearance: Button
 var _tab_clothes: Button
 var _rows: VBoxContainer
-var _hint_navigation: Label
-var _hint_tabs: Label
-var _hint_actions: Label
-var _preview_title: Label
 var _preview: Control
 var _missing_label: Label
-var _wardrobe_button: Button
 var _value_labels: Dictionary = {}
 var _locale: Node
 
@@ -57,7 +52,6 @@ func _ready() -> void:
 
     _locale.connect("language_changed", Callable(self, "_refresh_text"))
     _build_interface()
-    Input.joy_connection_changed.connect(_on_joy_connection_changed)
     _root.hide()
 
 func _tr(key: String) -> String:
@@ -86,7 +80,7 @@ func _input(event: InputEvent) -> void:
             get_viewport().set_input_as_handled()
         return
 
-    if key != KEY_C and key != KEY_ESCAPE and key != KEY_UP and key != KEY_DOWN and key != KEY_LEFT and key != KEY_RIGHT and key != KEY_ENTER and key != KEY_KP_ENTER and key != KEY_SPACE and key != KEY_Q and key != KEY_E and key != KEY_TAB and key != KEY_T and key != KEY_R:
+    if key != KEY_C and key != KEY_ESCAPE and key != KEY_UP and key != KEY_DOWN and key != KEY_LEFT and key != KEY_RIGHT and key != KEY_ENTER and key != KEY_KP_ENTER and key != KEY_SPACE and key != KEY_Q and key != KEY_E and key != KEY_TAB and key != KEY_I and key != KEY_J and key != KEY_K and key != KEY_L:
         return
 
     # Even a rejected bounce must not fall through to Godot UI navigation.
@@ -114,10 +108,14 @@ func _input(event: InputEvent) -> void:
             _set_page(0)
         KEY_E, KEY_TAB:
             _set_page(1 if key == KEY_E else 1 - _page)
-        KEY_T:
-            _locale.call("toggle_language")
-        KEY_R:
-            _toggle_all_clothes()
+        KEY_I:
+            _preview.show_direction(Vector2.UP)
+        KEY_J:
+            _preview.show_direction(Vector2.LEFT)
+        KEY_K:
+            _preview.show_direction(Vector2.DOWN)
+        KEY_L:
+            _preview.show_direction(Vector2.RIGHT)
 
 # Native gamepad buttons, using Godot's SDL-standard button indices.
 # A press is accepted only once until its matching release arrives.
@@ -141,14 +139,10 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
             _set_open(false)
         JOY_BUTTON_A:
             _adjust_selected(1)
-        JOY_BUTTON_Y:
-            _toggle_all_clothes()
         JOY_BUTTON_LEFT_SHOULDER:
             _set_page(0)
         JOY_BUTTON_RIGHT_SHOULDER:
             _set_page(1)
-        JOY_BUTTON_BACK:
-            _locale.call("toggle_language")
         JOY_BUTTON_DPAD_UP:
             _move_selection(-1)
         JOY_BUTTON_DPAD_DOWN:
@@ -165,6 +159,15 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
 # The lower release threshold prevents drift from triggering repeated actions.
 func _handle_joy_axis(event: InputEventJoypadMotion) -> void:
     if not _opened:
+        return
+    if event.axis == JOY_AXIS_RIGHT_X or event.axis == JOY_AXIS_RIGHT_Y:
+        # View-only rotation. Never change the paused in-world player.
+        var look: Vector2 = Vector2(
+            Input.get_joy_axis(event.device, JOY_AXIS_RIGHT_X),
+            Input.get_joy_axis(event.device, JOY_AXIS_RIGHT_Y)
+        )
+        _preview.show_direction(look)
+        get_viewport().set_input_as_handled()
         return
     if event.axis != JOY_AXIS_LEFT_X and event.axis != JOY_AXIS_LEFT_Y:
         return
@@ -277,48 +280,18 @@ func _build_interface() -> void:
     _rows.size_flags_vertical = Control.SIZE_EXPAND_FILL
     stack.add_child(_rows)
 
-    var hint_lines := VBoxContainer.new()
-    hint_lines.add_theme_constant_override("separation", 0)
-    stack.add_child(hint_lines)
-
-    _hint_navigation = _label(8)
-    _hint_navigation.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    hint_lines.add_child(_hint_navigation)
-
-    _hint_tabs = _label(8)
-    _hint_tabs.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    hint_lines.add_child(_hint_tabs)
-
-    _hint_actions = _label(8)
-    _hint_actions.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    hint_lines.add_child(_hint_actions)
-
-    _preview_title = _label(10)
-    _preview_title.position = Vector2(212, 10)
-    _preview_title.size = Vector2(104, 16)
-    _preview_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    _root.add_child(_preview_title)
-
+    # Use the full right column; the portrait itself is drawn at 3×.
     _preview = PreviewScript.new() as Control
-    _preview.position = Vector2(212, 30)
-    _preview.size = Vector2(103, 191)
+    _preview.position = Vector2(212, 8)
+    _preview.size = Vector2(103, 224)
     _root.add_child(_preview)
 
     _missing_label = _label(9)
-    _missing_label.position = Vector2(214, 164)
-    _missing_label.size = Vector2(99, 45)
+    _missing_label.position = Vector2(214, 94)
+    _missing_label.size = Vector2(99, 46)
     _missing_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _missing_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _root.add_child(_missing_label)
-
-    # The bottom of the preview has 19 free logical pixels at 320x240.
-    # Keep this action outside the dense six-row clothing form.
-    _wardrobe_button = _button()
-    _wardrobe_button.position = Vector2(212, 222)
-    _wardrobe_button.size = Vector2(103, 16)
-    _wardrobe_button.add_theme_font_size_override("font_size", 9)
-    _root.add_child(_wardrobe_button)
-    _wardrobe_button.pressed.connect(_toggle_all_clothes)
 
     _refresh_text()
 
@@ -358,32 +331,15 @@ func _set_page(next_page: int) -> void:
     _selected_index = 0
     _refresh_text()
 
-func _on_joy_connection_changed(_device: int, _connected: bool) -> void:
-    _refresh_controller_hints()
-
-func _refresh_controller_hints() -> void:
-    # PortMaster uses keyboard emulation. USB controllers are detected
-    # through Godot; keyboard-only desktop play gets no gamepad hints.
-    var show_hints: bool = _keyboard_emulated_gamepad or not Input.get_connected_joypads().is_empty()
-    _hint_navigation.visible = show_hints
-    _hint_tabs.visible = show_hints
-    _hint_actions.visible = show_hints
-
 func _refresh_text() -> void:
     if _tab_appearance == null:
         return
     _tab_appearance.text = _tr("ui.appearance")
     _tab_clothes.text = _tr("ui.clothes")
-    _hint_navigation.text = _tr("ui.gamepad_navigation")
-    _hint_tabs.text = _tr("ui.gamepad_tabs")
-    _hint_actions.text = _tr("ui.gamepad_actions")
-    _refresh_controller_hints()
-    _preview_title.text = _tr("ui.preview")
     _missing_label.text = _tr("ui.missing_lpc")
     _missing_label.visible = not avatar.has_lpc_character()
     _preview.set("character", avatar.get_lpc_character())
     _preview.queue_redraw()
-    _refresh_wardrobe_button()
     _rebuild_rows()
 
 func _rebuild_rows() -> void:
@@ -444,24 +400,13 @@ func _localized_value(key: String) -> String:
         return _tr("value." + key + "." + value.replace("/", "_"))
     return _tr("color." + value)
 
-func _refresh_wardrobe_button() -> void:
-    if _wardrobe_button == null:
-        return
-    _wardrobe_button.disabled = not avatar.has_lpc_character()
-    _wardrobe_button.text = _tr("ui.restore_outfit") if avatar.is_lpc_fully_undressed() else _tr("ui.remove_all")
-
 func _refresh_options() -> void:
     # Refresh live labels rather than rebuilding rows, preserving button focus.
     for option_key in _value_labels.keys():
         var field_label: Label = _value_labels[option_key] as Label
         if is_instance_valid(field_label):
             field_label.text = _localized_value(str(option_key))
-    _refresh_wardrobe_button()
     _preview.queue_redraw()
-
-func _toggle_all_clothes() -> void:
-    if avatar.toggle_lpc_all_clothes():
-        _refresh_options()
 
 func _adjust(key: String, direction: int, index: int = -1) -> void:
     if index >= 0:

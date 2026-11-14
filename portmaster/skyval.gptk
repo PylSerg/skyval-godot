@@ -2,15 +2,13 @@
 # gptokeyb (not gptokeyb2) button=keyboard layout.
 # Emulate keyboard keys to keep D-pad navigation single-source.
 # In character creator: UP/DOWN select field, LEFT/RIGHT change value.
-# L1/R1 switch tabs, A changes selected value, B closes, Y dresses.
-# Select toggles the menu language.
+# L1/R1 switch tabs, A changes selected value, B closes.
+# Right stick rotates the preview via I/J/K/L; Y and Select unbound.
 
 start = c
-select = t
 a = enter
 b = esc
 x = c
-y = r
 
 up = up
 down = down
