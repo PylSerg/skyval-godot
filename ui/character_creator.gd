@@ -83,11 +83,24 @@ func _load_cascadia_font() -> void:
             break
 
     if _ui_font != null:
-        # At 320x240, full pixel-grid hinting and no antialiasing avoid
-        # fuzzy subpixel edges after integer 2x viewport upscaling.
+        # Use Godot 4.7's supported hinting enum and whole-pixel positioning.
         _ui_font.antialiasing = TextServer.FONT_ANTIALIASING_NONE
-        _ui_font.hinting = TextServer.HINTING_FULL
+        _ui_font.hinting = TextServer.HINTING_NORMAL
+        _ui_font.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
         _ui_font.force_autohinter = true
+
+        # This supplied Cascadia TTF lacks Cyrillic glyphs. Preserve
+        # Ukrainian labels with the built-in theme font as fallback.
+        var fallback: Font = ThemeDB.fallback_font
+        if fallback != null and not _ui_font.get_supported_chars().contains("і"):
+            var fallback_copy: Font = fallback.duplicate() as Font
+            if fallback_copy is FontFile:
+                var fallback_file: FontFile = fallback_copy as FontFile
+                fallback_file.antialiasing = TextServer.FONT_ANTIALIASING_NONE
+                fallback_file.hinting = TextServer.HINTING_NORMAL
+                fallback_file.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
+            _ui_font.fallbacks = [fallback_copy]
+            push_warning("Skyval UI: Cascadia lacks Ukrainian glyphs; using built-in fallback for Cyrillic.")
         print("Skyval UI: Cascadia font ready")
     else:
         push_warning("Skyval UI: Cascadia.ttf not found; falling back to Godot's default font.")
