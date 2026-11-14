@@ -46,19 +46,8 @@ func _physics_process(delta: float) -> void:
     global_position = _smooth_position.round()
 
 func _read_look_input() -> Vector2:
-    # PC test: I/J/K/L emulate the right stick, while arrows move the player.
-    var keyboard_input: Vector2 = Vector2.ZERO
-    if Input.is_key_pressed(KEY_J):
-        keyboard_input.x -= 1.0
-    if Input.is_key_pressed(KEY_L):
-        keyboard_input.x += 1.0
-    if Input.is_key_pressed(KEY_I):
-        keyboard_input.y -= 1.0
-    if Input.is_key_pressed(KEY_K):
-        keyboard_input.y += 1.0
-    keyboard_input = keyboard_input.normalized()
-
-    var result: Vector2 = keyboard_input
+    # Native right stick only; no keyboard look controls.
+    var result: Vector2 = Vector2.ZERO
     for joy_id in Input.get_connected_joypads():
         var raw_input: Vector2 = Vector2(
             Input.get_joy_axis(joy_id, JOY_AXIS_RIGHT_X),

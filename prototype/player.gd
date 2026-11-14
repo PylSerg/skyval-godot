@@ -1,15 +1,27 @@
 extends CharacterBody2D
-## Prototype movement, now driven by an independent four-direction character visual.
+## Skyval: gamepad-only movement. D-pad is digital, left stick is analog.
 
 const SPEED := 100.0
+const STICK_DEADZONE := 0.22
 const EDGE_MARGIN := Vector2(8.0, 14.0)
 
 @export var world_bounds := Rect2(Vector2.ZERO, Vector2(1280.0, 960.0))
 
 @onready var appearance: SkyvalCharacterVisual = $CharacterVisual
 
+func _ready() -> void:
+    Input.joy_connection_changed.connect(_on_joy_connection_changed)
+    for device in Input.get_connected_joypads():
+        _on_joy_connection_changed(device, true)
+
+func _on_joy_connection_changed(device: int, connected: bool) -> void:
+    if connected:
+        print("Skyval controller: device=", device, " name=", Input.get_joy_name(device), " guid=", Input.get_joy_guid(device))
+    else:
+        print("Skyval controller disconnected: device=", device)
+
 func _physics_process(_delta: float) -> void:
-    var direction: Vector2 = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+    var direction: Vector2 = _read_gamepad_direction()
     velocity = direction * SPEED
     move_and_slide()
     global_position = global_position.clamp(
@@ -18,28 +30,25 @@ func _physics_process(_delta: float) -> void:
     )
     appearance.set_motion(direction)
 
-func _unhandled_key_input(event: InputEvent) -> void:
-    if not event is InputEventKey:
-        return
-    if not event.pressed or event.echo:
-        return
-    # PC-only appearance smoke test; future inventory UI will call the same methods.
-    match event.keycode:
-        KEY_1:
-            appearance.cycle_outfit()
-        KEY_2:
-            appearance.cycle_hair()
-        KEY_3:
-            appearance.toggle_weapon()
-        KEY_4:
-            appearance.toggle_lpc_preview()
-        KEY_5:
-            appearance.cycle_lpc_skin()
-        KEY_6:
-            appearance.cycle_footwear()
-        KEY_7:
-            appearance.cycle_shirt_style()
-        KEY_8:
-            appearance.cycle_pants_style()
-        KEY_9:
-            appearance.cycle_footwear_style()
+func _read_gamepad_direction() -> Vector2:
+    var pads: Array[int] = Input.get_connected_joypads()
+    if pads.is_empty():
+        return Vector2.ZERO
+    var id: int = pads[0]
+
+    # D-pad overrides analog input to avoid conflicting directions.
+    var dx: float = float(int(Input.is_joy_button_pressed(id, JOY_BUTTON_DPAD_RIGHT)) - int(Input.is_joy_button_pressed(id, JOY_BUTTON_DPAD_LEFT)))
+    var dy: float = float(int(Input.is_joy_button_pressed(id, JOY_BUTTON_DPAD_DOWN)) - int(Input.is_joy_button_pressed(id, JOY_BUTTON_DPAD_UP)))
+    var dpad := Vector2(dx, dy)
+    if dpad != Vector2.ZERO:
+        return dpad.normalized()
+
+    var stick := Vector2(
+        Input.get_joy_axis(id, JOY_AXIS_LEFT_X),
+        Input.get_joy_axis(id, JOY_AXIS_LEFT_Y)
+    )
+    var magnitude: float = stick.length()
+    if magnitude <= STICK_DEADZONE:
+        return Vector2.ZERO
+    var intensity: float = clampf((magnitude - STICK_DEADZONE) / (1.0 - STICK_DEADZONE), 0.0, 1.0)
+    return stick.normalized() * intensity

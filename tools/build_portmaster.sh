@@ -41,10 +41,8 @@ for source_file in project.godot export_presets.cfg icon.svg; do
     cp "$ROOT/$source_file" "$STAGE/"
 done
 
-# The R36H's GPtoKEYB already generates keyboard input for buttons/D-pad.
-# Disable native JoypadButton navigation ONLY in this staged PortMaster PCK.
-# The desktop project keeps native USB controller support enabled.
-printf '\n[skyval]\n\ninput/keyboard_emulated_gamepad=true\n' >> "$STAGE/project.godot"
+# The staged build uses the same native-controller code as desktop.
+# GPtoKEYB has no gamepad-to-keyboard mapping in the launcher.
 
 for subdir in prototype characters ui localization; do
     cp -R "$ROOT/$subdir" "$STAGE/$subdir"
@@ -127,7 +125,8 @@ if [ ! -s "$PACK" ]; then
 fi
 
 cp "$ROOT/portmaster/Skyval.sh" "$DIST/roms/ports/Skyval.sh"
-cp "$ROOT/portmaster/skyval.gptk" "$DIST/roms/ports/skyval/skyval.gptk"
+# Prevent leftovers from older keyboard-emulation builds.
+rm -f "$DIST/roms/ports/skyval/skyval.gptk"
 chmod +x "$DIST/roms/ports/Skyval.sh"
 
 cat > "$DIST/roms/ports/skyval/README.txt" <<'EOF'
@@ -139,6 +138,8 @@ Log after launching: ports/skyval/log.txt
 EOF
 
 if command -v zip >/dev/null 2>&1; then
+    # zip -r normally updates an existing ZIP; remove it to avoid stale .gptk.
+    rm -f "$DIST/Skyval_PortMaster_Test.zip"
     (
         cd "$DIST/roms/ports"
         zip -q -r "$DIST/Skyval_PortMaster_Test.zip" "Skyval.sh" "skyval"

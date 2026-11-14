@@ -10,9 +10,8 @@ const CLOTHING_FIELDS := [
     "pants_style", "pants_variant",
     "footwear_style", "boots_variant",
 ]
-# GPtoKEYB emits keyboard events. A real gamepad may also be visible to
-# Godot, so the menu deliberately uses keyboard navigation only.
-const NAV_DEBOUNCE_MS := 120
+# Use only native joypad buttons and axes; avoid GUI double input.
+const NAV_DEBOUNCE_MS := 100
 const LEFT_STICK_PRESS := 0.65
 const LEFT_STICK_RELEASE := 0.42
 const RIGHT_STICK_PRESS := 0.65
@@ -25,12 +24,10 @@ var _page: int = 0
 var _selected_index: int = 0
 var _row_labels: Array[Label] = []
 var _row_values: Array[Label] = []
-var _last_press_by_key: Dictionary = {}
 var _held_joy_buttons: Dictionary = {}
 var _joy_axis_direction: Dictionary = {}
 var _right_stick_latched: Dictionary = {}
-var _preview_held_keys: Dictionary = {}
-var _keyboard_emulated_gamepad: bool = false
+var _last_navigation_ms: int = -10000
 var _root: Control
 var _tab_appearance: Button
 var _tab_clothes: Button
@@ -42,10 +39,6 @@ var _locale: Node
 
 func _ready() -> void:
     process_mode = Node.PROCESS_MODE_ALWAYS
-    # PortMaster's GPtoKEYB already translates console controls to keyboard
-    # events. On a laptop, listen to native gamepad buttons directly.
-    _keyboard_emulated_gamepad = bool(ProjectSettings.get_setting("skyval/input/keyboard_emulated_gamepad", false))
-
     # Do not depend on Godot's compile-time singleton registration. Editors
     # opened before a git pull may not have reloaded the [autoload] section.
     _locale = get_node_or_null("/root/SkyvalLocale")
@@ -61,71 +54,13 @@ func _ready() -> void:
 func _tr(key: String) -> String:
     return str(_locale.call("t", key))
 
-# Capture input before Godot GUI navigation. PortMaster is keyboard-emulated,
-# but a USB controller on a desktop uses native JoypadButton/JoypadMotion.
+# Capture native gamepad input before Godot GUI focus routing.
+# Keyboard events are deliberately ignored by all gameplay menus.
 func _input(event: InputEvent) -> void:
     if event is InputEventJoypadButton:
-        if not _keyboard_emulated_gamepad:
-            _handle_joy_button(event as InputEventJoypadButton)
-        return
-    if event is InputEventJoypadMotion:
-        if not _keyboard_emulated_gamepad:
-            _handle_joy_axis(event as InputEventJoypadMotion)
-        return
-    if not event is InputEventKey:
-        return
-
-    # GPtoKEYB converts the R36H's right stick to J/L keystrokes. Only
-    # a new horizontal press changes facing; return to neutral first.
-    var key_event: InputEventKey = event as InputEventKey
-    if key_event.keycode == KEY_J or key_event.keycode == KEY_L:
-        if not key_event.pressed:
-            _preview_held_keys.erase(key_event.keycode)
-            return
-        if _opened:
-            get_viewport().set_input_as_handled()
-            if not key_event.echo and not _preview_held_keys.has(key_event.keycode):
-                _preview_held_keys[key_event.keycode] = true
-                _preview.call("rotate_step", 1 if key_event.keycode == KEY_L else -1)
-            return
-    if not key_event.pressed or key_event.echo:
-        return
-
-    var key: Key = key_event.keycode
-    if not _opened:
-        if key == KEY_C:
-            _set_open(true)
-            get_viewport().set_input_as_handled()
-        return
-
-    if key != KEY_C and key != KEY_ESCAPE and key != KEY_UP and key != KEY_DOWN and key != KEY_LEFT and key != KEY_RIGHT and key != KEY_ENTER and key != KEY_KP_ENTER and key != KEY_SPACE and key != KEY_Q and key != KEY_E and key != KEY_TAB:
-        return
-
-    # Even a rejected bounce must not fall through to Godot UI navigation.
-    get_viewport().set_input_as_handled()
-    if key == KEY_C or key == KEY_ESCAPE:
-        _set_open(false)
-        return
-
-    var now: int = Time.get_ticks_msec()
-    var last: int = int(_last_press_by_key.get(key, -10000))
-    if now - last < NAV_DEBOUNCE_MS:
-        return
-    _last_press_by_key[key] = now
-
-    match key:
-        KEY_UP:
-            _move_selection(-1)
-        KEY_DOWN:
-            _move_selection(1)
-        KEY_LEFT:
-            _adjust_selected(-1)
-        KEY_RIGHT, KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
-            _adjust_selected(1)
-        KEY_Q:
-            _set_page(0)
-        KEY_E, KEY_TAB:
-            _set_page(1 if key == KEY_E else 1 - _page)
+        _handle_joy_button(event as InputEventJoypadButton)
+    elif event is InputEventJoypadMotion:
+        _handle_joy_axis(event as InputEventJoypadMotion)
 
 # Native gamepad buttons, using Godot's SDL-standard button indices.
 # A press is accepted only once until its matching release arrives.
@@ -210,7 +145,18 @@ func _handle_joy_axis(event: InputEventJoypadMotion) -> void:
         _adjust_selected(next_direction)
     get_viewport().set_input_as_handled()
 
+func _can_navigate() -> bool:
+    # Shared debounce protects against some devices reporting D-pad twice
+    # (as buttons and as a left-axis motion).
+    var now: int = Time.get_ticks_msec()
+    if now - _last_navigation_ms < NAV_DEBOUNCE_MS:
+        return false
+    _last_navigation_ms = now
+    return true
+
 func _move_selection(amount: int) -> void:
+    if not _can_navigate():
+        return
     var fields: Array = APPEARANCE_FIELDS if _page == 0 else CLOTHING_FIELDS
     if fields.is_empty():
         return
@@ -218,6 +164,8 @@ func _move_selection(amount: int) -> void:
     _update_row_highlight()
 
 func _adjust_selected(direction: int) -> void:
+    if not _can_navigate():
+        return
     var fields: Array = APPEARANCE_FIELDS if _page == 0 else CLOTHING_FIELDS
     if _selected_index >= 0 and _selected_index < fields.size():
         _adjust(str(fields[_selected_index]), direction, _selected_index)
@@ -236,12 +184,10 @@ func _set_open(next_open: bool) -> void:
     _root.visible = next_open
     get_tree().paused = next_open
     if next_open:
-        _last_press_by_key.clear()
-        # A stick can still be held when the creator reopens; reset the
-        # hysteresis latch so the first new tilt is recognized.
+        _last_navigation_ms = -10000
+        # Re-arm both sticks only on opening the menu.
         _joy_axis_direction.clear()
         _right_stick_latched.clear()
-        _preview_held_keys.clear()
         _refresh_text()
         _update_row_highlight()
     else:

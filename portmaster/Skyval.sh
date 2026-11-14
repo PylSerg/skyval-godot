@@ -83,11 +83,13 @@ if [ ! -x "$GODOT_DIR/$GODOT_EXEC" ]; then
 else
     cd "$GAMEDIR" || exit 1
     export SDL_GAMECONTROLLERCONFIG="${sdl_controllerconfig:-}"
-    $GPTOKEYB "$GODOT_EXEC" -c "$GAMEDIR/skyval.gptk" &
+    # Native Godot joypad input; GPtoKEYB supplies only the PortMaster exit hotkey.
+    $GPTOKEYB "$GODOT_EXEC" &
 
     echo "Starting Godot from PCK..."
     $ESUDO env "$WESTON_DIR/westonwrap.sh" headless noop kiosk crusty_x11egl \
         XDG_DATA_HOME="$CONFDIR" \
+        SDL_GAMECONTROLLERCONFIG="${sdl_controllerconfig:-}" \
         "$GODOT_DIR/$GODOT_EXEC" \
         --resolution "${DISPLAY_WIDTH:-640}x${DISPLAY_HEIGHT:-480}" -f \
         --disable-cursor \
