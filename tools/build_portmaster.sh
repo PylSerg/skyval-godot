@@ -40,6 +40,12 @@ echo "Godot editor: $GODOT"
 for source_file in project.godot export_presets.cfg icon.svg; do
     cp "$ROOT/$source_file" "$STAGE/"
 done
+
+# The R36H's GPtoKEYB already generates keyboard input for buttons/D-pad.
+# Disable native JoypadButton navigation ONLY in this staged PortMaster PCK.
+# The desktop project keeps native USB controller support enabled.
+printf '\n[skyval]\n\ninput/keyboard_emulated_gamepad=true\n' >> "$STAGE/project.godot"
+
 for subdir in prototype characters ui localization; do
     cp -R "$ROOT/$subdir" "$STAGE/$subdir"
 done
