@@ -20,14 +20,16 @@ const PANTS_COLORS := ["charcoal", "brown", "navy", "black", "blue", "leather"]
 const BOOTS_COLORS := ["brown", "black", "leather", "gray", "tan", "forest"]
 # Verified against Universal LPC sprite directories. One variant per slot.
 const SHIRT_STYLES := [
+    "none",
     "shortsleeve/shortsleeve",
     "shortsleeve/tshirt",
     "longsleeve/longsleeve",
     "sleeveless/sleeveless",
     "shortsleeve/shortsleeve_polo",
 ]
-const PANTS_STYLES := ["pants", "pants2", "formal", "cuffed", "pantaloons"]
+const PANTS_STYLES := ["none", "pants", "pants2", "formal", "cuffed", "pantaloons"]
 const FOOTWEAR_STYLES := [
+    "none",
     "boots/basic", "boots/fold", "boots/rimmed",
     "shoes/basic", "shoes/revised",
 ]
@@ -47,8 +49,12 @@ const FOOTWEAR_STYLES := [
 @export var footwear_style: String = "boots/basic"
 @export var body_directory_override: String = ""
 
+signal clothing_changed(state: Dictionary)
+
 var available: bool = false
 var _sprites: Array[AnimatedSprite2D] = []
+var _saved_outfit: Dictionary = {}
+var _last_clothing_state: Dictionary = {}
 var _direction: int = 0
 var _walking: bool = false
 
@@ -128,24 +134,24 @@ func _load_appearance(skin: String) -> bool:
         return false
 
     var human_head: String = "female" if body_type == "female" else "male"
-    # Explicit LPC layers and z positions from the metadata manifest:
-    # body (10), pants (20), boots (25), shirt (35), head (100).
-    # Required clothing makes a fully dressed avatar our all-or-nothing default.
-    # Other facial details remain optional as before.
+    # LPC layers keep their official draw order. Empty slots are omitted.
+    # Body and human head remain mandatory; clothing is optional.
     var clothing_shape: String = "thin" if body_type == "female" else "male"
     var shirt_shape: String = "female" if body_type == "female" else "male"
-    # Shoes z=15 go under trousers (z=20); boots z=25 go over them.
     var footwear_z: int = 15 if footwear_style.begins_with("shoes/") else 25
     var layers: Array[Dictionary] = [
         {"name": "Body", "path": body_path, "z": 10, "required": true},
-        {"name": "Pants", "path": root.path_join("legs/%s/%s/%s.png" % [pants_style, clothing_shape, pants_variant]), "z": 20, "required": true},
-        {"name": "Footwear", "path": root.path_join("feet/%s/%s/%s.png" % [footwear_style, clothing_shape, boots_variant]), "z": footwear_z, "required": true},
-        {"name": "Shirt", "path": root.path_join("torso/clothes/%s/%s/%s.png" % [shirt_style, shirt_shape, shirt_variant]), "z": 35, "required": true},
         {"name": "Head", "path": root.path_join("head/heads/human/%s/%s.png" % [human_head, skin]), "z": 100, "required": true},
         {"name": "Face", "path": root.path_join("head/faces/%s/neutral/%s.png" % [human_head, skin]), "z": 101, "required": false},
         {"name": "Eyes", "path": root.path_join("eyes/human/adult/default/%s.png" % eye_variant), "z": 105, "required": false},
         {"name": "Hair", "path": root.path_join("hair/%s/adult/%s.png" % [hair_style, hair_variant]), "z": 120, "required": false},
     ]
+    if pants_style != "none":
+        layers.append({"name": "Pants", "path": root.path_join("legs/%s/%s/%s.png" % [pants_style, clothing_shape, pants_variant]), "z": 20, "required": true})
+    if footwear_style != "none":
+        layers.append({"name": "Footwear", "path": root.path_join("feet/%s/%s/%s.png" % [footwear_style, clothing_shape, boots_variant]), "z": footwear_z, "required": true})
+    if shirt_style != "none":
+        layers.append({"name": "Shirt", "path": root.path_join("torso/clothes/%s/%s/%s.png" % [shirt_style, shirt_shape, shirt_variant]), "z": 35, "required": true})
     # First validate all required files before creating Node2D instances.
     # A failed outfit change must never remove the working character.
     var validated: Array[Dictionary] = []
@@ -170,8 +176,8 @@ func _load_appearance(skin: String) -> bool:
         var atlas: Texture2D = layer["atlas"] as Texture2D
         replacements.append(_build_layer(str(layer["name"]), int(layer["z"]), atlas))
 
-    # A complete stack contains the body, head, and all three garments.
-    if replacements.size() < 5:
+    # Two mandatory layers: body and head. Undressed characters are valid.
+    if replacements.size() < 2:
         for candidate in replacements:
             candidate.free()
         return false
@@ -187,6 +193,10 @@ func _load_appearance(skin: String) -> bool:
     skin_variant = skin
     _apply_animation()
     available = true
+    var current_state: Dictionary = get_clothing_state()
+    if current_state != _last_clothing_state:
+        _last_clothing_state = current_state.duplicate()
+        clothing_changed.emit(current_state)
     return true
 
 func _build_layer(label: String, layer_z: int, atlas: Texture2D) -> AnimatedSprite2D:
@@ -345,4 +355,56 @@ func _change_variant(property_name: String, options: Array, direction: int) -> b
         if _load_appearance(skin_variant):
             return true
     set(property_name, previous)
+    return false
+
+# Stable wardrobe state for save files and future NPC dialogue conditions.
+func get_clothing_state() -> Dictionary:
+    return {
+        "shirt": shirt_style != "none",
+        "pants": pants_style != "none",
+        "footwear": footwear_style != "none",
+        "fully_undressed": is_fully_undressed(),
+    }
+
+func is_fully_undressed() -> bool:
+    return shirt_style == "none" and pants_style == "none" and footwear_style == "none"
+
+# Remove all layers; press again to restore the saved outfit styles.
+# Cosmetic colors and physical appearance are preserved.
+func toggle_all_clothes() -> bool:
+    if not available:
+        return false
+
+    var previous: Dictionary = {
+        "shirt_style": shirt_style,
+        "pants_style": pants_style,
+        "footwear_style": footwear_style,
+    }
+
+    if is_fully_undressed():
+        var restore: Dictionary = _saved_outfit
+        if restore.is_empty():
+            restore = {
+                "shirt_style": "shortsleeve/shortsleeve",
+                "pants_style": "pants",
+                "footwear_style": "boots/basic",
+            }
+        shirt_style = str(restore.get("shirt_style", "shortsleeve/shortsleeve"))
+        pants_style = str(restore.get("pants_style", "pants"))
+        footwear_style = str(restore.get("footwear_style", "boots/basic"))
+    else:
+        shirt_style = "none"
+        pants_style = "none"
+        footwear_style = "none"
+
+    if _load_appearance(skin_variant):
+        if is_fully_undressed():
+            _saved_outfit = previous.duplicate()
+        else:
+            _saved_outfit.clear()
+        return true
+
+    shirt_style = str(previous["shirt_style"])
+    pants_style = str(previous["pants_style"])
+    footwear_style = str(previous["footwear_style"])
     return false
