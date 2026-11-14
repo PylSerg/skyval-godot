@@ -218,6 +218,9 @@ func _set_open(next_open: bool) -> void:
     get_tree().paused = next_open
     if next_open:
         _last_press_by_key.clear()
+        # A stick can still be held when the creator reopens; reset the
+        # hysteresis latch so the first new tilt is recognized.
+        _joy_axis_direction.clear()
         _refresh_text()
         _update_row_highlight()
     else:
