@@ -3,6 +3,7 @@ extends CanvasLayer
 ## Text lives exclusively in localization/strings.json.
 
 const PreviewScript = preload("res://ui/character_preview.gd")
+const LocaleScript = preload("res://localization/localization.gd")
 const APPEARANCE_FIELDS := ["body_type", "skin_variant", "eye_variant", "hair_style", "hair_variant"]
 const CLOTHING_FIELDS := [
     "shirt_style", "shirt_variant",
@@ -26,12 +27,25 @@ var _preview_title: Label
 var _preview: Control
 var _missing_label: Label
 var _value_labels: Dictionary = {}
+var _locale: Node
 
 func _ready() -> void:
     process_mode = Node.PROCESS_MODE_ALWAYS
+
+    # Do not depend on Godot's compile-time singleton registration. Editors
+    # opened before a git pull may not have reloaded the [autoload] section.
+    _locale = get_node_or_null("/root/SkyvalLocale")
+    if _locale == null:
+        _locale = LocaleScript.new() as Node
+        _locale.name = "CharacterCreatorLocale"
+        add_child(_locale)
+
+    _locale.connect("language_changed", Callable(self, "_refresh_text"))
     _build_interface()
     _root.hide()
-    SkyvalLocale.language_changed.connect(_refresh_text)
+
+func _tr(key: String) -> String:
+    return str(_locale.call("t", key))
 
 func _unhandled_key_input(event: InputEvent) -> void:
     if not event is InputEventKey:
@@ -98,7 +112,7 @@ func _build_interface() -> void:
     _language_button.custom_minimum_size = Vector2(32, 19)
     header.add_child(_language_button)
     _language_button.pressed.connect(func() -> void:
-        SkyvalLocale.toggle_language()
+        _locale.call("toggle_language")
     )
 
     _close_button = _button()
@@ -187,14 +201,14 @@ func _set_page(next_page: int) -> void:
 func _refresh_text() -> void:
     if _title == null:
         return
-    _title.text = SkyvalLocale.t("ui.title")
-    _tab_appearance.text = SkyvalLocale.t("ui.appearance")
-    _tab_clothes.text = SkyvalLocale.t("ui.clothes")
-    _language_button.text = SkyvalLocale.t("ui.language_" + SkyvalLocale.language)
-    _close_button.text = SkyvalLocale.t("ui.close")
-    _footer.text = SkyvalLocale.t("ui.close_hint")
-    _preview_title.text = SkyvalLocale.t("ui.preview")
-    _missing_label.text = SkyvalLocale.t("ui.missing_lpc")
+    _title.text = _tr("ui.title")
+    _tab_appearance.text = _tr("ui.appearance")
+    _tab_clothes.text = _tr("ui.clothes")
+    _language_button.text = _tr("ui.language_" + str(_locale.get("language")))
+    _close_button.text = _tr("ui.close")
+    _footer.text = _tr("ui.close_hint")
+    _preview_title.text = _tr("ui.preview")
+    _missing_label.text = _tr("ui.missing_lpc")
     _missing_label.visible = not avatar.has_lpc_character()
     _preview.set("character", avatar.get_lpc_character())
     _preview.queue_redraw()
@@ -215,12 +229,12 @@ func _rebuild_rows() -> void:
         _rows.add_child(row)
 
         var name_label := _label(9)
-        name_label.text = SkyvalLocale.t("field." + key)
+        name_label.text = _tr("field." + key)
         name_label.custom_minimum_size.x = 78
         row.add_child(name_label)
 
         var previous := _button()
-        previous.text = SkyvalLocale.t("ui.previous")
+        previous.text = _tr("ui.previous")
         previous.custom_minimum_size = Vector2(19, 20)
         previous.disabled = not avatar.has_lpc_character()
         row.add_child(previous)
@@ -235,7 +249,7 @@ func _rebuild_rows() -> void:
         _value_labels[key] = value_label
 
         var following := _button()
-        following.text = SkyvalLocale.t("ui.next")
+        following.text = _tr("ui.next")
         following.custom_minimum_size = Vector2(19, 20)
         following.disabled = not avatar.has_lpc_character()
         row.add_child(following)
@@ -243,11 +257,11 @@ func _rebuild_rows() -> void:
 
 func _localized_value(key: String) -> String:
     if not avatar.has_lpc_character():
-        return SkyvalLocale.t("ui.missing_lpc")
+        return _tr("ui.missing_lpc")
     var value: String = avatar.get_lpc_option(key)
     if key == "body_type" or key.ends_with("_style"):
-        return SkyvalLocale.t("value." + key + "." + value.replace("/", "_"))
-    return SkyvalLocale.t("color." + value)
+        return _tr("value." + key + "." + value.replace("/", "_"))
+    return _tr("color." + value)
 
 func _adjust(key: String, direction: int) -> void:
     if avatar.change_lpc_option(key, direction):
