@@ -66,12 +66,36 @@ dist/portmaster/roms/ports/
    ArkOS configuration uses the second SD card for ROMs.
 3. Open **Ports > Skyval** in EmulationStation.
 
-The port uses GPtoKEYB to map:
-- **D-pad / left stick**: walk; **right stick**: move the camera's look.
-- **Start or X**: open/close the character editor (C key).
-- **A**: select/confirm (Enter); **B**: back/close (Esc).
-- **L1**: test character mode (4); **R1**: skin tone (5).
-- **L2 / R2**: clothing-style debug hotkeys.
+### R36H controller mapping (v2: predictable creator navigation)
+
+The port uses GPtoKEYB keyboard events for its creator, instead of Godot's
+automatic GUI focus routing. This avoids processing the same D-pad press as
+both an emulated key and a native joypad event.
+
+| Button | World | Character creator |
+|---|---|---|
+| D-pad ↑/↓ | Walk | Previous/next option |
+| D-pad ←/→ | Walk | Change the selected option once |
+| Left stick | Walk | Same as D-pad |
+| Right stick | Camera look | Not used |
+| Start / X | Open creator | Close creator |
+| L1 / R1 | Reserved | Appearance / Clothing tab |
+| A | Reserved | Advance the selected option |
+| B | Reserved | Close creator |
+| Y | Reserved | Remove all / restore previous outfit |
+| Select | Reserved | Toggle Ukrainian / English |
+| L2 / R2 | Debug appearance shortcuts | Not used |
+
+The selected row is highlighted in gold. Each keyboard press runs only once;
+the creator ignores OS key-repeat and applies a 120ms per-key bounce guard.
+Mouse clicking continues to work on desktop.
+
+To update an **existing SD card**, rebuild the PCK with
+`bash tools/build_portmaster.sh`, then replace **both** the `skyval.pck`
+and `skyval.gptk` on the console. There is no need to reinstall the Godot or
+Weston runtimes. If controller navigation still doubles, inspect which
+inputs are received by Godot and GPtoKEYB on the device before changing
+the mapping again.
 
 If the port closes immediately, the first file to inspect is
 `roms/ports/skyval/log.txt`. It shows the native runtime name, failure to
