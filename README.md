@@ -54,9 +54,11 @@ retain each asset's original LPC license and attribution before distribution.
 
 ## PortMaster native-controller test
 
-The launcher starts Godot via Weston, passes PortMaster's
-`SDL_GAMECONTROLLERCONFIG` mapping to the runtime, and starts GPtoKEYB
+The launcher starts Godot via Weston and starts GPtoKEYB
 **without a `-c` mapping file**, solely for the system exit hotkey.
+The controller configuration is exported by the launcher, not passed as
+an inline argument through `westonwrap.sh`, whose command parsing
+breaks on the space in `GO-Super Gamepad` (exit code 127).
 No `.gptk` or keyboard-emulation project setting is included.
 
 Build from the Linux checkout with:
