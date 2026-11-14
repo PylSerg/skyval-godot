@@ -109,13 +109,13 @@ func _input(event: InputEvent) -> void:
         KEY_E, KEY_TAB:
             _set_page(1 if key == KEY_E else 1 - _page)
         KEY_I:
-            _preview.show_direction(Vector2.UP)
+            _preview.call("show_direction", Vector2.UP)
         KEY_J:
-            _preview.show_direction(Vector2.LEFT)
+            _preview.call("show_direction", Vector2.LEFT)
         KEY_K:
-            _preview.show_direction(Vector2.DOWN)
+            _preview.call("show_direction", Vector2.DOWN)
         KEY_L:
-            _preview.show_direction(Vector2.RIGHT)
+            _preview.call("show_direction", Vector2.RIGHT)
 
 # Native gamepad buttons, using Godot's SDL-standard button indices.
 # A press is accepted only once until its matching release arrives.
@@ -166,7 +166,7 @@ func _handle_joy_axis(event: InputEventJoypadMotion) -> void:
             Input.get_joy_axis(event.device, JOY_AXIS_RIGHT_X),
             Input.get_joy_axis(event.device, JOY_AXIS_RIGHT_Y)
         )
-        _preview.show_direction(look)
+        _preview.call("show_direction", look)
         get_viewport().set_input_as_handled()
         return
     if event.axis != JOY_AXIS_LEFT_X and event.axis != JOY_AXIS_LEFT_Y:
