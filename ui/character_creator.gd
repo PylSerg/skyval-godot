@@ -15,6 +15,8 @@ const CLOTHING_FIELDS := [
 const NAV_DEBOUNCE_MS := 120
 const LEFT_STICK_PRESS := 0.65
 const LEFT_STICK_RELEASE := 0.42
+const RIGHT_STICK_PRESS := 0.65
+const RIGHT_STICK_RELEASE := 0.35
 
 @onready var avatar: SkyvalCharacterVisual = get_parent().get_node("Player/CharacterVisual") as SkyvalCharacterVisual
 
@@ -26,6 +28,8 @@ var _row_values: Array[Label] = []
 var _last_press_by_key: Dictionary = {}
 var _held_joy_buttons: Dictionary = {}
 var _joy_axis_direction: Dictionary = {}
+var _right_stick_latched: Dictionary = {}
+var _preview_held_keys: Dictionary = {}
 var _keyboard_emulated_gamepad: bool = false
 var _root: Control
 var _tab_appearance: Button
@@ -70,17 +74,31 @@ func _input(event: InputEvent) -> void:
         return
     if not event is InputEventKey:
         return
-    if not event.pressed or event.echo:
+
+    # GPtoKEYB converts the R36H's right stick to J/L keystrokes. Only
+    # a new horizontal press changes facing; return to neutral first.
+    var key_event: InputEventKey = event as InputEventKey
+    if key_event.keycode == KEY_J or key_event.keycode == KEY_L:
+        if not key_event.pressed:
+            _preview_held_keys.erase(key_event.keycode)
+            return
+        if _opened:
+            get_viewport().set_input_as_handled()
+            if not key_event.echo and not _preview_held_keys.has(key_event.keycode):
+                _preview_held_keys[key_event.keycode] = true
+                _preview.call("rotate_step", 1 if key_event.keycode == KEY_L else -1)
+            return
+    if not key_event.pressed or key_event.echo:
         return
 
-    var key: Key = event.keycode
+    var key: Key = key_event.keycode
     if not _opened:
         if key == KEY_C:
             _set_open(true)
             get_viewport().set_input_as_handled()
         return
 
-    if key != KEY_C and key != KEY_ESCAPE and key != KEY_UP and key != KEY_DOWN and key != KEY_LEFT and key != KEY_RIGHT and key != KEY_ENTER and key != KEY_KP_ENTER and key != KEY_SPACE and key != KEY_Q and key != KEY_E and key != KEY_TAB and key != KEY_I and key != KEY_J and key != KEY_K and key != KEY_L:
+    if key != KEY_C and key != KEY_ESCAPE and key != KEY_UP and key != KEY_DOWN and key != KEY_LEFT and key != KEY_RIGHT and key != KEY_ENTER and key != KEY_KP_ENTER and key != KEY_SPACE and key != KEY_Q and key != KEY_E and key != KEY_TAB:
         return
 
     # Even a rejected bounce must not fall through to Godot UI navigation.
@@ -108,14 +126,6 @@ func _input(event: InputEvent) -> void:
             _set_page(0)
         KEY_E, KEY_TAB:
             _set_page(1 if key == KEY_E else 1 - _page)
-        KEY_I:
-            _preview.call("show_direction", Vector2.UP)
-        KEY_J:
-            _preview.call("show_direction", Vector2.LEFT)
-        KEY_K:
-            _preview.call("show_direction", Vector2.DOWN)
-        KEY_L:
-            _preview.call("show_direction", Vector2.RIGHT)
 
 # Native gamepad buttons, using Godot's SDL-standard button indices.
 # A press is accepted only once until its matching release arrives.
@@ -160,13 +170,19 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
 func _handle_joy_axis(event: InputEventJoypadMotion) -> void:
     if not _opened:
         return
-    if event.axis == JOY_AXIS_RIGHT_X or event.axis == JOY_AXIS_RIGHT_Y:
-        # View-only rotation. Never change the paused in-world player.
-        var look: Vector2 = Vector2(
-            Input.get_joy_axis(event.device, JOY_AXIS_RIGHT_X),
-            Input.get_joy_axis(event.device, JOY_AXIS_RIGHT_Y)
-        )
-        _preview.call("show_direction", look)
+    # One 90-degree step per right-stick horizontal tilt. The stick must
+    # return near the center before another step, including opposite tilts.
+    if event.axis == JOY_AXIS_RIGHT_X:
+        var x: float = event.axis_value
+        if absf(x) <= RIGHT_STICK_RELEASE:
+            _right_stick_latched.erase(event.device)
+        elif absf(x) >= RIGHT_STICK_PRESS and not _right_stick_latched.has(event.device):
+            _right_stick_latched[event.device] = true
+            _preview.call("rotate_step", 1 if x > 0.0 else -1)
+        get_viewport().set_input_as_handled()
+        return
+    if event.axis == JOY_AXIS_RIGHT_Y:
+        # Vertical right-stick motion has no action in the creator.
         get_viewport().set_input_as_handled()
         return
     if event.axis != JOY_AXIS_LEFT_X and event.axis != JOY_AXIS_LEFT_Y:
@@ -224,6 +240,8 @@ func _set_open(next_open: bool) -> void:
         # A stick can still be held when the creator reopens; reset the
         # hysteresis latch so the first new tilt is recognized.
         _joy_axis_direction.clear()
+        _right_stick_latched.clear()
+        _preview_held_keys.clear()
         _refresh_text()
         _update_row_highlight()
     else:

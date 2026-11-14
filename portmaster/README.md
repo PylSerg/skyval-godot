@@ -77,7 +77,7 @@ both an emulated key and a native joypad event.
 | D-pad ↑/↓ | Walk | Previous/next option |
 | D-pad ←/→ | Walk | Change the selected option once |
 | Left stick | Walk | Same as D-pad |
-| Right stick | Camera look | Rotate 3× character portrait (four facings) |
+| Right stick | Camera look | Horizontal flick: rotate 3× portrait by ±90° cyclically |
 | Start / X | Open creator | Close creator |
 | L1 / R1 | Reserved | Appearance / Clothing tab |
 | A | Reserved | Advance the selected option |
@@ -89,7 +89,10 @@ both an emulated key and a native joypad event.
 The selected row is highlighted in gold. Each keyboard press runs once;
 the creator ignores OS key-repeat and uses a 120ms bounce guard.
 No help labels or instant-undress controls remain in the creator.
-The 3× preview turns using right-stick I/J/K/L key emulation.
+The 3× preview rotates on horizontal right-stick J/L key emulation only:
+one left/right tilt = one 90° step, return to neutral to rotate again.
+After four steps it wraps to the starting facing. Vertical I/K input is
+ignored by the creator but still controls the camera in the world.
 Mouse clicking continues to work on desktop.
 
 To update an **existing SD card**, rebuild the PCK with

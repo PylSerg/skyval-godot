@@ -3,7 +3,9 @@
 # Emulate keyboard keys to keep D-pad navigation single-source.
 # In character creator: UP/DOWN select field, LEFT/RIGHT change value.
 # L1/R1 switch tabs, A changes selected value, B closes.
-# Right stick rotates the preview via I/J/K/L; Y and Select unbound.
+# Horizontal right stick J/L rotates preview +/-90 degrees per tilt.
+# Vertical I/K remains for camera look in-world, ignored in the creator.
+# Y and Select unbound.
 
 start = c
 a = enter

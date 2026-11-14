@@ -6,9 +6,9 @@ Pixel-art top-down RPG prototype for Godot 4.7 (Compatibility renderer), targeti
 
 Press **C** in the test world to open the character creator. Press **C** or **Esc** to close it from the keyboard. On a controller, use **Start/X** to open or close it, or **B** to close it. While the creator is open, movement/camera physics are paused.
 
-**Menu controls:** Up/Down selects a row; Left/Right changes it; Q/E changes tabs; Enter advances an option. I/J/K/L (right stick via PortMaster) rotates the portrait in four directions. The selected row is highlighted in gold; key repeats are filtered. On R36H, Start/X opens or closes, L1/R1 switches tabs, and B closes. There is no creator language switch or quick-undress action. See [portmaster/README.md](portmaster/README.md).
+**Menu controls:** Up/Down selects a row; Left/Right changes it; Q/E changes tabs; Enter advances an option. J/L (horizontal right-stick flicks via PortMaster) rotates the portrait by 90° per tilt; return the stick to center before the next step. The selected row is highlighted in gold; key repeats are filtered. On R36H, Start/X opens or closes, L1/R1 switches tabs, and B closes. There is no creator language switch or quick-undress action. See [portmaster/README.md](portmaster/README.md).
 
-**USB controller on desktop:** Start/X opens/closes, A advances the value, B closes, L1/R1 changes tabs. D-pad and left stick navigate, while the **right stick rotates the 3× LPC portrait**. Y and Select have no creator actions. PortMaster's staged PCK sets `skyval/input/keyboard_emulated_gamepad=true` to avoid duplicate GPtoKEYB inputs.
+**USB controller on desktop:** Start/X opens/closes, A advances the value, B closes, L1/R1 changes tabs. D-pad and left stick navigate, while each **horizontal right-stick tilt rotates the 3× LPC portrait by 90°**. The rotation loops through front → right → back → left → front; vertical tilts are ignored. Y and Select have no creator actions. PortMaster's staged PCK sets `skyval/input/keyboard_emulated_gamepad=true` to avoid duplicate GPtoKEYB inputs.
 
 The compact 320×240 editor contains only two tabs, appearance controls and a **large 3× portrait**. The preview fills nearly the entire right column. The title, preview caption, help footer, language switch and quick-undress button have been removed. Language selection will belong to global Settings.
 
@@ -16,7 +16,7 @@ The editor has two tabs:
 - **Appearance:** male/female body type, skin tone, eye color, **five hairstyle shapes** (buzzcut, bedhead, curtains, mop, spiked), and hair color.
 - **Clothing:** independent choices for shirt, pants and footwear (five styles **plus None** per slot), with separate color settings.
 
-Left/right buttons move through the choices. The preview draws synchronized idle frames at 3× nearest-neighbor scale without loading extra sheets. Right-stick rotation changes this portrait only, not the paused in-world character.
+Left/right buttons move through the choices. The preview draws synchronized idle frames at 3× nearest-neighbor scale without loading extra sheets. Right-stick horizontal flicks step through the four real LPC directions cyclically. One tilt = one 90° step, after which the stick must recenter. This changes the portrait only, not the paused in-world character.
 
 ### Empty clothing slots and NPC reactions
 
