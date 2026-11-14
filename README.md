@@ -48,8 +48,8 @@ the project font in its PCK. No fonts are downloaded.
 
 Godot 4.7 uses `TextServer.HINTING_NORMAL` and disables subpixel placement.
 The code checks for Ukrainian letters in the selected Mono font and enables
-a built-in fallback only for missing glyphs. The prior
-`assets/fonts/CascadiaMono-Regular.ttf` is no longer used.
+a built-in fallback only for missing glyphs. The previous Latin-only
+`assets/fonts/Cascadia.ttf` is no longer used by the UI.
 
 Clothing styles include **None / Немає**, so each item can be removed
 individually. No quick-undress button or language switch is present.
