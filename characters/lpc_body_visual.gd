@@ -68,15 +68,22 @@ func _load_skin(variant: String) -> bool:
     var path: String = _locate_skin(variant)
     if path.is_empty():
         return false
-    var image := Image.new()
-    var error: Error = image.load(path)
-    if error != OK:
-        push_warning("Skyval: failed to read %s (%d)" % [path, error])
+    var atlas: Texture2D = null
+    if path.begins_with("res://"):
+        # ResourceLoader also works with textures imported into an exported PCK.
+        atlas = load(path) as Texture2D
+    else:
+        # External absolute paths are only available during local development.
+        var image := Image.new()
+        var error: Error = image.load(path)
+        if error != OK:
+            push_warning("Skyval: failed to read %s (%d)" % [path, error])
+            return false
+        atlas = ImageTexture.create_from_image(image)
+
+    if atlas == null or atlas.get_width() < 9 * CELL or atlas.get_height() < IDLE_Y + 4 * CELL:
+        push_warning("Skyval: missing or invalid 64px LPC sheet: %s" % path)
         return false
-    if image.get_width() < 9 * CELL or image.get_height() < IDLE_Y + 4 * CELL:
-        push_warning("Skyval: not a full 64px LPC sheet: %s" % path)
-        return false
-    var atlas: ImageTexture = ImageTexture.create_from_image(image)
     var frames := SpriteFrames.new()
     if frames.has_animation("default"):
         frames.remove_animation("default")
