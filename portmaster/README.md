@@ -15,9 +15,9 @@ Godot 4.7.1 (aarch64) runtime and Westonpack 0.2 on ArkOS.
 - All former character creator debug keyboard bindings are removed.
 
 PortMaster documents the GPtoKEYB no-config setup for games that already
-support gamepads. Its Godot guide also warns that some versions can read
-incorrect controller profiles or duplicate events, so this is a test that
-must be verified on physical R36H hardware.
+support gamepads. Native controller input has now been tested successfully
+on a physical R36H. Left-stick analog movement no longer competes with
+D-pad input; partial-tilt speed on ArkOS still needs verification.
 
 ## Build on Linux
 
@@ -55,7 +55,8 @@ read it.
 
 | Button | In world | In creator |
 |---|---|---|
-| D-pad / left stick | Move character | Up/down select, left/right change |
+| Left stick | Analog walking only | Up/down select, left/right change |
+| D-pad | Reserved for future quick actions (items, weapons) | Up/down select, left/right change |
 | Right stick | Camera look-around | One ±90° turn per horizontal flick |
 | Start / X | Open creator | Close creator |
 | B | Reserved | Close creator |
@@ -63,7 +64,8 @@ read it.
 | L1 / R1 | Reserved | Appearance / Clothing tab |
 
 The creator ignores vertical right-stick movements. It pauses the world;
-recenter the right stick before each new 90° step.
+recenter the right stick before each new 90° step. The D-pad remains active
+for creator navigation, but no longer moves the player in the world.
 
 ## Troubleshooting
 

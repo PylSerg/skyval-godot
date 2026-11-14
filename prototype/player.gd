@@ -1,5 +1,5 @@
 extends CharacterBody2D
-## Skyval: gamepad-only movement. D-pad is digital, left stick is analog.
+## Skyval: analog left-stick movement only; D-pad reserved for gameplay actions.
 
 const SPEED := 100.0
 const STICK_DEADZONE := 0.22
@@ -36,13 +36,9 @@ func _read_gamepad_direction() -> Vector2:
         return Vector2.ZERO
     var id: int = pads[0]
 
-    # D-pad overrides analog input to avoid conflicting directions.
-    var dx: float = float(int(Input.is_joy_button_pressed(id, JOY_BUTTON_DPAD_RIGHT)) - int(Input.is_joy_button_pressed(id, JOY_BUTTON_DPAD_LEFT)))
-    var dy: float = float(int(Input.is_joy_button_pressed(id, JOY_BUTTON_DPAD_DOWN)) - int(Input.is_joy_button_pressed(id, JOY_BUTTON_DPAD_UP)))
-    var dpad := Vector2(dx, dy)
-    if dpad != Vector2.ZERO:
-        return dpad.normalized()
-
+    # D-pad is intentionally NOT used for movement. It can serve as four
+    # independent quick-item / equipment shortcuts once gameplay needs them.
+    # Preserve the analog magnitude, including partial stick deflection.
     var stick := Vector2(
         Input.get_joy_axis(id, JOY_AXIS_LEFT_X),
         Input.get_joy_axis(id, JOY_AXIS_LEFT_Y)

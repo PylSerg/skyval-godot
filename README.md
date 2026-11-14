@@ -12,7 +12,8 @@ is used for both targets.
 
 | Control | World | Character creator |
 |---|---|---|
-| D-pad / left stick | Walk | Select item / change value |
+| Left stick | Analog walk (speed depends on tilt) | Select item / change value |
+| D-pad | Reserved for future equipment/items | Select item / change value |
 | Right stick | Smooth camera look | Horizontal flick rotates portrait ±90° |
 | Start or X | Open creator | Close creator |
 | B | Reserved | Close creator |
@@ -65,21 +66,23 @@ Copy `Skyval.sh` and `skyval/` from the ZIP into the SD card's
 the `.pck`; changing only the PCK will leave the old keyboard-mapping
 launcher active.
 
-**Risk:** Native joypad mapping is not yet verified on R36H. PortMaster's
-Godot documentation warns about controller profiles and duplicate inputs.
-The tested GPtoKEYB configuration remains available in the prior Git
-history if a fallback is needed. If buttons do not work, inspect
-`roms/ports/skyval/log.txt` for the detected controller name and GUID.
+**R36H status:** Native controls have been confirmed working on the physical
+R36H. Walking uses only the left-stick axes now, avoiding any D-pad override
+that could force full speed. Whether ArkOS reports intermediate analog values
+still needs to be verified on the device. For controller details inspect
+`roms/ports/skyval/log.txt` for its name and GUID.
 
 See [portmaster/README.md](portmaster/README.md) for details.
 
 ## Main source files
 
-- `prototype/player.gd`: gamepad-only D-pad and analog movement
+- `prototype/player.gd`: left-stick-only analog movement; D-pad reserved
 - `prototype/smart_camera.gd`: native right-stick look
 - `ui/character_creator.gd`: native controller-driven creator UI
 - `ui/character_preview.gd`: cyclic 90° preview rotation
 - `characters/lpc_body_visual.gd`: LPC rendering and appearance slots
 - `localization/strings.json`: localized UI text
 
-No physical R36H runtime test has been run on this updated version yet.
+Native controller input has been tested successfully on R36H. The new
+left-stick-only movement change still needs a console test to determine
+whether partial stick tilt produces intermediate walking speeds.
