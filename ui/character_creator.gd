@@ -3,7 +3,7 @@ extends CanvasLayer
 ## Text lives exclusively in localization/strings.json.
 
 const PreviewScript = preload("res://ui/character_preview.gd")
-const APPEARANCE_FIELDS := ["body_type", "skin_variant", "eye_variant", "hair_variant"]
+const APPEARANCE_FIELDS := ["body_type", "skin_variant", "eye_variant", "hair_style", "hair_variant"]
 const CLOTHING_FIELDS := [
     "shirt_style", "shirt_variant",
     "pants_style", "pants_variant",
