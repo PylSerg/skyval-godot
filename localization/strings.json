@@ -61,7 +61,13 @@
     "color.leather": "Шкіряний",
     "color.charcoal": "Графітовий",
     "color.navy": "Темно-синій",
-    "color.tan": "Бежевий"
+    "color.tan": "Бежевий",
+    "field.hair_style": "Зачіска",
+    "value.hair_style.buzzcut": "Коротка",
+    "value.hair_style.bedhead": "Розпатлана",
+    "value.hair_style.curtains": "Із проділом",
+    "value.hair_style.mop": "Густа",
+    "value.hair_style.spiked": "Їжачок"
   },
   "en": {
     "ui.title": "Character",
@@ -125,6 +131,12 @@
     "color.leather": "Leather",
     "color.charcoal": "Charcoal",
     "color.navy": "Navy",
-    "color.tan": "Tan"
+    "color.tan": "Tan",
+    "field.hair_style": "Hairstyle",
+    "value.hair_style.buzzcut": "Buzzcut",
+    "value.hair_style.bedhead": "Bedhead",
+    "value.hair_style.curtains": "Curtains",
+    "value.hair_style.mop": "Mop",
+    "value.hair_style.spiked": "Spiked"
   }
 }
