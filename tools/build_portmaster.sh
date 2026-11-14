@@ -48,6 +48,28 @@ for subdir in prototype characters ui localization; do
     cp -R "$ROOT/$subdir" "$STAGE/$subdir"
 done
 
+# Include the user's own Cascadia.ttf in the exported PCK (no Git copy
+# and no external download needed). The font is tiny compared to LPC art.
+FONT_SOURCE="${SKYVAL_FONT_PATH:-}"
+if [ -z "$FONT_SOURCE" ]; then
+    for candidate in \
+        "$ROOT/assets/fonts/Cascadia.ttf" \
+        "$HOME/Godot/res/assets/fonts/Cascadia.ttf" \
+        "$HOME/Godot/res/addons/Godot_LPC_Spritesheet/assets/fonts/Cascadia.ttf"; do
+        if [ -f "$candidate" ]; then
+            FONT_SOURCE="$candidate"
+            break
+        fi
+    done
+fi
+if [ -n "$FONT_SOURCE" ] && [ -f "$FONT_SOURCE" ]; then
+    mkdir -p "$STAGE/assets/fonts"
+    cp "$FONT_SOURCE" "$STAGE/assets/fonts/Cascadia.ttf"
+    echo "Bundling local Cascadia font: $FONT_SOURCE"
+else
+    echo "NOTE: Cascadia.ttf not found; Godot default UI font will be used."
+fi
+
 # Only the current default outfit, both body types, and basic face/hair.
 # Missing non-default variants remain intentionally unavailable in this test.
 SHEETS=(

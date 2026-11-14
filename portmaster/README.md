@@ -33,8 +33,11 @@ The script detects Godot 4.7.2 at the known local location; use
 `GODOT_BIN=/path/to/Godot` if needed. Override the sprite root with
 `LPC_SPRITES_ROOT=/path/to/spritesheets` if desired.
 
-Only 14 selected LPC PNGs are bundled for this first test. No ~900 MB art
-library is imported.
+Only 14 selected LPC PNGs and the local `Cascadia.ttf` font are bundled.
+The font is taken from `$HOME/Godot/res/assets/fonts/Cascadia.ttf` (the
+same file visible in Kvoka File Bridge under `res/assets/fonts/`).
+Use `SKYVAL_FONT_PATH` if the asset directory differs. Missing fonts
+fall back to Godot's default; no ~900 MB art library is imported.
 
 Output:
 

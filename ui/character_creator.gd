@@ -24,6 +24,8 @@ var _page: int = 0
 var _selected_index: int = 0
 var _row_labels: Array[Label] = []
 var _row_values: Array[Label] = []
+var _row_scroll: ScrollContainer
+var _ui_font: FontFile
 var _held_joy_buttons: Dictionary = {}
 var _joy_axis_direction: Dictionary = {}
 var _right_stick_latched: Dictionary = {}
@@ -39,6 +41,7 @@ var _locale: Node
 
 func _ready() -> void:
     process_mode = Node.PROCESS_MODE_ALWAYS
+    _load_cascadia_font()
     # Do not depend on Godot's compile-time singleton registration. Editors
     # opened before a git pull may not have reloaded the [autoload] section.
     _locale = get_node_or_null("/root/SkyvalLocale")
@@ -53,6 +56,41 @@ func _ready() -> void:
 
 func _tr(key: String) -> String:
     return str(_locale.call("t", key))
+
+func _load_cascadia_font() -> void:
+    # Project-local copy works in the exported PortMaster PCK.
+    # In the desktop checkout, reuse the user's external asset library.
+    var bundled_path: String = "res://assets/fonts/Cascadia.ttf"
+    if ResourceLoader.exists(bundled_path):
+        _ui_font = load(bundled_path) as FontFile
+        if _ui_font != null:
+            _ui_font = _ui_font.duplicate() as FontFile
+
+    if _ui_font == null:
+        var home: String = OS.get_environment("HOME")
+        var candidates: PackedStringArray = [
+            home.path_join("Godot/res/assets/fonts/Cascadia.ttf"),
+            home.path_join("Godot/res/addons/Godot_LPC_Spritesheet/assets/fonts/Cascadia.ttf"),
+        ]
+        for path in candidates:
+            if not FileAccess.file_exists(path):
+                continue
+            var bytes: PackedByteArray = FileAccess.get_file_as_bytes(path)
+            if bytes.is_empty():
+                continue
+            _ui_font = FontFile.new()
+            _ui_font.data = bytes
+            break
+
+    if _ui_font != null:
+        # At 320x240, full pixel-grid hinting and no antialiasing avoid
+        # fuzzy subpixel edges after integer 2x viewport upscaling.
+        _ui_font.antialiasing = TextServer.FONT_ANTIALIASING_NONE
+        _ui_font.hinting = TextServer.HINTING_FULL
+        _ui_font.force_autohinter = true
+        print("Skyval UI: Cascadia font ready")
+    else:
+        push_warning("Skyval UI: Cascadia.ttf not found; falling back to Godot's default font.")
 
 # Capture native gamepad input before Godot GUI focus routing.
 # Keyboard events are deliberately ignored by all gameplay menus.
@@ -164,6 +202,7 @@ func _move_selection(amount: int) -> void:
         return
     _selected_index = posmod(_selected_index + amount, fields.size())
     _update_row_highlight()
+    _reveal_selected_row()
 
 func _adjust_selected(direction: int) -> void:
     if not _can_navigate():
@@ -241,10 +280,19 @@ func _build_interface() -> void:
     tabs.add_child(_tab_clothes)
     _tab_clothes.pressed.connect(_set_page.bind(1))
 
+    # Six clothing fields do not fit at a readable size. Only the left
+    # field list scrolls, while the right-side portrait stays fixed.
+    _row_scroll = ScrollContainer.new()
+    _row_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    _row_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    _row_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    _row_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+    stack.add_child(_row_scroll)
+
     _rows = VBoxContainer.new()
+    _rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     _rows.add_theme_constant_override("separation", 2)
-    _rows.size_flags_vertical = Control.SIZE_EXPAND_FILL
-    stack.add_child(_rows)
+    _row_scroll.add_child(_rows)
 
     # Use the full right column; the portrait itself is drawn at 3×.
     _preview = PreviewScript.new() as Control
@@ -263,10 +311,12 @@ func _build_interface() -> void:
 
 func _button() -> Button:
     var button := Button.new()
-    # Controller/keyboard selection is owned by _input(), not Godot's GUI
-    # focus traversal. Mouse/touch button clicks still work normally.
+    # Gamepad selection is owned by _input(), not GUI focus traversal.
+    # Mouse/touch button clicks still work normally.
     button.focus_mode = Control.FOCUS_NONE
-    button.add_theme_font_size_override("font_size", 10)
+    button.add_theme_font_size_override("font_size", 11)
+    if _ui_font != null:
+        button.add_theme_font_override("font", _ui_font)
     button.add_theme_color_override("font_color", Color("#edf1f5"))
     button.add_theme_color_override("font_hover_color", Color.WHITE)
     button.add_theme_color_override("font_pressed_color", Color.WHITE)
@@ -288,6 +338,8 @@ func _button() -> Button:
 func _label(font_size: int) -> Label:
     var label := Label.new()
     label.add_theme_font_size_override("font_size", font_size)
+    if _ui_font != null:
+        label.add_theme_font_override("font", _ui_font)
     label.add_theme_color_override("font_color", Color("#f0f1ed"))
     label.clip_text = true
     return label
@@ -295,6 +347,7 @@ func _label(font_size: int) -> Label:
 func _set_page(next_page: int) -> void:
     _page = next_page
     _selected_index = 0
+    _row_scroll.scroll_vertical = 0
     _refresh_text()
 
 func _refresh_text() -> void:
@@ -320,41 +373,60 @@ func _rebuild_rows() -> void:
     for property_key in fields:
         var index: int = _row_labels.size()
         var key: String = str(property_key)
-        var row := HBoxContainer.new()
-        row.custom_minimum_size.y = 22
-        row.add_theme_constant_override("separation", 2)
-        _rows.add_child(row)
 
-        var name_label := _label(9)
+        # Each property gets its own full-width label and selector row.
+        var field_box := VBoxContainer.new()
+        field_box.custom_minimum_size.y = 35
+        field_box.add_theme_constant_override("separation", 1)
+        _rows.add_child(field_box)
+
+        var name_label := _label(11)
         name_label.text = _tr("field." + key)
-        name_label.custom_minimum_size.x = 78
-        row.add_child(name_label)
+        name_label.custom_minimum_size.y = 13
+        field_box.add_child(name_label)
         _row_labels.append(name_label)
+
+        var choice_row := HBoxContainer.new()
+        choice_row.custom_minimum_size.y = 21
+        choice_row.add_theme_constant_override("separation", 2)
+        field_box.add_child(choice_row)
 
         var previous := _button()
         previous.text = _tr("ui.previous")
-        previous.custom_minimum_size = Vector2(19, 20)
+        previous.custom_minimum_size = Vector2(22, 21)
         previous.disabled = not avatar.has_lpc_character()
-        row.add_child(previous)
+        choice_row.add_child(previous)
         previous.pressed.connect(_adjust.bind(key, -1, index))
 
-        var value_label := _label(9)
-        value_label.custom_minimum_size.x = 72
+        var value_label := _label(11)
         value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
         value_label.text = _localized_value(key)
-        row.add_child(value_label)
+        choice_row.add_child(value_label)
         _value_labels[key] = value_label
         _row_values.append(value_label)
 
         var following := _button()
         following.text = _tr("ui.next")
-        following.custom_minimum_size = Vector2(19, 20)
+        following.custom_minimum_size = Vector2(22, 21)
         following.disabled = not avatar.has_lpc_character()
-        row.add_child(following)
+        choice_row.add_child(following)
         following.pressed.connect(_adjust.bind(key, 1, index))
 
     _update_row_highlight()
+    _reveal_selected_row()
+
+func _reveal_selected_row() -> void:
+    # ScrollContainer can reveal newly created children only after layout.
+    var intended_index: int = _selected_index
+    await get_tree().process_frame
+    if not _opened or not is_instance_valid(_row_scroll) or not is_instance_valid(_rows):
+        return
+    if intended_index != _selected_index:
+        return
+    if intended_index >= 0 and intended_index < _rows.get_child_count():
+        _row_scroll.ensure_control_visible(_rows.get_child(intended_index) as Control)
 
 func _localized_value(key: String) -> String:
     if not avatar.has_lpc_character():
@@ -378,5 +450,6 @@ func _adjust(key: String, direction: int, index: int = -1) -> void:
     if index >= 0:
         _selected_index = index
         _update_row_highlight()
+        _reveal_selected_row()
     if avatar.change_lpc_option(key, direction):
         _refresh_options()

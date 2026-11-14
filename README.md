@@ -3,6 +3,8 @@
 Pixel-art top-down RPG prototype for Godot 4.7 Compatibility renderer.
 Target device: R36H / ArkOS / PortMaster, 320×240 logical resolution
 (displayed at 640×480 with integer nearest-neighbor scaling).
+Keep the internal 320×240 viewport to reserve headroom for crowded RPG
+scenes; the UI is designed for this size.
 
 ## Native gamepad input
 
@@ -31,9 +33,20 @@ The creator pauses world movement. Its right-stick rotation cycles through
 The stick must return to center before another step. Vertical right-stick
 motions do nothing in the creator.
 
-The menu has an enlarged 3× character portrait and two tabs. Clothing styles
-include **None / Немає**, so each item can be removed individually. No
-quick-undress button or language switch is present in this menu.
+The menu has a 3× character portrait and two tabs. The left panel uses a
+**single-column field layout**: each label is above a full-width selector.
+The five appearance fields fit at once; the six clothing fields scroll
+automatically as the player navigates. The right-side portrait stays fixed.
+
+The UI loads the user's `res/assets/fonts/Cascadia.ttf` (found through
+Kvoka File Bridge) from `$HOME/Godot/res/assets/fonts/Cascadia.ttf` during
+desktop development. The PortMaster builder includes that same local font
+in the staged PCK. At 320×240, Cascadia uses pixel hinting without
+antialiasing; if unavailable, Godot's default font is used. You can override
+the builder path with `SKYVAL_FONT_PATH=/path/to/Cascadia.ttf`.
+
+Clothing styles include **None / Немає**, so each item can be removed
+individually. No quick-undress button or language switch is present.
 
 ## Appearance and localization
 
@@ -75,8 +88,7 @@ launcher active.
 
 **R36H status:** Native controls have been confirmed working on the physical
 R36H. Walking uses only the left-stick axes now, avoiding any D-pad override
-that could force full speed. Whether ArkOS reports intermediate analog values
-still needs to be verified on the device. For controller details inspect
+that could force full speed. Analog walking speed is now confirmed working on the R36H. For controller details inspect
 `roms/ports/skyval/log.txt` for its name and GUID.
 
 See [portmaster/README.md](portmaster/README.md) for details.
@@ -90,6 +102,5 @@ See [portmaster/README.md](portmaster/README.md) for details.
 - `characters/lpc_body_visual.gd`: LPC rendering and appearance slots
 - `localization/strings.json`: localized UI text
 
-Native controller input has been tested successfully on R36H. The new
-left-stick-only movement change still needs a console test to determine
-whether partial stick tilt produces intermediate walking speeds.
+Native controller input and partial-tilt walking were tested successfully
+on R36H. The UI font/layout updates still need a physical-console check.
