@@ -15,6 +15,10 @@ run/main_scene="res://prototype/camera_test.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 config/icon="res://icon.svg"
 
+[autoload]
+
+SkyvalLocale="*res://localization/localization.gd"
+
 [display]
 
 window/size/viewport_width=320
