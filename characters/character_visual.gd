@@ -98,6 +98,18 @@ func cycle_footwear() -> void:
     if _external_body != null and _external_body.visible:
         _external_body.call("cycle_boots")
 
+func cycle_shirt_style() -> void:
+    if _external_body != null and _external_body.visible:
+        _external_body.call("cycle_shirt_style")
+
+func cycle_pants_style() -> void:
+    if _external_body != null and _external_body.visible:
+        _external_body.call("cycle_pants_style")
+
+func cycle_footwear_style() -> void:
+    if _external_body != null and _external_body.visible:
+        _external_body.call("cycle_footwear_style")
+
 func toggle_lpc_preview() -> void:
     if _external_body == null:
         push_warning("Skyval: external LPC body not found; showing prototype.")
