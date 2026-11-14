@@ -10,11 +10,18 @@ const CLOTHING_FIELDS := [
     "pants_style", "pants_variant",
     "footwear_style", "boots_variant",
 ]
+# GPtoKEYB emits keyboard events. A real gamepad may also be visible to
+# Godot, so the menu deliberately uses keyboard navigation only.
+const NAV_DEBOUNCE_MS := 120
 
 @onready var avatar: SkyvalCharacterVisual = get_parent().get_node("Player/CharacterVisual") as SkyvalCharacterVisual
 
 var _opened: bool = false
 var _page: int = 0
+var _selected_index: int = 0
+var _row_labels: Array[Label] = []
+var _row_values: Array[Label] = []
+var _last_press_by_key: Dictionary = {}
 var _root: Control
 var _title: Label
 var _tab_appearance: Button
@@ -48,26 +55,83 @@ func _ready() -> void:
 func _tr(key: String) -> String:
     return str(_locale.call("t", key))
 
-func _unhandled_key_input(event: InputEvent) -> void:
+# Handle navigation BEFORE built-in GUI key/joy focus routing. Otherwise an
+# emulated D-pad plus native gamepad can navigate the UI twice.
+func _input(event: InputEvent) -> void:
     if not event is InputEventKey:
         return
     if not event.pressed or event.echo:
         return
 
-    if event.keycode == KEY_C:
-        _set_open(not _opened)
-        get_viewport().set_input_as_handled()
-    elif _opened and event.keycode == KEY_ESCAPE:
+    var key: Key = event.keycode
+    if not _opened:
+        if key == KEY_C:
+            _set_open(true)
+            get_viewport().set_input_as_handled()
+        return
+
+    if key != KEY_C and key != KEY_ESCAPE and key != KEY_UP and key != KEY_DOWN and key != KEY_LEFT and key != KEY_RIGHT and key != KEY_ENTER and key != KEY_KP_ENTER and key != KEY_SPACE and key != KEY_Q and key != KEY_E and key != KEY_TAB and key != KEY_T and key != KEY_R:
+        return
+
+    # Even a rejected bounce must not fall through to Godot UI navigation.
+    get_viewport().set_input_as_handled()
+    if key == KEY_C or key == KEY_ESCAPE:
         _set_open(false)
-        get_viewport().set_input_as_handled()
+        return
+
+    var now: int = Time.get_ticks_msec()
+    var last: int = int(_last_press_by_key.get(key, -10000))
+    if now - last < NAV_DEBOUNCE_MS:
+        return
+    _last_press_by_key[key] = now
+
+    match key:
+        KEY_UP:
+            _move_selection(-1)
+        KEY_DOWN:
+            _move_selection(1)
+        KEY_LEFT:
+            _adjust_selected(-1)
+        KEY_RIGHT, KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
+            _adjust_selected(1)
+        KEY_Q:
+            _set_page(0)
+        KEY_E, KEY_TAB:
+            _set_page(1 if key == KEY_E else 1 - _page)
+        KEY_T:
+            _locale.call("toggle_language")
+        KEY_R:
+            _toggle_all_clothes()
+
+func _move_selection(amount: int) -> void:
+    var fields: Array = APPEARANCE_FIELDS if _page == 0 else CLOTHING_FIELDS
+    if fields.is_empty():
+        return
+    _selected_index = posmod(_selected_index + amount, fields.size())
+    _update_row_highlight()
+
+func _adjust_selected(direction: int) -> void:
+    var fields: Array = APPEARANCE_FIELDS if _page == 0 else CLOTHING_FIELDS
+    if _selected_index >= 0 and _selected_index < fields.size():
+        _adjust(str(fields[_selected_index]), direction, _selected_index)
+
+func _update_row_highlight() -> void:
+    for index in range(_row_labels.size()):
+        var selected: bool = index == _selected_index
+        var label: Label = _row_labels[index]
+        if is_instance_valid(label):
+            label.add_theme_color_override("font_color", Color("#f8d984") if selected else Color("#f0f1ed"))
+        if index < _row_values.size() and is_instance_valid(_row_values[index]):
+            _row_values[index].add_theme_color_override("font_color", Color("#f8d984") if selected else Color("#f0f1ed"))
 
 func _set_open(next_open: bool) -> void:
     _opened = next_open
     _root.visible = next_open
     get_tree().paused = next_open
     if next_open:
+        _last_press_by_key.clear()
         _refresh_text()
-        _language_button.grab_focus()
+        _update_row_highlight()
     else:
         get_viewport().gui_release_focus()
 
@@ -178,6 +242,9 @@ func _build_interface() -> void:
 
 func _button() -> Button:
     var button := Button.new()
+    # Controller/keyboard selection is owned by _input(), not Godot's GUI
+    # focus traversal. Mouse/touch button clicks still work normally.
+    button.focus_mode = Control.FOCUS_NONE
     button.add_theme_font_size_override("font_size", 10)
     button.add_theme_color_override("font_color", Color("#edf1f5"))
     button.add_theme_color_override("font_hover_color", Color.WHITE)
@@ -206,6 +273,7 @@ func _label(font_size: int) -> Label:
 
 func _set_page(next_page: int) -> void:
     _page = next_page
+    _selected_index = 0
     _refresh_text()
 
 func _refresh_text() -> void:
@@ -227,12 +295,15 @@ func _refresh_text() -> void:
 
 func _rebuild_rows() -> void:
     _value_labels.clear()
+    _row_labels.clear()
+    _row_values.clear()
     for child in _rows.get_children():
         _rows.remove_child(child)
         child.queue_free()
 
     var fields: Array = APPEARANCE_FIELDS if _page == 0 else CLOTHING_FIELDS
     for property_key in fields:
+        var index: int = _row_labels.size()
         var key: String = str(property_key)
         var row := HBoxContainer.new()
         row.custom_minimum_size.y = 22
@@ -243,13 +314,14 @@ func _rebuild_rows() -> void:
         name_label.text = _tr("field." + key)
         name_label.custom_minimum_size.x = 78
         row.add_child(name_label)
+        _row_labels.append(name_label)
 
         var previous := _button()
         previous.text = _tr("ui.previous")
         previous.custom_minimum_size = Vector2(19, 20)
         previous.disabled = not avatar.has_lpc_character()
         row.add_child(previous)
-        previous.pressed.connect(_adjust.bind(key, -1))
+        previous.pressed.connect(_adjust.bind(key, -1, index))
 
         var value_label := _label(9)
         value_label.custom_minimum_size.x = 72
@@ -258,13 +330,16 @@ func _rebuild_rows() -> void:
         value_label.text = _localized_value(key)
         row.add_child(value_label)
         _value_labels[key] = value_label
+        _row_values.append(value_label)
 
         var following := _button()
         following.text = _tr("ui.next")
         following.custom_minimum_size = Vector2(19, 20)
         following.disabled = not avatar.has_lpc_character()
         row.add_child(following)
-        following.pressed.connect(_adjust.bind(key, 1))
+        following.pressed.connect(_adjust.bind(key, 1, index))
+
+    _update_row_highlight()
 
 func _localized_value(key: String) -> String:
     if not avatar.has_lpc_character():
@@ -295,6 +370,9 @@ func _toggle_all_clothes() -> void:
     if avatar.toggle_lpc_all_clothes():
         _refresh_options()
 
-func _adjust(key: String, direction: int) -> void:
+func _adjust(key: String, direction: int, index: int = -1) -> void:
+    if index >= 0:
+        _selected_index = index
+        _update_row_highlight()
     if avatar.change_lpc_option(key, direction):
         _refresh_options()
