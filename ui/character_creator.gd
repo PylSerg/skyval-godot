@@ -84,11 +84,14 @@ func _load_cascadia_font() -> void:
             break
 
     if _ui_font != null:
-        # Use Godot 4.7's supported hinting enum and whole-pixel positioning.
-        _ui_font.antialiasing = TextServer.FONT_ANTIALIASING_NONE
+        # Cascadia Mono is a vector font, not a bitmap pixel font.
+        # Render glyph edges in grayscale at the 320x240 logical viewport.
+        # Without antialiasing, 2x integer scaling turns diagonal edges into
+        # heavy staircase pixels. Keep normal hinting for small-text clarity.
+        _ui_font.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
         _ui_font.hinting = TextServer.HINTING_NORMAL
-        _ui_font.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
-        _ui_font.force_autohinter = true
+        _ui_font.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_AUTO
+        _ui_font.force_autohinter = false
 
         # Only use a Cyrillic fallback when a concrete font lacks Ukrainian.
         # Static Cascadia Mono can render Ukrainian itself if it has the glyphs.
@@ -103,9 +106,9 @@ func _load_cascadia_font() -> void:
             var fallback_copy: Font = fallback.duplicate() as Font
             if fallback_copy is FontFile:
                 var fallback_file: FontFile = fallback_copy as FontFile
-                fallback_file.antialiasing = TextServer.FONT_ANTIALIASING_NONE
+                fallback_file.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
                 fallback_file.hinting = TextServer.HINTING_NORMAL
-                fallback_file.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
+                fallback_file.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_AUTO
             _ui_font.fallbacks = [fallback_copy]
             push_warning("Skyval UI: Cascadia Mono lacks some Ukrainian glyphs; using a built-in fallback.")
         print("Skyval UI: Cascadia Mono ready, Ukrainian glyphs=", has_ukrainian)

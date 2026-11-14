@@ -46,9 +46,12 @@ local `Cascadia_Mono` download folder to the Git checkout, or pass its
 absolute source path as the first argument. The PortMaster builder includes
 the project font in its PCK. No fonts are downloaded.
 
-Godot 4.7 uses `TextServer.HINTING_NORMAL` and disables subpixel placement.
-The code checks for Ukrainian letters in the selected Mono font and enables
-a built-in fallback only for missing glyphs. The previous Latin-only
+Godot 4.7 renders Cascadia Mono with **grayscale antialiasing** and
+normal hinting, keeping its vector contours readable at 320×240.
+Previously antialiasing was disabled, which made each jagged font pixel
+twice as large on the 640×480 output. This change smooths glyph edges
+without increasing the world-render resolution. The code also checks
+Ukrainian glyphs and uses a built-in fallback only when needed. The previous Latin-only
 `assets/fonts/Cascadia.ttf` is no longer used by the UI.
 
 Clothing styles include **None / Немає**, so each item can be removed
