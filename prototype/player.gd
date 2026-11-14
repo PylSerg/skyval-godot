@@ -31,3 +31,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
             appearance.cycle_hair()
         KEY_3:
             appearance.toggle_weapon()
+        KEY_4:
+            appearance.toggle_lpc_preview()
+        KEY_5:
+            appearance.cycle_lpc_skin()
