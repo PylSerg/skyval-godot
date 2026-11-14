@@ -19,7 +19,7 @@ Godot 4.7.1 (aarch64) runtime and Westonpack 0.2 on ArkOS.
 PortMaster documents the GPtoKEYB no-config setup for games that already
 support gamepads. Native controller input has now been tested successfully
 on a physical R36H. Left-stick analog movement no longer competes with
-D-pad input; partial-tilt speed on ArkOS still needs verification.
+D-pad input; partial-tilt walking speed is verified on ArkOS/R36H.
 
 ## Build on Linux
 
