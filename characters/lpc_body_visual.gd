@@ -16,6 +16,19 @@ const HAIR_COLORS := ["black", "dark_brown", "blonde", "redhead", "ash"]
 const SHIRT_COLORS := ["blue", "forest", "maroon", "white", "black", "leather"]
 const PANTS_COLORS := ["charcoal", "brown", "navy", "black", "blue", "leather"]
 const BOOTS_COLORS := ["brown", "black", "leather", "gray", "tan", "forest"]
+# Verified against Universal LPC sprite directories. One variant per slot.
+const SHIRT_STYLES := [
+    "shortsleeve/shortsleeve",
+    "shortsleeve/tshirt",
+    "longsleeve/longsleeve",
+    "sleeveless/sleeveless",
+    "shortsleeve/shortsleeve_polo",
+]
+const PANTS_STYLES := ["pants", "pants2", "formal", "cuffed", "pantaloons"]
+const FOOTWEAR_STYLES := [
+    "boots/basic", "boots/fold", "boots/rimmed",
+    "shoes/basic", "shoes/revised",
+]
 
 @export var body_type: String = "male"
 @export var skin_variant: String = "light"
@@ -25,6 +38,10 @@ const BOOTS_COLORS := ["brown", "black", "leather", "gray", "tan", "forest"]
 @export var shirt_variant: String = "blue"
 @export var pants_variant: String = "charcoal"
 @export var boots_variant: String = "brown"
+@export_group("LPC Apparel Styles")
+@export var shirt_style: String = "shortsleeve/shortsleeve"
+@export var pants_style: String = "pants"
+@export var footwear_style: String = "boots/basic"
 @export var body_directory_override: String = ""
 
 var available: bool = false
@@ -110,11 +127,13 @@ func _load_appearance(skin: String) -> bool:
     # Other facial details remain optional as before.
     var clothing_shape: String = "thin" if body_type == "female" else "male"
     var shirt_shape: String = "female" if body_type == "female" else "male"
+    # Shoes z=15 go under trousers (z=20); boots z=25 go over them.
+    var footwear_z: int = 15 if footwear_style.begins_with("shoes/") else 25
     var layers: Array[Dictionary] = [
         {"name": "Body", "path": body_path, "z": 10, "required": true},
-        {"name": "Pants", "path": root.path_join("legs/pants/%s/%s.png" % [clothing_shape, pants_variant]), "z": 20, "required": true},
-        {"name": "Boots", "path": root.path_join("feet/boots/basic/%s/%s.png" % [clothing_shape, boots_variant]), "z": 25, "required": true},
-        {"name": "Shirt", "path": root.path_join("torso/clothes/shortsleeve/shortsleeve/%s/%s.png" % [shirt_shape, shirt_variant]), "z": 35, "required": true},
+        {"name": "Pants", "path": root.path_join("legs/%s/%s/%s.png" % [pants_style, clothing_shape, pants_variant]), "z": 20, "required": true},
+        {"name": "Footwear", "path": root.path_join("feet/%s/%s/%s.png" % [footwear_style, clothing_shape, boots_variant]), "z": footwear_z, "required": true},
+        {"name": "Shirt", "path": root.path_join("torso/clothes/%s/%s/%s.png" % [shirt_style, shirt_shape, shirt_variant]), "z": 35, "required": true},
         {"name": "Head", "path": root.path_join("head/heads/human/%s/%s.png" % [human_head, skin]), "z": 100, "required": true},
         {"name": "Face", "path": root.path_join("head/faces/%s/neutral/%s.png" % [human_head, skin]), "z": 101, "required": false},
         {"name": "Eyes", "path": root.path_join("eyes/human/adult/default/%s.png" % eye_variant), "z": 105, "required": false},
@@ -227,15 +246,24 @@ func cycle_hair() -> void:
         hair_variant = previous
 
 func cycle_shirt() -> void:
-    _cycle_color("shirt_variant", SHIRT_COLORS)
+    _cycle_option("shirt_variant", SHIRT_COLORS)
 
 func cycle_pants() -> void:
-    _cycle_color("pants_variant", PANTS_COLORS)
+    _cycle_option("pants_variant", PANTS_COLORS)
 
 func cycle_boots() -> void:
-    _cycle_color("boots_variant", BOOTS_COLORS)
+    _cycle_option("boots_variant", BOOTS_COLORS)
 
-func _cycle_color(property_name: String, options: Array) -> void:
+func cycle_shirt_style() -> void:
+    _cycle_option("shirt_style", SHIRT_STYLES)
+
+func cycle_pants_style() -> void:
+    _cycle_option("pants_style", PANTS_STYLES)
+
+func cycle_footwear_style() -> void:
+    _cycle_option("footwear_style", FOOTWEAR_STYLES)
+
+func _cycle_option(property_name: String, options: Array) -> void:
     if not available:
         return
     var previous: String = str(get(property_name))
@@ -246,6 +274,7 @@ func _cycle_color(property_name: String, options: Array) -> void:
             continue
         set(property_name, choice)
         if _load_appearance(skin_variant):
+            print("Skyval: %s = %s" % [property_name, choice])
             return
     set(property_name, previous)
     push_warning("Skyval LPC: no valid alternate garment for %s" % property_name)
