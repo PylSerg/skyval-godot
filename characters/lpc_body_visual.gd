@@ -14,6 +14,7 @@ const WALK_FRAMES := [1, 2, 3, 4, 5, 6, 7, 8]
 const SKINS := ["light", "amber", "olive", "brown", "bronze"]
 const HAIR_COLORS := ["black", "dark_brown", "blonde", "redhead", "ash"]
 const EYE_COLORS := ["blue", "green", "brown", "gray", "purple", "yellow"]
+const HAIR_STYLES := ["buzzcut", "bedhead", "curtains", "mop", "spiked"]
 const SHIRT_COLORS := ["blue", "forest", "maroon", "white", "black", "leather"]
 const PANTS_COLORS := ["charcoal", "brown", "navy", "black", "blue", "leather"]
 const BOOTS_COLORS := ["brown", "black", "leather", "gray", "tan", "forest"]
@@ -34,6 +35,7 @@ const FOOTWEAR_STYLES := [
 @export var body_type: String = "male"
 @export var skin_variant: String = "light"
 @export var hair_variant: String = "black"
+@export var hair_style: String = "buzzcut"
 @export var eye_variant: String = "blue"
 @export_group("LPC Apparel")
 @export var shirt_variant: String = "blue"
@@ -142,7 +144,7 @@ func _load_appearance(skin: String) -> bool:
         {"name": "Head", "path": root.path_join("head/heads/human/%s/%s.png" % [human_head, skin]), "z": 100, "required": true},
         {"name": "Face", "path": root.path_join("head/faces/%s/neutral/%s.png" % [human_head, skin]), "z": 101, "required": false},
         {"name": "Eyes", "path": root.path_join("eyes/human/adult/default/%s.png" % eye_variant), "z": 105, "required": false},
-        {"name": "Hair", "path": root.path_join("hair/buzzcut/adult/%s.png" % hair_variant), "z": 120, "required": false},
+        {"name": "Hair", "path": root.path_join("hair/%s/adult/%s.png" % [hair_style, hair_variant]), "z": 120, "required": false},
     ]
     # First validate all required files before creating Node2D instances.
     # A failed outfit change must never remove the working character.
@@ -306,6 +308,8 @@ func change_option(option_key: String, direction: int) -> bool:
             return _change_skin(direction)
         "hair_variant":
             return _change_variant("hair_variant", HAIR_COLORS, direction)
+        "hair_style":
+            return _change_variant("hair_style", HAIR_STYLES, direction)
         "eye_variant":
             return _change_variant("eye_variant", EYE_COLORS, direction)
         "shirt_variant":
