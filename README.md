@@ -2,15 +2,30 @@
 
 Pixel-art top-down RPG prototype for Godot 4.7 (Compatibility renderer), targeting an R36H with a 320×240 logical viewport, shown as 640×480.
 
-## Character Creator v2.4: gender, outfits, localization
+## Character Creator v2.5: optional clothing, gender, outfits, localization
 
 Press **C** in the test world to open the character creator. Press **C**, **Esc**, or the **Close** button to return to the game. While the creator is open, movement/camera physics are paused.
 
 The editor has two tabs:
 - **Appearance:** male/female body type, skin tone, eye color, **five hairstyle shapes** (buzzcut, bedhead, curtains, mop, spiked), and hair color.
-- **Clothing:** independent choices for the styles and colors of shirt, pants, and footwear (five styles per slot).
+- **Clothing:** independent choices for shirt, pants and footwear (five styles **plus None** per slot), with separate color settings.
 
 Left/right buttons move through the choices. The preview displays the actual LPC layers in 2× pixel art without importing additional image sheets. Changes are applied immediately.
+
+### Empty clothing slots and NPC reactions
+
+Each style selector now includes **None / Немає**. Removing a style removes only the associated clothing sprite layer; the base body and head stay visible. It works for male and female LPC types. Color selection is preserved even while a slot is empty.
+
+The button underneath the live preview is **Remove all / Зняти все**. It removes the shirt, pants and footwear simultaneously. The same button becomes **Get dressed / Одягнути**, restoring the previously worn style combination. If every slot was emptied manually, it restores the default starting outfit.
+
+Future NPC dialogue and quests can use these stable methods on the LPC character node:
+- `get_clothing_state() -> Dictionary`: keys `shirt`, `pants`, `footwear` and `fully_undressed` (booleans).
+- `is_fully_undressed() -> bool`: true only when **all three** garment slots are empty.
+- `clothing_changed(state: Dictionary)`: signal emitted when a successful change alters which slots are covered.
+
+These methods are also exposed to gameplay through `SkyvalCharacterVisual.get_lpc_clothing_state()` and `is_lpc_fully_undressed()`. NPC dialogue is not added yet.
+
+All user-visible text remains in `localization/strings.json` (Ukrainian and English).
 
 ### Localization from one file
 
@@ -45,7 +60,7 @@ Old prototype controls are preserved when the procedural preview is selected.
 
 ### Current character layers
 
-The real Universal LPC sprites are combined from the body (z=10), pants (z=20), boots (z=25) or shoes (z=15), shirt (z=35), head (z=100), face (z=101), eyes (z=105), and hair (z=120). Frames use 64×64 LPC sheet cells, with idle starting at Y=1408 and walk at Y=512, north/west/south/east row order.
+The real Universal LPC sprites are combined from the body (z=10), optional pants (z=20), optional boots (z=25) or shoes (z=15), optional shirt (z=35), head (z=100), face (z=101), eyes (z=105), and hair (z=120). Frames use 64×64 LPC sheet cells, with idle starting at Y=1408 and walk at Y=512, north/west/south/east row order.
 
 The default starting outfit is a blue short-sleeved shirt, charcoal pants, brown boots, black buzzcut, and blue eyes.
 
@@ -65,4 +80,4 @@ This code reads a **local asset library without copying it into Git**. A small l
 - \`localization/localization.gd\`: JSON localization provider and saved preference
 - \`localization/strings.json\`: all displayed text (UK/EN)
 
-**Testing:** GitHub changes and LPC source paths are checked. Full Godot 4.7.2 execution on the developer's Linux machine still needs to be verified.
+**Testing:** GitHub changes and localization keys are checked. The new clothing toggles still need runtime verification in Godot 4.7.2 on Linux.
