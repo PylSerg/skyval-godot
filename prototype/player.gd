@@ -35,3 +35,5 @@ func _unhandled_key_input(event: InputEvent) -> void:
             appearance.toggle_lpc_preview()
         KEY_5:
             appearance.cycle_lpc_skin()
+        KEY_6:
+            appearance.cycle_footwear()

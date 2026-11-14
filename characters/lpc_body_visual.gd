@@ -13,11 +13,18 @@ const IDLE_FRAMES := [0, 0, 1]
 const WALK_FRAMES := [1, 2, 3, 4, 5, 6, 7, 8]
 const SKINS := ["light", "amber", "olive", "brown", "bronze"]
 const HAIR_COLORS := ["black", "dark_brown", "blonde", "redhead", "ash"]
+const SHIRT_COLORS := ["blue", "forest", "maroon", "white", "black", "leather"]
+const PANTS_COLORS := ["charcoal", "brown", "navy", "black", "blue", "leather"]
+const BOOTS_COLORS := ["brown", "black", "leather", "gray", "tan", "forest"]
 
 @export var body_type: String = "male"
 @export var skin_variant: String = "light"
 @export var hair_variant: String = "black"
 @export var eye_variant: String = "blue"
+@export_group("LPC Apparel")
+@export var shirt_variant: String = "blue"
+@export var pants_variant: String = "charcoal"
+@export var boots_variant: String = "brown"
 @export var body_directory_override: String = ""
 
 var available: bool = false
@@ -97,39 +104,50 @@ func _load_appearance(skin: String) -> bool:
         return false
 
     var human_head: String = "female" if body_type == "female" else "male"
-    # The four layers below are confirmed in the Universal LPC metadata.
-    # Face/eyes/hair are optional, but a missing head is NOT acceptable.
+    # Explicit LPC layers and z positions from the metadata manifest:
+    # body (10), pants (20), boots (25), shirt (35), head (100).
+    # Required clothing makes a fully dressed avatar our all-or-nothing default.
+    # Other facial details remain optional as before.
+    var clothing_shape: String = "thin" if body_type == "female" else "male"
+    var shirt_shape: String = "female" if body_type == "female" else "male"
     var layers: Array[Dictionary] = [
         {"name": "Body", "path": body_path, "z": 10, "required": true},
+        {"name": "Pants", "path": root.path_join("legs/pants/%s/%s.png" % [clothing_shape, pants_variant]), "z": 20, "required": true},
+        {"name": "Boots", "path": root.path_join("feet/boots/basic/%s/%s.png" % [clothing_shape, boots_variant]), "z": 25, "required": true},
+        {"name": "Shirt", "path": root.path_join("torso/clothes/shortsleeve/shortsleeve/%s/%s.png" % [shirt_shape, shirt_variant]), "z": 35, "required": true},
         {"name": "Head", "path": root.path_join("head/heads/human/%s/%s.png" % [human_head, skin]), "z": 100, "required": true},
         {"name": "Face", "path": root.path_join("head/faces/%s/neutral/%s.png" % [human_head, skin]), "z": 101, "required": false},
         {"name": "Eyes", "path": root.path_join("eyes/human/adult/default/%s.png" % eye_variant), "z": 105, "required": false},
         {"name": "Hair", "path": root.path_join("hair/buzzcut/adult/%s.png" % hair_variant), "z": 120, "required": false},
     ]
-    var replacements: Array[AnimatedSprite2D] = []
-
-    # Build a complete new stack before removing the old one. This keeps the
-    # current appearance unchanged if a variant is missing or malformed.
+    # First validate all required files before creating Node2D instances.
+    # A failed outfit change must never remove the working character.
+    var validated: Array[Dictionary] = []
     for layer in layers:
         var path: String = str(layer["path"])
         if not _texture_exists(path):
             if bool(layer["required"]):
-                push_warning("Skyval LPC: mandatory layer missing: %s" % path)
+                push_warning("Skyval LPC: required character layer missing: %s" % path)
                 return false
             continue
 
         var atlas: Texture2D = _load_texture(path)
         if atlas == null or atlas.get_width() < 9 * CELL or atlas.get_height() < IDLE_Y + 4 * CELL:
             if bool(layer["required"]):
-                push_warning("Skyval LPC: invalid mandatory spritesheet: %s" % path)
+                push_warning("Skyval LPC: invalid character sheet: %s" % path)
                 return false
             continue
+        validated.append({"name": str(layer["name"]), "z": int(layer["z"]), "atlas": atlas})
 
-        var sprite: AnimatedSprite2D = _build_layer(str(layer["name"]), int(layer["z"]), atlas)
-        replacements.append(sprite)
+    var replacements: Array[AnimatedSprite2D] = []
+    for layer in validated:
+        var atlas: Texture2D = layer["atlas"] as Texture2D
+        replacements.append(_build_layer(str(layer["name"]), int(layer["z"]), atlas))
 
-    # The body + head must both be present for this renderer to become visible.
-    if replacements.size() < 2:
+    # A complete stack contains the body, head, and all three garments.
+    if replacements.size() < 5:
+        for candidate in replacements:
+            candidate.free()
         return false
 
     for old in _sprites:
@@ -207,3 +225,27 @@ func cycle_hair() -> void:
     hair_variant = HAIR_COLORS[(maxi(HAIR_COLORS.find(hair_variant), 0) + 1) % HAIR_COLORS.size()]
     if not _load_appearance(skin_variant):
         hair_variant = previous
+
+func cycle_shirt() -> void:
+    _cycle_color("shirt_variant", SHIRT_COLORS)
+
+func cycle_pants() -> void:
+    _cycle_color("pants_variant", PANTS_COLORS)
+
+func cycle_boots() -> void:
+    _cycle_color("boots_variant", BOOTS_COLORS)
+
+func _cycle_color(property_name: String, options: Array) -> void:
+    if not available:
+        return
+    var previous: String = str(get(property_name))
+    var origin: int = maxi(options.find(previous), 0)
+    for step in range(1, options.size() + 1):
+        var choice: String = str(options[(origin + step) % options.size()])
+        if choice == previous:
+            continue
+        set(property_name, choice)
+        if _load_appearance(skin_variant):
+            return
+    set(property_name, previous)
+    push_warning("Skyval LPC: no valid alternate garment for %s" % property_name)

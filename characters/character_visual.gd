@@ -73,8 +73,11 @@ func set_motion(direction: Vector2) -> void:
             queue_redraw()
 
 func cycle_outfit() -> void:
-    outfit_index = (outfit_index + 1) % OUTFIT_COLORS.size()
-    queue_redraw()
+    if _external_body != null and _external_body.visible:
+        _external_body.call("cycle_shirt")
+    else:
+        outfit_index = (outfit_index + 1) % OUTFIT_COLORS.size()
+        queue_redraw()
 
 func cycle_hair() -> void:
     hair_index = (hair_index + 1) % HAIR_COLORS.size()
@@ -83,8 +86,17 @@ func cycle_hair() -> void:
     queue_redraw()
 
 func toggle_weapon() -> void:
-    weapon_equipped = not weapon_equipped
-    queue_redraw()
+    # Retains the old sword test in prototype mode.
+    # LPC mode uses this key to test the new independent pants slot.
+    if _external_body != null and _external_body.visible:
+        _external_body.call("cycle_pants")
+    else:
+        weapon_equipped = not weapon_equipped
+        queue_redraw()
+
+func cycle_footwear() -> void:
+    if _external_body != null and _external_body.visible:
+        _external_body.call("cycle_boots")
 
 func toggle_lpc_preview() -> void:
     if _external_body == null:

@@ -2,9 +2,9 @@
 
 Godot 4.7 top-down RPG prototype with the GL Compatibility renderer, built for a 320×240 logical viewport (R36H display: 640×480).
 
-## Character System v2.1: real Universal LPC layered character
+## Character System v2.2: dressed Universal LPC character
 
-The game now reads **real Universal LPC spritesheets** for the body, human head, neutral face, eyes, and short hairstyle from the local art library. It animates all visible layers together in four directions. The original GDScript-drawn character remains available as a fallback. No changes were made to the tested movement, collision, camera, or world.
+The game reads **real Universal LPC spritesheets** for the body, human head, face, eyes, short hair, **shirt, pants and boots** from the local art library. All available layers animate together in four directions. The original GDScript-drawn character remains available as a fallback. No changes were made to the tested movement, collision, camera, or world.
 
 ### Controls
 
@@ -25,7 +25,19 @@ The required file is `body/bodies/male/light.png` from the user's Universal LPC 
 
 If your folder layout differs, open `prototype/camera_test.tscn`, select **Player → CharacterVisual** and set **External Body Directory** to the **absolute folder path** containing `light.png`. Keep this machine-specific value out of commits unless intentionally shared.
 
-On startup, if either body or head is missing or invalid, Skyval retains the working procedural preview and prints a warning. Facial expression, eye color and hair are separate optional layers. Layers are found relative to the selected body sheet, so all resources must share the original LPC directory tree. The game does not copy or index the entire asset library.
+On startup, if the body, head, shirt, pants or boots is missing or invalid, Skyval retains the working procedural preview and prints a warning. Face, eye color and hair remain separate optional layers. Layers are found relative to the selected body sheet, so all resources must share the original LPC directory tree. The game does not copy or index the entire asset library.
+
+### Clothing layers and paths
+
+The v2.2 starting outfit is **blue short-sleeved shirt**, **charcoal pants**, **brown basic boots**. These are local assets and are **not** committed to this repo.
+
+| Layer | Path relative to `spritesheets/` | LPC z-index |
+|---|---|---:|
+| Pants | `legs/pants/male/charcoal.png` | 20 |
+| Boots | `feet/boots/basic/male/brown.png` | 25 |
+| Shirt | `torso/clothes/shortsleeve/shortsleeve/male/blue.png` | 35 |
+
+All three are sampled from the **same animation rows and 64px cells** as the body and head. If a garment's texture is missing, the complete new outfit is rejected instead of silently leaving an undressed or partially dressed hero. Female body type uses the `female` shirt sheet and `thin` legs/feet sheets.
 
 ### LPC animation layout
 
@@ -51,6 +63,6 @@ LPC artwork has mixed per-asset licenses and attribution conditions. Review [Uni
 - `prototype/smart_camera.gd`: smooth camera and right-stick view.
 - `prototype/player.gd`: movement and test keys.
 - `characters/character_visual.gd`: appearance controller, fallback and optional addon integration.
-- `characters/lpc_body_visual.gd`: real LPC body/head/face/eyes/hair loader with synchronized idle/walk animations.
+- `characters/lpc_body_visual.gd`: real LPC layered sprite loader (body, clothes, head, face, eyes, hair) with synchronized idle/walk animations.
 
 **Status:** Files committed and verified in GitHub. Real Godot 4.7.2 execution still needs to be verified on the developer's Linux machine.
