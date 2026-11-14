@@ -127,6 +127,23 @@ func change_lpc_option(option_key: String, direction: int) -> bool:
         return false
     return bool(_external_body.call("change_option", option_key, direction))
 
+# Stable wardrobe API for the character menu and future NPC conversations.
+func get_lpc_clothing_state() -> Dictionary:
+    if not has_lpc_character():
+        return {}
+    var state: Dictionary = _external_body.call("get_clothing_state")
+    return state
+
+func is_lpc_fully_undressed() -> bool:
+    if not has_lpc_character():
+        return false
+    return bool(_external_body.call("is_fully_undressed"))
+
+func toggle_lpc_all_clothes() -> bool:
+    if not has_lpc_character():
+        return false
+    return bool(_external_body.call("toggle_all_clothes"))
+
 func toggle_lpc_preview() -> void:
     if _external_body == null:
         push_warning("Skyval: external LPC body not found; showing prototype.")
