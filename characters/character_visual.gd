@@ -5,6 +5,8 @@ class_name SkyvalCharacterVisual
 
 enum Facing { SOUTH, WEST, EAST, NORTH }
 
+const ExternalBodyScript = preload("res://characters/lpc_body_visual.gd")
+
 const LPC_SCRIPT := "res://addons/universal_lpc/universal_lpc_sprite_2d.gd"
 const LPC_METADATA := "res://addons/universal_lpc/universal_lpc_metadata.json"
 const OUTFIT_COLORS := ["#4368a8", "#417b56", "#a05e45", "#825a99"]
@@ -16,6 +18,9 @@ const HAIR_COLORS := ["#5a3527", "#d5ad61", "#303142", "#bd7550"]
 @export var use_universal_lpc: bool = false
 @export var lpc_configuration: Dictionary = {}
 @export var lpc_origin_offset: Vector2 = Vector2(-32, -56)
+@export_group("External LPC body (desktop)")
+@export var use_external_lpc_body: bool = true
+@export var external_body_directory: String = ""
 
 var facing: Facing = Facing.SOUTH
 var is_walking: bool = false
@@ -26,14 +31,17 @@ var weapon_equipped: bool = false
 var _walk_clock: float = 0.0
 var _walk_frame: int = 0
 var _lpc_renderer: Node2D = null
+var _external_body: Node2D = null
 
 func _ready() -> void:
     texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
     _try_enable_lpc()
+    if _lpc_renderer == null and use_external_lpc_body:
+        _try_enable_external_body()
     queue_redraw()
 
 func _process(delta: float) -> void:
-    if _lpc_renderer != null or not is_walking:
+    if _lpc_renderer != null or (_external_body != null and _external_body.visible) or not is_walking:
         return
     _walk_clock += delta
     var next_frame: int = int(floor(_walk_clock * walk_fps)) % 4
@@ -56,6 +64,8 @@ func set_motion(direction: Vector2) -> void:
     if not is_walking:
         _walk_clock = 0.0
         _walk_frame = 0
+    if _external_body != null:
+        _external_body.call("set_motion", direction)
     if changed:
         if _lpc_renderer != null:
             _apply_lpc_animation()
@@ -73,6 +83,28 @@ func cycle_hair() -> void:
 func toggle_weapon() -> void:
     weapon_equipped = not weapon_equipped
     queue_redraw()
+
+func toggle_lpc_preview() -> void:
+    if _external_body == null:
+        push_warning("Skyval: external LPC body not found; showing prototype.")
+        return
+    _external_body.visible = not _external_body.visible
+    queue_redraw()
+
+func cycle_lpc_skin() -> void:
+    if _external_body != null:
+        _external_body.call("cycle_skin")
+
+func _try_enable_external_body() -> void:
+    var body: Node2D = ExternalBodyScript.new() as Node2D
+    body.name = "LpcBody"
+    body.set("body_directory_override", external_body_directory)
+    add_child(body)
+    if not bool(body.get("available")):
+        body.queue_free()
+        return
+    _external_body = body
+    _external_body.call("set_motion", Vector2.ZERO)
 
 func _try_enable_lpc() -> void:
     if not use_universal_lpc:
@@ -110,7 +142,7 @@ func _apply_lpc_animation() -> void:
     _lpc_renderer.set("is_playing", is_walking)
 
 func _draw() -> void:
-    if _lpc_renderer != null:
+    if _lpc_renderer != null or (_external_body != null and _external_body.visible):
         return
     _draw_preview_avatar()
 
