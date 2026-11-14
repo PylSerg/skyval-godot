@@ -82,6 +82,9 @@ if [ ! -x "$GODOT_DIR/$GODOT_EXEC" ]; then
     ls -lah "$GODOT_DIR"
 else
     cd "$GAMEDIR" || exit 1
+    # Export for the host/SDL environment, never pass this as an inline
+    # argument to westonwrap: its shell command assembly splits values
+    # containing spaces (for example, "GO-Super Gamepad"), causing exit 127.
     export SDL_GAMECONTROLLERCONFIG="${sdl_controllerconfig:-}"
     # Native Godot joypad input; GPtoKEYB supplies only the PortMaster exit hotkey.
     $GPTOKEYB "$GODOT_EXEC" &
@@ -89,7 +92,6 @@ else
     echo "Starting Godot from PCK..."
     $ESUDO env "$WESTON_DIR/westonwrap.sh" headless noop kiosk crusty_x11egl \
         XDG_DATA_HOME="$CONFDIR" \
-        SDL_GAMECONTROLLERCONFIG="${sdl_controllerconfig:-}" \
         "$GODOT_DIR/$GODOT_EXEC" \
         --resolution "${DISPLAY_WIDTH:-640}x${DISPLAY_HEIGHT:-480}" -f \
         --disable-cursor \
