@@ -28,13 +28,12 @@ var _held_joy_buttons: Dictionary = {}
 var _joy_axis_direction: Dictionary = {}
 var _keyboard_emulated_gamepad: bool = false
 var _root: Control
-var _title: Label
 var _tab_appearance: Button
 var _tab_clothes: Button
-var _language_button: Button
-var _close_button: Button
 var _rows: VBoxContainer
-var _footer: Label
+var _hint_navigation: Label
+var _hint_tabs: Label
+var _hint_actions: Label
 var _preview_title: Label
 var _preview: Control
 var _missing_label: Label
@@ -58,6 +57,7 @@ func _ready() -> void:
 
     _locale.connect("language_changed", Callable(self, "_refresh_text"))
     _build_interface()
+    Input.joy_connection_changed.connect(_on_joy_connection_changed)
     _root.hide()
 
 func _tr(key: String) -> String:
@@ -255,29 +255,8 @@ func _build_interface() -> void:
     stack.add_theme_constant_override("separation", 3)
     panel.add_child(stack)
 
-    var header := HBoxContainer.new()
-    header.add_theme_constant_override("separation", 2)
-    stack.add_child(header)
-
-    _title = _label(11)
-    _title.custom_minimum_size.x = 107
-    _title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    header.add_child(_title)
-
-    _language_button = _button()
-    _language_button.custom_minimum_size = Vector2(32, 19)
-    header.add_child(_language_button)
-    _language_button.pressed.connect(func() -> void:
-        _locale.call("toggle_language")
-    )
-
-    _close_button = _button()
-    _close_button.custom_minimum_size = Vector2(35, 19)
-    header.add_child(_close_button)
-    _close_button.pressed.connect(func() -> void:
-        _set_open(false)
-    )
-
+    # The tabs are now the top row. Controller shortcuts replace the
+    # redundant title / language / close header on a 320x240 screen.
     var tabs := HBoxContainer.new()
     tabs.add_theme_constant_override("separation", 2)
     stack.add_child(tabs)
@@ -298,9 +277,21 @@ func _build_interface() -> void:
     _rows.size_flags_vertical = Control.SIZE_EXPAND_FILL
     stack.add_child(_rows)
 
-    _footer = _label(9)
-    _footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    stack.add_child(_footer)
+    var hint_lines := VBoxContainer.new()
+    hint_lines.add_theme_constant_override("separation", 0)
+    stack.add_child(hint_lines)
+
+    _hint_navigation = _label(8)
+    _hint_navigation.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    hint_lines.add_child(_hint_navigation)
+
+    _hint_tabs = _label(8)
+    _hint_tabs.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    hint_lines.add_child(_hint_tabs)
+
+    _hint_actions = _label(8)
+    _hint_actions.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    hint_lines.add_child(_hint_actions)
 
     _preview_title = _label(10)
     _preview_title.position = Vector2(212, 10)
@@ -367,15 +358,26 @@ func _set_page(next_page: int) -> void:
     _selected_index = 0
     _refresh_text()
 
+func _on_joy_connection_changed(_device: int, _connected: bool) -> void:
+    _refresh_controller_hints()
+
+func _refresh_controller_hints() -> void:
+    # PortMaster uses keyboard emulation. USB controllers are detected
+    # through Godot; keyboard-only desktop play gets no gamepad hints.
+    var show_hints: bool = _keyboard_emulated_gamepad or not Input.get_connected_joypads().is_empty()
+    _hint_navigation.visible = show_hints
+    _hint_tabs.visible = show_hints
+    _hint_actions.visible = show_hints
+
 func _refresh_text() -> void:
-    if _title == null:
+    if _tab_appearance == null:
         return
-    _title.text = _tr("ui.title")
     _tab_appearance.text = _tr("ui.appearance")
     _tab_clothes.text = _tr("ui.clothes")
-    _language_button.text = _tr("ui.language_" + str(_locale.get("language")))
-    _close_button.text = _tr("ui.close")
-    _footer.text = _tr("ui.close_hint")
+    _hint_navigation.text = _tr("ui.gamepad_navigation")
+    _hint_tabs.text = _tr("ui.gamepad_tabs")
+    _hint_actions.text = _tr("ui.gamepad_actions")
+    _refresh_controller_hints()
     _preview_title.text = _tr("ui.preview")
     _missing_label.text = _tr("ui.missing_lpc")
     _missing_label.visible = not avatar.has_lpc_character()
