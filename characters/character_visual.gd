@@ -110,6 +110,23 @@ func cycle_footwear_style() -> void:
     if _external_body != null and _external_body.visible:
         _external_body.call("cycle_footwear_style")
 
+# Stable API for the localized character-creation menu.
+func has_lpc_character() -> bool:
+    return _external_body != null and is_instance_valid(_external_body) and bool(_external_body.get("available"))
+
+func get_lpc_character() -> Node2D:
+    return _external_body if has_lpc_character() else null
+
+func get_lpc_option(option_key: String) -> String:
+    if not has_lpc_character():
+        return ""
+    return str(_external_body.get(option_key))
+
+func change_lpc_option(option_key: String, direction: int) -> bool:
+    if not has_lpc_character():
+        return false
+    return bool(_external_body.call("change_option", option_key, direction))
+
 func toggle_lpc_preview() -> void:
     if _external_body == null:
         push_warning("Skyval: external LPC body not found; showing prototype.")
