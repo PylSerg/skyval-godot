@@ -5,8 +5,6 @@
     "ui.clothes": "Одяг",
     "ui.close": "Закрити",
     "ui.language": "Мова",
-    "ui.open_hint": "C: редактор",
-    "ui.close_hint": "C / Esc: закрити",
     "ui.preview": "Перегляд",
     "ui.missing_lpc": "Не знайдено спрайти LPC",
     "ui.previous": "‹",
@@ -70,7 +68,10 @@
     "value.hair_style.spiked": "Їжачок",
     "ui.remove_all": "Зняти все",
     "ui.restore_outfit": "Одягнути",
-    "value.clothing.none": "Немає"
+    "value.clothing.none": "Немає",
+    "ui.gamepad_navigation": "D-pad ↑↓ вибір   ←→ зміна",
+    "ui.gamepad_tabs": "L1/R1 вкладки   B закрити",
+    "ui.gamepad_actions": "SELECT мова   Y одяг"
   },
   "en": {
     "ui.title": "Character",
@@ -78,8 +79,6 @@
     "ui.clothes": "Clothes",
     "ui.close": "Close",
     "ui.language": "Language",
-    "ui.open_hint": "C: creator",
-    "ui.close_hint": "C / Esc: close",
     "ui.preview": "Preview",
     "ui.missing_lpc": "LPC sprites not found",
     "ui.previous": "‹",
@@ -143,6 +142,9 @@
     "value.hair_style.spiked": "Spiked",
     "ui.remove_all": "Remove all",
     "ui.restore_outfit": "Get dressed",
-    "value.clothing.none": "None"
+    "value.clothing.none": "None",
+    "ui.gamepad_navigation": "D-pad ↑↓ select   ←→ change",
+    "ui.gamepad_tabs": "L1/R1 tabs   B close",
+    "ui.gamepad_actions": "SELECT language   Y outfit"
   }
 }
