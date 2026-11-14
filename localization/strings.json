@@ -67,7 +67,10 @@
     "value.hair_style.bedhead": "Розпатлана",
     "value.hair_style.curtains": "Із проділом",
     "value.hair_style.mop": "Густа",
-    "value.hair_style.spiked": "Їжачок"
+    "value.hair_style.spiked": "Їжачок",
+    "ui.remove_all": "Зняти все",
+    "ui.restore_outfit": "Одягнути",
+    "value.clothing.none": "Немає"
   },
   "en": {
     "ui.title": "Character",
@@ -137,6 +140,9 @@
     "value.hair_style.bedhead": "Bedhead",
     "value.hair_style.curtains": "Curtains",
     "value.hair_style.mop": "Mop",
-    "value.hair_style.spiked": "Spiked"
+    "value.hair_style.spiked": "Spiked",
+    "ui.remove_all": "Remove all",
+    "ui.restore_outfit": "Get dressed",
+    "value.clothing.none": "None"
   }
 }
