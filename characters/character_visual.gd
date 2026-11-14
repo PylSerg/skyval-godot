@@ -78,6 +78,8 @@ func cycle_outfit() -> void:
 
 func cycle_hair() -> void:
     hair_index = (hair_index + 1) % HAIR_COLORS.size()
+    if _external_body != null and _external_body.visible:
+        _external_body.call("cycle_hair")
     queue_redraw()
 
 func toggle_weapon() -> void:

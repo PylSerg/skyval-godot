@@ -2,9 +2,9 @@
 
 Godot 4.7 top-down RPG prototype with the GL Compatibility renderer, built for a 320×240 logical viewport (R36H display: 640×480).
 
-## Character System v2: real Universal LPC base body
+## Character System v2.1: real Universal LPC layered character
 
-The game now reads a **real Universal LPC body spritesheet** from the local art library and animates it in four directions. The original GDScript-drawn character remains available as a fallback. No changes were made to the tested movement, collision, camera, or world.
+The game now reads **real Universal LPC spritesheets** for the body, human head, neutral face, eyes, and short hairstyle from the local art library. It animates all visible layers together in four directions. The original GDScript-drawn character remains available as a fallback. No changes were made to the tested movement, collision, camera, or world.
 
 ### Controls
 
@@ -25,7 +25,7 @@ The required file is `body/bodies/male/light.png` from the user's Universal LPC 
 
 If your folder layout differs, open `prototype/camera_test.tscn`, select **Player → CharacterVisual** and set **External Body Directory** to the **absolute folder path** containing `light.png`. Keep this machine-specific value out of commits unless intentionally shared.
 
-On startup, if the sprite can't be found or decoded, Skyval retains the working procedural preview and prints a warning. The game does not copy or index the entire asset library.
+On startup, if either body or head is missing or invalid, Skyval retains the working procedural preview and prints a warning. Facial expression, eye color and hair are separate optional layers. Layers are found relative to the selected body sheet, so all resources must share the original LPC directory tree. The game does not copy or index the entire asset library.
 
 ### LPC animation layout
 
@@ -51,6 +51,6 @@ LPC artwork has mixed per-asset licenses and attribution conditions. Review [Uni
 - `prototype/smart_camera.gd`: smooth camera and right-stick view.
 - `prototype/player.gd`: movement and test keys.
 - `characters/character_visual.gd`: appearance controller, fallback and optional addon integration.
-- `characters/lpc_body_visual.gd`: actual LPC body PNG loader and idle/walk animations.
+- `characters/lpc_body_visual.gd`: real LPC body/head/face/eyes/hair loader with synchronized idle/walk animations.
 
 **Status:** Files committed and verified in GitHub. Real Godot 4.7.2 execution still needs to be verified on the developer's Linux machine.

@@ -1,6 +1,8 @@
 extends Node2D
-## Skyval Character System v2: load one real Universal LPC body sheet.
-## External assets are for desktop testing. R36H exports need packed assets.
+## Skyval LPC renderer: synchronized body, human head, face, eyes, and hair.
+## All layers use the SAME 64x64 LPC cells and animation timeline.
+## On desktop it discovers the user's local sprite library; for exports, pack
+## only selected, license-compliant sprites into res://assets/characters/lpc/.
 
 const CELL := 64
 const IDLE_Y := 1408
@@ -10,89 +12,153 @@ const ROW_INDEX := [2, 1, 3, 0]
 const IDLE_FRAMES := [0, 0, 1]
 const WALK_FRAMES := [1, 2, 3, 4, 5, 6, 7, 8]
 const SKINS := ["light", "amber", "olive", "brown", "bronze"]
+const HAIR_COLORS := ["black", "dark_brown", "blonde", "redhead", "ash"]
 
 @export var body_type: String = "male"
 @export var skin_variant: String = "light"
+@export var hair_variant: String = "black"
+@export var eye_variant: String = "blue"
 @export var body_directory_override: String = ""
 
 var available: bool = false
-var _sprite: AnimatedSprite2D
+var _sprites: Array[AnimatedSprite2D] = []
 var _direction: int = 0
 var _walking: bool = false
 
 func _ready() -> void:
     texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-    _sprite = AnimatedSprite2D.new()
-    _sprite.name = "BodyFrames"
-    _sprite.centered = false
-    _sprite.offset = Vector2(-32, -54)
-    _sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-    add_child(_sprite)
-    available = _load_skin(skin_variant)
+    available = _load_appearance(skin_variant)
     if not available:
-        push_warning("Skyval: LPC base body not found. Set CharacterVisual/External Body Directory to the directory containing light.png.")
-    else:
-        set_motion(Vector2.ZERO)
+        push_warning("Skyval LPC: complete body + head not found. Using original prototype avatar.")
 
 func _candidate_dirs() -> PackedStringArray:
     var result := PackedStringArray()
     if not body_directory_override.strip_edges().is_empty():
         result.append(body_directory_override.strip_edges())
+
     var home: String = OS.get_environment("HOME")
-    if home.is_empty():
-        return result
-    var base: String = home.path_join("Godot").path_join("res")
-    var roots := [
-        "assets/lpc_sprites",
-        "assets/lpc_sprites/spritesheets",
-        "assets/lpc_sprites/resources/spritesheets",
-        "addons/Universal_LPC/resources/spritesheets",
-        "addons/universal_lpc/resources/spritesheets",
-        "addons/Godot_LPC_Spritesheet/resources/spritesheets",
-    ]
-    for root in roots:
-        result.append(base.path_join(root).path_join("body/bodies").path_join(body_type))
+    if not home.is_empty():
+        var base: String = home.path_join("Godot").path_join("res")
+        var roots := [
+            "assets/lpc_sprites",
+            "assets/lpc_sprites/spritesheets",
+            "assets/lpc_sprites/resources/spritesheets",
+            "addons/Universal_LPC/resources/spritesheets",
+            "addons/universal_lpc/resources/spritesheets",
+            "addons/Godot_LPC_Spritesheet/resources/spritesheets",
+        ]
+        for root in roots:
+            result.append(base.path_join(root).path_join("body/bodies").path_join(body_type))
+
+    # Packaged sheets have the same relative layout as the source LPC library.
+    result.append("res://assets/characters/lpc/body/bodies/%s" % body_type)
+    # Legacy path accepted by the previous v2 loader.
+    result.append("res://assets/characters/lpc/body/%s" % body_type)
     return result
 
-func _locate_skin(variant: String) -> String:
-    for dir in _candidate_dirs():
-        var filename: String = dir.path_join(variant + ".png")
-        if FileAccess.file_exists(filename):
-            return filename
-    var packaged: String = "res://assets/characters/lpc/body/%s/%s.png" % [body_type, variant]
-    if ResourceLoader.exists(packaged):
-        return packaged
+func _texture_exists(path: String) -> bool:
+    if path.begins_with("res://"):
+        return ResourceLoader.exists(path)
+    return FileAccess.file_exists(path)
+
+func _find_body_path(variant: String) -> String:
+    for directory in _candidate_dirs():
+        var candidate: String = directory.path_join(variant + ".png")
+        if _texture_exists(candidate):
+            return candidate
     return ""
 
-func _load_skin(variant: String) -> bool:
-    var path: String = _locate_skin(variant)
-    if path.is_empty():
-        return false
-    var atlas: Texture2D = null
-    if path.begins_with("res://"):
-        # ResourceLoader also works with textures imported into an exported PCK.
-        atlas = load(path) as Texture2D
-    else:
-        # External absolute paths are only available during local development.
-        var image := Image.new()
-        var error: Error = image.load(path)
-        if error != OK:
-            push_warning("Skyval: failed to read %s (%d)" % [path, error])
-            return false
-        atlas = ImageTexture.create_from_image(image)
+func _get_sheet_root(body_path: String) -> String:
+    var body_dir: String = body_path.get_base_dir()
+    var parent_dir: String = body_dir.get_base_dir()
+    if parent_dir.get_file() == "bodies":
+        return parent_dir.get_base_dir().get_base_dir()
+    # Legacy packed res://assets/characters/lpc/body/male layout.
+    if parent_dir.get_file() == "body":
+        return parent_dir.get_base_dir()
+    return ""
 
-    if atlas == null or atlas.get_width() < 9 * CELL or atlas.get_height() < IDLE_Y + 4 * CELL:
-        push_warning("Skyval: missing or invalid 64px LPC sheet: %s" % path)
+func _load_texture(path: String) -> Texture2D:
+    if path.begins_with("res://"):
+        return load(path) as Texture2D
+    var image := Image.new()
+    var status: Error = image.load(path)
+    if status != OK:
+        push_warning("Skyval LPC: couldn't decode %s (error %d)" % [path, status])
+        return null
+    return ImageTexture.create_from_image(image)
+
+func _load_appearance(skin: String) -> bool:
+    var body_path: String = _find_body_path(skin)
+    if body_path.is_empty():
         return false
+    var root: String = _get_sheet_root(body_path)
+    if root.is_empty():
+        return false
+
+    var human_head: String = "female" if body_type == "female" else "male"
+    # The four layers below are confirmed in the Universal LPC metadata.
+    # Face/eyes/hair are optional, but a missing head is NOT acceptable.
+    var layers: Array[Dictionary] = [
+        {"name": "Body", "path": body_path, "z": 10, "required": true},
+        {"name": "Head", "path": root.path_join("head/heads/human/%s/%s.png" % [human_head, skin]), "z": 100, "required": true},
+        {"name": "Face", "path": root.path_join("head/faces/%s/neutral/%s.png" % [human_head, skin]), "z": 101, "required": false},
+        {"name": "Eyes", "path": root.path_join("eyes/human/adult/default/%s.png" % eye_variant), "z": 105, "required": false},
+        {"name": "Hair", "path": root.path_join("hair/buzzcut/adult/%s.png" % hair_variant), "z": 120, "required": false},
+    ]
+    var replacements: Array[AnimatedSprite2D] = []
+
+    # Build a complete new stack before removing the old one. This keeps the
+    # current appearance unchanged if a variant is missing or malformed.
+    for layer in layers:
+        var path: String = str(layer["path"])
+        if not _texture_exists(path):
+            if bool(layer["required"]):
+                push_warning("Skyval LPC: mandatory layer missing: %s" % path)
+                return false
+            continue
+
+        var atlas: Texture2D = _load_texture(path)
+        if atlas == null or atlas.get_width() < 9 * CELL or atlas.get_height() < IDLE_Y + 4 * CELL:
+            if bool(layer["required"]):
+                push_warning("Skyval LPC: invalid mandatory spritesheet: %s" % path)
+                return false
+            continue
+
+        var sprite: AnimatedSprite2D = _build_layer(str(layer["name"]), int(layer["z"]), atlas)
+        replacements.append(sprite)
+
+    # The body + head must both be present for this renderer to become visible.
+    if replacements.size() < 2:
+        return false
+
+    for old in _sprites:
+        remove_child(old)
+        old.queue_free()
+    _sprites.clear()
+    for sprite in replacements:
+        add_child(sprite)
+        _sprites.append(sprite)
+
+    skin_variant = skin
+    _apply_animation()
+    available = true
+    return true
+
+func _build_layer(label: String, layer_z: int, atlas: Texture2D) -> AnimatedSprite2D:
+    var sprite := AnimatedSprite2D.new()
+    sprite.name = label
+    sprite.centered = false
+    sprite.offset = Vector2(-32, -54)
+    sprite.z_index = layer_z
+    sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
     var frames := SpriteFrames.new()
     if frames.has_animation("default"):
         frames.remove_animation("default")
     _add_action(frames, atlas, "idle", IDLE_Y, IDLE_FRAMES, 3.0)
     _add_action(frames, atlas, "walk", WALK_Y, WALK_FRAMES, 9.0)
-    _sprite.sprite_frames = frames
-    skin_variant = variant
-    _apply_animation()
-    return true
+    sprite.sprite_frames = frames
+    return sprite
 
 func _add_action(frames: SpriteFrames, atlas: Texture2D, action: String, start_y: int, indices: Array, fps: float) -> void:
     for direction_index in range(4):
@@ -117,18 +183,27 @@ func set_motion(direction: Vector2) -> void:
     _apply_animation()
 
 func _apply_animation() -> void:
-    if _sprite == null or _sprite.sprite_frames == null:
+    if _sprites.is_empty():
         return
     var action: String = "walk" if _walking else "idle"
     var animation: String = "%s-%s" % [action, DIRECTIONS[_direction]]
-    if _sprite.animation != StringName(animation) or not _sprite.is_playing():
-        _sprite.play(animation)
+    for sprite in _sprites:
+        if sprite.animation != StringName(animation) or not sprite.is_playing():
+            sprite.play(animation)
 
 func cycle_skin() -> void:
     if not available:
         return
     var origin: int = maxi(SKINS.find(skin_variant), 0)
     for shift in range(1, SKINS.size() + 1):
-        if _load_skin(SKINS[(origin + shift) % SKINS.size()]):
+        if _load_appearance(SKINS[(origin + shift) % SKINS.size()]):
             return
-    push_warning("Skyval: alternate LPC skin textures are missing.")
+    push_warning("Skyval LPC: no other complete body + head variants found.")
+
+func cycle_hair() -> void:
+    if not available:
+        return
+    var previous: String = hair_variant
+    hair_variant = HAIR_COLORS[(maxi(HAIR_COLORS.find(hair_variant), 0) + 1) % HAIR_COLORS.size()]
+    if not _load_appearance(skin_variant):
+        hair_variant = previous
