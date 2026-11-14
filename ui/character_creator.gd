@@ -25,6 +25,7 @@ var _footer: Label
 var _preview_title: Label
 var _preview: Control
 var _missing_label: Label
+var _value_labels: Dictionary = {}
 
 func _ready() -> void:
     process_mode = Node.PROCESS_MODE_ALWAYS
@@ -200,6 +201,7 @@ func _refresh_text() -> void:
     _rebuild_rows()
 
 func _rebuild_rows() -> void:
+    _value_labels.clear()
     for child in _rows.get_children():
         _rows.remove_child(child)
         child.queue_free()
@@ -230,6 +232,7 @@ func _rebuild_rows() -> void:
         value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         value_label.text = _localized_value(key)
         row.add_child(value_label)
+        _value_labels[key] = value_label
 
         var following := _button()
         following.text = SkyvalLocale.t("ui.next")
@@ -248,5 +251,9 @@ func _localized_value(key: String) -> String:
 
 func _adjust(key: String, direction: int) -> void:
     if avatar.change_lpc_option(key, direction):
-        _rebuild_rows()
+        # Keep focused controls alive, so keyboard/gamepad navigation is smooth.
+        for option_key in _value_labels.keys():
+            var field_label: Label = _value_labels[option_key] as Label
+            if is_instance_valid(field_label):
+                field_label.text = _localized_value(str(option_key))
         _preview.queue_redraw()
