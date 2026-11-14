@@ -13,6 +13,8 @@ const CLOTHING_FIELDS := [
 # GPtoKEYB emits keyboard events. A real gamepad may also be visible to
 # Godot, so the menu deliberately uses keyboard navigation only.
 const NAV_DEBOUNCE_MS := 120
+const LEFT_STICK_PRESS := 0.65
+const LEFT_STICK_RELEASE := 0.42
 
 @onready var avatar: SkyvalCharacterVisual = get_parent().get_node("Player/CharacterVisual") as SkyvalCharacterVisual
 
@@ -22,6 +24,9 @@ var _selected_index: int = 0
 var _row_labels: Array[Label] = []
 var _row_values: Array[Label] = []
 var _last_press_by_key: Dictionary = {}
+var _held_joy_buttons: Dictionary = {}
+var _joy_axis_direction: Dictionary = {}
+var _keyboard_emulated_gamepad: bool = false
 var _root: Control
 var _title: Label
 var _tab_appearance: Button
@@ -39,6 +44,9 @@ var _locale: Node
 
 func _ready() -> void:
     process_mode = Node.PROCESS_MODE_ALWAYS
+    # PortMaster's GPtoKEYB already translates console controls to keyboard
+    # events. On a laptop, listen to native gamepad buttons directly.
+    _keyboard_emulated_gamepad = bool(ProjectSettings.get_setting("skyval/input/keyboard_emulated_gamepad", false))
 
     # Do not depend on Godot's compile-time singleton registration. Editors
     # opened before a git pull may not have reloaded the [autoload] section.
@@ -55,9 +63,17 @@ func _ready() -> void:
 func _tr(key: String) -> String:
     return str(_locale.call("t", key))
 
-# Handle navigation BEFORE built-in GUI key/joy focus routing. Otherwise an
-# emulated D-pad plus native gamepad can navigate the UI twice.
+# Capture input before Godot GUI navigation. PortMaster is keyboard-emulated,
+# but a USB controller on a desktop uses native JoypadButton/JoypadMotion.
 func _input(event: InputEvent) -> void:
+    if event is InputEventJoypadButton:
+        if not _keyboard_emulated_gamepad:
+            _handle_joy_button(event as InputEventJoypadButton)
+        return
+    if event is InputEventJoypadMotion:
+        if not _keyboard_emulated_gamepad:
+            _handle_joy_axis(event as InputEventJoypadMotion)
+        return
     if not event is InputEventKey:
         return
     if not event.pressed or event.echo:
@@ -102,6 +118,78 @@ func _input(event: InputEvent) -> void:
             _locale.call("toggle_language")
         KEY_R:
             _toggle_all_clothes()
+
+# Native gamepad buttons, using Godot's SDL-standard button indices.
+# A press is accepted only once until its matching release arrives.
+func _handle_joy_button(event: InputEventJoypadButton) -> void:
+    var button_id: String = "%s:%s" % [event.device, event.button_index]
+    if not event.pressed:
+        _held_joy_buttons.erase(button_id)
+        return
+    if _held_joy_buttons.has(button_id):
+        return
+    _held_joy_buttons[button_id] = true
+
+    if not _opened:
+        if event.button_index == JOY_BUTTON_START or event.button_index == JOY_BUTTON_X:
+            _set_open(true)
+            get_viewport().set_input_as_handled()
+        return
+
+    match event.button_index:
+        JOY_BUTTON_START, JOY_BUTTON_X, JOY_BUTTON_B:
+            _set_open(false)
+        JOY_BUTTON_A:
+            _adjust_selected(1)
+        JOY_BUTTON_Y:
+            _toggle_all_clothes()
+        JOY_BUTTON_LEFT_SHOULDER:
+            _set_page(0)
+        JOY_BUTTON_RIGHT_SHOULDER:
+            _set_page(1)
+        JOY_BUTTON_BACK:
+            _locale.call("toggle_language")
+        JOY_BUTTON_DPAD_UP:
+            _move_selection(-1)
+        JOY_BUTTON_DPAD_DOWN:
+            _move_selection(1)
+        JOY_BUTTON_DPAD_LEFT:
+            _adjust_selected(-1)
+        JOY_BUTTON_DPAD_RIGHT:
+            _adjust_selected(1)
+        _:
+            return
+    get_viewport().set_input_as_handled()
+
+# Optional left-stick menu navigation: one action per tilt, not every frame.
+# The lower release threshold prevents drift from triggering repeated actions.
+func _handle_joy_axis(event: InputEventJoypadMotion) -> void:
+    if not _opened:
+        return
+    if event.axis != JOY_AXIS_LEFT_X and event.axis != JOY_AXIS_LEFT_Y:
+        return
+
+    var axis_id: String = "%s:%s" % [event.device, event.axis]
+    var previous: int = int(_joy_axis_direction.get(axis_id, 0))
+    var next_direction: int = 0
+    if event.axis_value >= LEFT_STICK_PRESS:
+        next_direction = 1
+    elif event.axis_value <= -LEFT_STICK_PRESS:
+        next_direction = -1
+    elif absf(event.axis_value) > LEFT_STICK_RELEASE:
+        next_direction = previous
+
+    if next_direction == previous:
+        return
+    _joy_axis_direction[axis_id] = next_direction
+    if next_direction == 0:
+        return
+
+    if event.axis == JOY_AXIS_LEFT_Y:
+        _move_selection(next_direction)
+    else:
+        _adjust_selected(next_direction)
+    get_viewport().set_input_as_handled()
 
 func _move_selection(amount: int) -> void:
     var fields: Array = APPEARANCE_FIELDS if _page == 0 else CLOTHING_FIELDS
