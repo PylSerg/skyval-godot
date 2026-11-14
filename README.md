@@ -7,7 +7,7 @@ Pixel-art top-down RPG prototype for Godot 4.7 (Compatibility renderer), targeti
 Press **C** in the test world to open the character creator. Press **C**, **Esc**, or the **Close** button to return to the game. While the creator is open, movement/camera physics are paused.
 
 The editor has two tabs:
-- **Appearance:** male/female body type, skin tone, eye color, and hair color.
+- **Appearance:** male/female body type, skin tone, eye color, **five hairstyle shapes** (buzzcut, bedhead, curtains, mop, spiked), and hair color.
 - **Clothing:** independent choices for the styles and colors of shirt, pants, and footwear (five styles per slot).
 
 Left/right buttons move through the choices. The preview displays the actual LPC layers in 2× pixel art without importing additional image sheets. Changes are applied immediately.
