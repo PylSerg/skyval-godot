@@ -13,6 +13,7 @@ const IDLE_FRAMES := [0, 0, 1]
 const WALK_FRAMES := [1, 2, 3, 4, 5, 6, 7, 8]
 const SKINS := ["light", "amber", "olive", "brown", "bronze"]
 const HAIR_COLORS := ["black", "dark_brown", "blonde", "redhead", "ash"]
+const EYE_COLORS := ["blue", "green", "brown", "gray", "purple", "yellow"]
 const SHIRT_COLORS := ["blue", "forest", "maroon", "white", "black", "leather"]
 const PANTS_COLORS := ["charcoal", "brown", "navy", "black", "blue", "leather"]
 const BOOTS_COLORS := ["brown", "black", "leather", "gray", "tan", "forest"]
@@ -305,6 +306,8 @@ func change_option(option_key: String, direction: int) -> bool:
             return _change_skin(direction)
         "hair_variant":
             return _change_variant("hair_variant", HAIR_COLORS, direction)
+        "eye_variant":
+            return _change_variant("eye_variant", EYE_COLORS, direction)
         "shirt_variant":
             return _change_variant("shirt_variant", SHIRT_COLORS, direction)
         "pants_variant":
