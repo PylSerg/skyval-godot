@@ -6,23 +6,23 @@ Pixel-art top-down RPG prototype for Godot 4.7 (Compatibility renderer), targeti
 
 Press **C** in the test world to open the character creator. Press **C** or **Esc** to close it from the keyboard. On a controller, use **Start/X** to open or close it, or **B** to close it. While the creator is open, movement/camera physics are paused.
 
-**Menu keyboard/GPtoKEYB controls:** Up/Down selects a row; Left/Right changes its value; Q/E switches the tabs; Enter advances the selected value; R removes/restores all clothing; T switches Ukrainian/English. The selected row is highlighted in gold. The menu captures each key press before Godot's automatic GUI navigation, ignores key-repeat, and rejects same-key bounce within 120ms. On R36H, Start/X opens and closes; L1/R1 switches tabs; Y changes clothing; Select changes language. More details in [portmaster/README.md](portmaster/README.md).
+**Menu controls:** Up/Down selects a row; Left/Right changes it; Q/E changes tabs; Enter advances an option. I/J/K/L (right stick via PortMaster) rotates the portrait in four directions. The selected row is highlighted in gold; key repeats are filtered. On R36H, Start/X opens or closes, L1/R1 switches tabs, and B closes. There is no creator language switch or quick-undress action. See [portmaster/README.md](portmaster/README.md).
 
-**USB controller on desktop:** Buttons are handled natively through `InputEventJoypadButton`. Start or X opens/closes the creator, A changes the selected value, B closes, Y toggles clothing, L1/R1 changes tabs, and Select toggles language. The D-pad and left stick navigate fields one step at a time. The game's world still only uses movement and camera axes; there are no attack or interaction actions yet. PortMaster's staged PCK explicitly sets `skyval/input/keyboard_emulated_gamepad=true` to avoid double processing when GPtoKEYB also generates keyboard events.
+**USB controller on desktop:** Start/X opens/closes, A advances the value, B closes, L1/R1 changes tabs. D-pad and left stick navigate, while the **right stick rotates the 3× LPC portrait**. Y and Select have no creator actions. PortMaster's staged PCK sets `skyval/input/keyboard_emulated_gamepad=true` to avoid duplicate GPtoKEYB inputs.
 
-The compact 320×240 editor no longer has a title/language/close button row; the two tabs now begin at the top of the panel. Only **gamepad-specific hints** appear at the bottom (D-pad navigation, L1/R1 tabs, B close, Select language, Y outfit). They are visible on PortMaster and when a native USB controller is connected, but hidden on keyboard-only desktop sessions. All these visible hints are localized in `localization/strings.json`.
+The compact 320×240 editor contains only two tabs, appearance controls and a **large 3× portrait**. The preview fills nearly the entire right column. The title, preview caption, help footer, language switch and quick-undress button have been removed. Language selection will belong to global Settings.
 
 The editor has two tabs:
 - **Appearance:** male/female body type, skin tone, eye color, **five hairstyle shapes** (buzzcut, bedhead, curtains, mop, spiked), and hair color.
 - **Clothing:** independent choices for shirt, pants and footwear (five styles **plus None** per slot), with separate color settings.
 
-Left/right buttons move through the choices. The preview displays the actual LPC layers in 2× pixel art without importing additional image sheets. Changes are applied immediately.
+Left/right buttons move through the choices. The preview draws synchronized idle frames at 3× nearest-neighbor scale without loading extra sheets. Right-stick rotation changes this portrait only, not the paused in-world character.
 
 ### Empty clothing slots and NPC reactions
 
 Each style selector now includes **None / Немає**. Removing a style removes only the associated clothing sprite layer; the base body and head stay visible. It works for male and female LPC types. Color selection is preserved even while a slot is empty.
 
-The button underneath the live preview is **Remove all / Зняти все**. It removes the shirt, pants and footwear simultaneously. The same button becomes **Get dressed / Одягнути**, restoring the previously worn style combination. If every slot was emptied manually, it restores the default starting outfit.
+There is **no quick-undress button** in the creator. Set each clothing style to **None / Немає** to remove items individually. The wardrobe-state API remains available for future NPC reactions.
 
 Future NPC dialogue and quests can use these stable methods on the LPC character node:
 - `get_clothing_state() -> Dictionary`: keys `shirt`, `pants`, `footwear` and `fully_undressed` (booleans).
@@ -37,7 +37,7 @@ All user-visible text remains in `localization/strings.json` (Ukrainian and Engl
 
 **All in-game interface strings are stored in [localization/strings.json](localization/strings.json)**, with two complete dictionaries: \`uk\` (Ukrainian, the default) and \`en\` (English). The menu code contains only stable translation keys, not visible phrases.
 
-Use **Select** on the gamepad (or **T** on the keyboard) to switch the language immediately. The language preference is saved to `user://skyval_settings.cfg`. The autoload `SkyvalLocale` exposes translations to other game interfaces. To add another language, supply the same keys in \`strings.json\`, then expose it through the locale selector.
+Language selection will live in the future **Settings** menu. The current preference is already saved in `user://skyval_settings.cfg`, and `SkyvalLocale` supplies localized strings. To add another language, supply the same keys in \`strings.json\`, then expose it through the locale selector.
 
 ### Female and male LPC assets
 
