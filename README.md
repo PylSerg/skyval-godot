@@ -6,6 +6,8 @@ Pixel-art top-down RPG prototype for Godot 4.7 (Compatibility renderer), targeti
 
 Press **C** in the test world to open the character creator. Press **C**, **Esc**, or the **Close** button to return to the game. While the creator is open, movement/camera physics are paused.
 
+**Menu keyboard/GPtoKEYB controls:** Up/Down selects a row; Left/Right changes its value; Q/E switches the tabs; Enter advances the selected value; R removes/restores all clothing; T switches Ukrainian/English. The selected row is highlighted in gold. The menu captures each key press before Godot's automatic GUI navigation, ignores key-repeat, and rejects same-key bounce within 120ms. On R36H, Start/X opens and closes; L1/R1 switches tabs; Y changes clothing; Select changes language. More details in [portmaster/README.md](portmaster/README.md).
+
 The editor has two tabs:
 - **Appearance:** male/female body type, skin tone, eye color, **five hairstyle shapes** (buzzcut, bedhead, curtains, mop, spiked), and hair color.
 - **Clothing:** independent choices for shirt, pants and footwear (five styles **plus None** per slot), with separate color settings.
