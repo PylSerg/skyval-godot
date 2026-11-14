@@ -4,11 +4,13 @@ Pixel-art top-down RPG prototype for Godot 4.7 (Compatibility renderer), targeti
 
 ## Character Creator v2.5: optional clothing, gender, outfits, localization
 
-Press **C** in the test world to open the character creator. Press **C**, **Esc**, or the **Close** button to return to the game. While the creator is open, movement/camera physics are paused.
+Press **C** in the test world to open the character creator. Press **C** or **Esc** to close it from the keyboard. On a controller, use **Start/X** to open or close it, or **B** to close it. While the creator is open, movement/camera physics are paused.
 
 **Menu keyboard/GPtoKEYB controls:** Up/Down selects a row; Left/Right changes its value; Q/E switches the tabs; Enter advances the selected value; R removes/restores all clothing; T switches Ukrainian/English. The selected row is highlighted in gold. The menu captures each key press before Godot's automatic GUI navigation, ignores key-repeat, and rejects same-key bounce within 120ms. On R36H, Start/X opens and closes; L1/R1 switches tabs; Y changes clothing; Select changes language. More details in [portmaster/README.md](portmaster/README.md).
 
 **USB controller on desktop:** Buttons are handled natively through `InputEventJoypadButton`. Start or X opens/closes the creator, A changes the selected value, B closes, Y toggles clothing, L1/R1 changes tabs, and Select toggles language. The D-pad and left stick navigate fields one step at a time. The game's world still only uses movement and camera axes; there are no attack or interaction actions yet. PortMaster's staged PCK explicitly sets `skyval/input/keyboard_emulated_gamepad=true` to avoid double processing when GPtoKEYB also generates keyboard events.
+
+The compact 320×240 editor no longer has a title/language/close button row; the two tabs now begin at the top of the panel. Only **gamepad-specific hints** appear at the bottom (D-pad navigation, L1/R1 tabs, B close, Select language, Y outfit). They are visible on PortMaster and when a native USB controller is connected, but hidden on keyboard-only desktop sessions. All these visible hints are localized in `localization/strings.json`.
 
 The editor has two tabs:
 - **Appearance:** male/female body type, skin tone, eye color, **five hairstyle shapes** (buzzcut, bedhead, curtains, mop, spiked), and hair color.
@@ -35,7 +37,7 @@ All user-visible text remains in `localization/strings.json` (Ukrainian and Engl
 
 **All in-game interface strings are stored in [localization/strings.json](localization/strings.json)**, with two complete dictionaries: \`uk\` (Ukrainian, the default) and \`en\` (English). The menu code contains only stable translation keys, not visible phrases.
 
-Click **УКР / ENG** in the editor header to switch language immediately. The preferred language is saved to \`user://skyval_settings.cfg\` across launches. The autoload \`SkyvalLocale\` provides \`SkyvalLocale.t("ui.title")\`; a future interface should use its translation keys too. To add another language, supply the same keys in \`strings.json\`, then expose it through the locale selector.
+Use **Select** on the gamepad (or **T** on the keyboard) to switch the language immediately. The language preference is saved to `user://skyval_settings.cfg`. The autoload `SkyvalLocale` exposes translations to other game interfaces. To add another language, supply the same keys in \`strings.json\`, then expose it through the locale selector.
 
 ### Female and male LPC assets
 
