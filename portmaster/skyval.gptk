@@ -1,0 +1,34 @@
+# Skyval R36H / PortMaster first-launch controls.
+# gptokeyb (not gptokeyb2) button=keyboard layout.
+# Map joysticks to keys to avoid reliance on native Godot joypad mapping.
+
+start = c
+a = enter
+b = esc
+x = c
+y = space
+
+up = up
+down = down
+left = left
+right = right
+
+left_analog_up = up
+left_analog_down = down
+left_analog_left = left
+left_analog_right = right
+
+right_analog_up = i
+right_analog_down = k
+right_analog_left = j
+right_analog_right = l
+
+l1 = 4
+r1 = 5
+l2 = 7
+r2 = 9
+
+deadzone_mode = scaled_radial
+deadzone = 3500
+deadzone_scale = 8
+mouse_scale = 8192
