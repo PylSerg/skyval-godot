@@ -1,33 +1,56 @@
 # Skyval
 
-2D top-down RPG prototype for Godot 4.7 (Compatibility renderer), targeting a 320×240 logical viewport on R36H (640×480 display).
+Godot 4.7 top-down RPG prototype with the GL Compatibility renderer, built for a 320×240 logical viewport (R36H display: 640×480).
 
-## Character System v1
+## Character System v2: real Universal LPC base body
 
-Run the project with F5. The existing test terrain and smooth camera remain unchanged.
+The game now reads a **real Universal LPC body spritesheet** from the local art library and animates it in four directions. The original GDScript-drawn character remains available as a fallback. No changes were made to the tested movement, collision, camera, or world.
 
-Controls:
-- Arrow keys: move (four directions, with four-frame walk/idle preview).
-- I/J/K/L: move the camera's look-ahead (right-stick emulator).
-- Controller: left stick or D-pad for movement, right stick for camera look.
-- 1: cycle tunic color; 2: cycle hair color; 3: equip/unequip sword.
+### Controls
 
-The current avatar is deliberately drawn in GDScript so the smoke test works without artwork. It demonstrates appearance slots but does not claim to render LPC sprites yet.
+- **Arrow keys / left stick**: movement, including facing and walking animations.
+- **I/J/K/L / right stick**: smooth camera look-around.
+- **4**: switch between real LPC body and original prototype avatar.
+- **5**: cycle real LPC skin variants (light, amber, olive, brown, bronze).
+- **1/2/3**: change prototype clothing, hair, and debug sword. These are **only visible in prototype mode** (press 4). Modular LPC clothing, hair, and equipment are the next step.
 
-### Optional Universal LPC renderer
+### Finding the actual LPC sprites
 
-The visual node at `Player/CharacterVisual` can use the Universal LPC addon at `res://addons/universal_lpc/` when its script, metadata and selected textures are installed **inside the Godot project**.
+The required file is `body/bodies/male/light.png` from the user's Universal LPC resource library. The game checks common directories under `$HOME/Godot/res`, including:
 
-Enable `use_universal_lpc`, set a validated `lpc_configuration` dictionary containing `body_type` and `selections`, then adjust `lpc_origin_offset` for foot alignment. The renderer automatically selects `idle-s/w/e/n` and `walk-s/w/e/n`. Example **schema only**: `{"body_type":"...","selections":{"valid/definition/path":"valid_variant"}}`.
+- `assets/lpc_sprites/body/bodies/male/light.png`
+- `assets/lpc_sprites/spritesheets/body/bodies/male/light.png`
+- `addons/Universal_LPC/resources/spritesheets/body/bodies/male/light.png`
+- `addons/universal_lpc/resources/spritesheets/body/bodies/male/light.png`
 
-The LPC library at `/home/serhii/Godot/res` is currently outside the game project; a `res://` resource path cannot directly load that sibling folder. For R36H exports, copy or install a *small licensed selection* of assets into the game. Do not commit all 900 MB. Preserve the artwork's required credits.
+If your folder layout differs, open `prototype/camera_test.tscn`, select **Player → CharacterVisual** and set **External Body Directory** to the **absolute folder path** containing `light.png`. Keep this machine-specific value out of commits unless intentionally shared.
 
-The addon is optional and disabled by default. Without it, the demo runs on the procedural preview.
+On startup, if the sprite can't be found or decoded, Skyval retains the working procedural preview and prints a warning. The game does not copy or index the entire asset library.
+
+### LPC animation layout
+
+This code reads the full 64×64 LPC sheet using the standard metadata layout:
+
+| Animation | Source Y | Frame columns | Rows |
+|---|---:|---|---|
+| Idle | 1408 | 0, 0, 1 | N, W, S, E |
+| Walk | 512 | 1, 2, 3, 4, 5, 6, 7, 8 | N, W, S, E |
+
+Each direction uses a row offset of 64 pixels. Sprite placement aligns the art with the existing player foot collision.
+
+### R36H export and art credits
+
+Absolute Linux paths are **development-only**. For handheld exports, pack a small set of approved PNG sheets at `res://assets/characters/lpc/body/male/` and adjust the loader if needed. Do not ship the full 900 MB resource library.
+
+LPC artwork has mixed per-asset licenses and attribution conditions. Review [Universal LPC licensing guidance](https://github.com/csaga77-godot-addons/universal_lpc/blob/main/artwork_credits/ARTWORK_LICENSING.md) and retain the required credits when shipping resources.
 
 ## Project files
 
-- `prototype/camera_test.gd`: terrain and world bounds
-- `prototype/smart_camera.gd`: smooth follow and look-around
-- `prototype/player.gd`: movement and debug input
-- `prototype/camera_test.tscn`: runnable test scene
-- `characters/character_visual.gd`: avatar display and appearance API
+- `prototype/camera_test.tscn`: runnable smoke test.
+- `prototype/camera_test.gd`: map and world bounds.
+- `prototype/smart_camera.gd`: smooth camera and right-stick view.
+- `prototype/player.gd`: movement and test keys.
+- `characters/character_visual.gd`: appearance controller, fallback and optional addon integration.
+- `characters/lpc_body_visual.gd`: actual LPC body PNG loader and idle/walk animations.
+
+**Status:** Files committed and verified in GitHub. Real Godot 4.7.2 execution still needs to be verified on the developer's Linux machine.
