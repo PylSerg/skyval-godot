@@ -48,14 +48,15 @@ for subdir in prototype characters ui localization; do
     cp -R "$ROOT/$subdir" "$STAGE/$subdir"
 done
 
-# Include the user's own Cascadia.ttf in the exported PCK (no Git copy
-# and no external download needed). The font is tiny compared to LPC art.
+# Prefer the static Cascadia Mono Regular from the connected asset library.
+# Copy only the font actually used by the creator, not the old Cascadia.ttf.
 FONT_SOURCE="${SKYVAL_FONT_PATH:-}"
 if [ -z "$FONT_SOURCE" ]; then
     for candidate in \
-        "$ROOT/assets/fonts/Cascadia.ttf" \
-        "$HOME/Godot/res/assets/fonts/Cascadia.ttf" \
-        "$HOME/Godot/res/addons/Godot_LPC_Spritesheet/assets/fonts/Cascadia.ttf"; do
+        "$ROOT/assets/fonts/CascadiaMono-Regular.ttf" \
+        "$HOME/Downloads/Cascadia_Mono/static/CascadiaMono-Regular.ttf" \
+        "$HOME/Cascadia_Mono/static/CascadiaMono-Regular.ttf" \
+        "$HOME/Godot/res/assets/fonts/CascadiaMono-Regular.ttf"; do
         if [ -f "$candidate" ]; then
             FONT_SOURCE="$candidate"
             break
@@ -64,10 +65,13 @@ if [ -z "$FONT_SOURCE" ]; then
 fi
 if [ -n "$FONT_SOURCE" ] && [ -f "$FONT_SOURCE" ]; then
     mkdir -p "$STAGE/assets/fonts"
-    cp "$FONT_SOURCE" "$STAGE/assets/fonts/Cascadia.ttf"
-    echo "Bundling local Cascadia font: $FONT_SOURCE"
+    cp "$FONT_SOURCE" "$STAGE/assets/fonts/CascadiaMono-Regular.ttf"
+    if [ -f "$ROOT/assets/fonts/OFL-CascadiaMono.txt" ]; then
+        cp "$ROOT/assets/fonts/OFL-CascadiaMono.txt" "$STAGE/assets/fonts/OFL-CascadiaMono.txt"
+    fi
+    echo "Bundling Cascadia Mono Regular font: $FONT_SOURCE"
 else
-    echo "NOTE: Cascadia.ttf not found; Godot default UI font will be used."
+    echo "NOTE: CascadiaMono-Regular.ttf not found; Godot default UI font will be used."
 fi
 
 # Only the current default outfit, both body types, and basic face/hair.

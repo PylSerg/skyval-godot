@@ -60,7 +60,7 @@ func _tr(key: String) -> String:
 func _load_cascadia_font() -> void:
     # Project-local copy works in the exported PortMaster PCK.
     # In the desktop checkout, reuse the user's external asset library.
-    var bundled_path: String = "res://assets/fonts/Cascadia.ttf"
+    var bundled_path: String = "res://assets/fonts/CascadiaMono-Regular.ttf"
     if ResourceLoader.exists(bundled_path):
         _ui_font = load(bundled_path) as FontFile
         if _ui_font != null:
@@ -69,8 +69,9 @@ func _load_cascadia_font() -> void:
     if _ui_font == null:
         var home: String = OS.get_environment("HOME")
         var candidates: PackedStringArray = [
-            home.path_join("Godot/res/assets/fonts/Cascadia.ttf"),
-            home.path_join("Godot/res/addons/Godot_LPC_Spritesheet/assets/fonts/Cascadia.ttf"),
+            home.path_join("Downloads/Cascadia_Mono/static/CascadiaMono-Regular.ttf"),
+            home.path_join("Cascadia_Mono/static/CascadiaMono-Regular.ttf"),
+            home.path_join("Godot/res/assets/fonts/CascadiaMono-Regular.ttf"),
         ]
         for path in candidates:
             if not FileAccess.file_exists(path):
@@ -89,10 +90,16 @@ func _load_cascadia_font() -> void:
         _ui_font.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
         _ui_font.force_autohinter = true
 
-        # This supplied Cascadia TTF lacks Cyrillic glyphs. Preserve
-        # Ukrainian labels with the built-in theme font as fallback.
+        # Only use a Cyrillic fallback when a concrete font lacks Ukrainian.
+        # Static Cascadia Mono can render Ukrainian itself if it has the glyphs.
+        var has_ukrainian: bool = true
+        var supported_chars: String = _ui_font.get_supported_chars()
+        for letter in ["і", "ї", "є", "ґ", "І", "Ї", "Є", "Ґ"]:
+            if not supported_chars.contains(letter):
+                has_ukrainian = false
+                break
         var fallback: Font = ThemeDB.fallback_font
-        if fallback != null and not _ui_font.get_supported_chars().contains("і"):
+        if fallback != null and not has_ukrainian:
             var fallback_copy: Font = fallback.duplicate() as Font
             if fallback_copy is FontFile:
                 var fallback_file: FontFile = fallback_copy as FontFile
@@ -100,10 +107,10 @@ func _load_cascadia_font() -> void:
                 fallback_file.hinting = TextServer.HINTING_NORMAL
                 fallback_file.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
             _ui_font.fallbacks = [fallback_copy]
-            push_warning("Skyval UI: Cascadia lacks Ukrainian glyphs; using built-in fallback for Cyrillic.")
-        print("Skyval UI: Cascadia font ready")
+            push_warning("Skyval UI: Cascadia Mono lacks some Ukrainian glyphs; using a built-in fallback.")
+        print("Skyval UI: Cascadia Mono ready, Ukrainian glyphs=", has_ukrainian)
     else:
-        push_warning("Skyval UI: Cascadia.ttf not found; falling back to Godot's default font.")
+        push_warning("Skyval UI: CascadiaMono-Regular.ttf not found; using Godot default font.")
 
 # Capture native gamepad input before Godot GUI focus routing.
 # Keyboard events are deliberately ignored by all gameplay menus.

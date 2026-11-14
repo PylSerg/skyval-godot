@@ -38,18 +38,18 @@ The menu has a 3× character portrait and two tabs. The left panel uses a
 The five appearance fields fit at once; the six clothing fields scroll
 automatically as the player navigates. The right-side portrait stays fixed.
 
-The UI prefers the project-local `assets/fonts/Cascadia.ttf`.
-Run `bash tools/install_cascadia.sh` once to copy it from
-`$HOME/Godot/res/assets/fonts/Cascadia.ttf` into the Git checkout.
-The PortMaster builder already includes the project font in the PCK.
-Without the project copy, desktop development can still use the external
-asset. `SKYVAL_FONT_PATH` overrides the builder's font location.
+The UI prefers the static **Cascadia Mono Regular** at
+`assets/fonts/CascadiaMono-Regular.ttf`. This is the correct font discovered
+through Kvoka File Bridge at `Cascadia_Mono/static/CascadiaMono-Regular.ttf`
+(about 402.5 KB). Run `bash tools/install_cascadia.sh` to copy it from a
+local `Cascadia_Mono` download folder to the Git checkout, or pass its
+absolute source path as the first argument. The PortMaster builder includes
+the project font in its PCK. No fonts are downloaded.
 
-**Important:** The supplied Cascadia 1909.16 TTF only has Latin glyphs
-(102 Unicode code points), not Ukrainian Cyrillic. The UI uses Godot's
-built-in fallback for Ukrainian text. In Godot 4.7 use
-`TextServer.HINTING_NORMAL`, not the nonexistent `HINTING_FULL`,
-with integer-aligned subpixel positioning.
+Godot 4.7 uses `TextServer.HINTING_NORMAL` and disables subpixel placement.
+The code checks for Ukrainian letters in the selected Mono font and enables
+a built-in fallback only for missing glyphs. The prior
+`assets/fonts/CascadiaMono-Regular.ttf` is no longer used.
 
 Clothing styles include **None / Немає**, so each item can be removed
 individually. No quick-undress button or language switch is present.
@@ -111,17 +111,17 @@ See [portmaster/README.md](portmaster/README.md) for details.
 Native controller input and partial-tilt walking were tested successfully
 on R36H. The UI font/layout updates still need a physical-console check.
 
-### Bundle the font into Git
+### Bundle the correct font in Git
 
-After `bash tools/install_cascadia.sh` the font will exist inside the
-project at `assets/fonts/Cascadia.ttf`. Godot imports the TTF when
-opening the project; its generated `.ttf.import` need not be committed.
+After placing the downloaded `Cascadia_Mono` directory locally, run:
 
 ```bash
-git add assets/fonts/Cascadia.ttf
-git commit -m "Bundle Cascadia font in Skyval"
+bash tools/install_cascadia.sh /full/path/to/Cascadia_Mono/static/CascadiaMono-Regular.ttf
+git add -A assets/fonts
+git commit -m "Use Cascadia Mono Regular in Skyval"
 git push
 ```
 
-The GitHub text-file connector can commit code but not upload raw font
-binary attachments, so commit the font once from your local checkout.
+The installer also copies `OFL.txt` from the downloaded font directory,
+when available. The GitHub connector cannot read the TTF bytes from the
+browser bridge, so this one-time binary commit is done locally.
