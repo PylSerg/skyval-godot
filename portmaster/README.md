@@ -77,17 +77,19 @@ both an emulated key and a native joypad event.
 | D-pad ↑/↓ | Walk | Previous/next option |
 | D-pad ←/→ | Walk | Change the selected option once |
 | Left stick | Walk | Same as D-pad |
-| Right stick | Camera look | Not used |
+| Right stick | Camera look | Rotate 3× character portrait (four facings) |
 | Start / X | Open creator | Close creator |
 | L1 / R1 | Reserved | Appearance / Clothing tab |
 | A | Reserved | Advance the selected option |
 | B | Reserved | Close creator |
-| Y | Reserved | Remove all / restore previous outfit |
-| Select | Reserved | Toggle Ukrainian / English |
+| Y | Reserved | Unbound |
+| Select | Reserved | Unbound (language moves to Settings) |
 | L2 / R2 | Debug appearance shortcuts | Not used |
 
-The selected row is highlighted in gold. Each keyboard press runs only once;
-the creator ignores OS key-repeat and applies a 120ms per-key bounce guard.
+The selected row is highlighted in gold. Each keyboard press runs once;
+the creator ignores OS key-repeat and uses a 120ms bounce guard.
+No help labels or instant-undress controls remain in the creator.
+The 3× preview turns using right-stick I/J/K/L key emulation.
 Mouse clicking continues to work on desktop.
 
 To update an **existing SD card**, rebuild the PCK with
