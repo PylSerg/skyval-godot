@@ -9,8 +9,10 @@ Godot 4.7.1 (aarch64) runtime and Westonpack 0.2 on ArkOS.
 - GPtoKEYB is still launched but **without -c**. It only handles
   PortMaster's system exit hotkey (typically Start + Select).
 - No `skyval.gptk` is used or shipped.
-- The launcher passes PortMaster's `sdl_controllerconfig` explicitly
-  as `SDL_GAMECONTROLLERCONFIG` to the Godot runtime.
+- The launcher exports PortMaster's `sdl_controllerconfig` to the host
+  environment, **not** as an inline `westonwrap.sh` command argument.
+  Passing the spaced `GO-Super Gamepad` mapping via the wrapper's
+  command string causes an immediate shell error (exit 127).
 - The `skyval/input/keyboard_emulated_gamepad` project setting is gone.
 - All former character creator debug keyboard bindings are removed.
 
