@@ -56,12 +56,17 @@ read it.
 | Button | In world | In creator |
 |---|---|---|
 | Left stick | Analog walking only | Up/down select, left/right change |
-| D-pad | Reserved for future quick actions (items, weapons) | Up/down select, left/right change |
+| D-pad ↓ | Open character creator | Next option |
+| D-pad ↑/←/→ | Reserved for future quick actions (items, weapons) | Up selects, left/right changes |
 | Right stick | Camera look-around | One ±90° turn per horizontal flick |
-| Start / X | Open creator | Close creator |
+| Start / X | Reserved | Close creator |
 | B | Reserved | Close creator |
 | A | Reserved | Change selected value |
 | L1 / R1 | Reserved | Appearance / Clothing tab |
+
+D-pad Down opens the creator from the world. Once open, it navigates
+down through options; B, Start or X closes the creator. Start/X do not
+open it from the world anymore.
 
 The creator ignores vertical right-stick movements. It pauses the world;
 recenter the right stick before each new 90° step. The D-pad remains active

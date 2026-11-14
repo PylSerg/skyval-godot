@@ -74,7 +74,9 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
     _held_joy_buttons[button_id] = true
 
     if not _opened:
-        if event.button_index == JOY_BUTTON_START or event.button_index == JOY_BUTTON_X:
+        # World shortcut: D-pad Down opens the creator.
+        # Start and X are freed for future world-level actions.
+        if event.button_index == JOY_BUTTON_DPAD_DOWN:
             _set_open(true)
             get_viewport().set_input_as_handled()
         return

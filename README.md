@@ -13,13 +13,18 @@ is used for both targets.
 | Control | World | Character creator |
 |---|---|---|
 | Left stick | Analog walk (speed depends on tilt) | Select item / change value |
-| D-pad | Reserved for future equipment/items | Select item / change value |
+| D-pad ↓ | Open character creator | Next item |
+| D-pad ↑/←/→ | Reserved for future equipment/items | Select item / change value |
 | Right stick | Smooth camera look | Horizontal flick rotates portrait ±90° |
-| Start or X | Open creator | Close creator |
+| Start or X | Reserved | Close creator |
 | B | Reserved | Close creator |
 | A | Reserved | Change selected option |
 | L1 / R1 | Reserved | Appearance / Clothing tab |
 | Other buttons | Reserved | Reserved |
+
+Press **D-pad Down** in the world to open the character creator; D-pad Down
+then returns to its usual menu-navigation role. Close the creator using
+**B**, **Start**, or **X**. Start/X no longer open it from the world.
 
 The creator pauses world movement. Its right-stick rotation cycles through
 **front → right → back → left → front**, one 90° step per horizontal tilt.
