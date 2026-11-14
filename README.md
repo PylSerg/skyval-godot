@@ -8,6 +8,8 @@ Press **C** in the test world to open the character creator. Press **C**, **Esc*
 
 **Menu keyboard/GPtoKEYB controls:** Up/Down selects a row; Left/Right changes its value; Q/E switches the tabs; Enter advances the selected value; R removes/restores all clothing; T switches Ukrainian/English. The selected row is highlighted in gold. The menu captures each key press before Godot's automatic GUI navigation, ignores key-repeat, and rejects same-key bounce within 120ms. On R36H, Start/X opens and closes; L1/R1 switches tabs; Y changes clothing; Select changes language. More details in [portmaster/README.md](portmaster/README.md).
 
+**USB controller on desktop:** Buttons are handled natively through `InputEventJoypadButton`. Start or X opens/closes the creator, A changes the selected value, B closes, Y toggles clothing, L1/R1 changes tabs, and Select toggles language. The D-pad and left stick navigate fields one step at a time. The game's world still only uses movement and camera axes; there are no attack or interaction actions yet. PortMaster's staged PCK explicitly sets `skyval/input/keyboard_emulated_gamepad=true` to avoid double processing when GPtoKEYB also generates keyboard events.
+
 The editor has two tabs:
 - **Appearance:** male/female body type, skin tone, eye color, **five hairstyle shapes** (buzzcut, bedhead, curtains, mop, spiked), and hair color.
 - **Clothing:** independent choices for shirt, pants and footwear (five styles **plus None** per slot), with separate color settings.
