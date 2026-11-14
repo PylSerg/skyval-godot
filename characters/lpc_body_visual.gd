@@ -58,7 +58,11 @@ func _ready() -> void:
 func _candidate_dirs() -> PackedStringArray:
     var result := PackedStringArray()
     if not body_directory_override.strip_edges().is_empty():
-        result.append(body_directory_override.strip_edges())
+        var custom_dir: String = body_directory_override.strip_edges()
+        # If an override points to .../male, allow a female switch too.
+        if custom_dir.get_file() == "male" or custom_dir.get_file() == "female":
+            custom_dir = custom_dir.get_base_dir().path_join(body_type)
+        result.append(custom_dir)
 
     var home: String = OS.get_environment("HOME")
     if not home.is_empty():
@@ -278,3 +282,60 @@ func _cycle_option(property_name: String, options: Array) -> void:
             return
     set(property_name, previous)
     push_warning("Skyval LPC: no valid alternate garment for %s" % property_name)
+
+# Character creator API: use property keys, not translated display strings.
+# Changing the body type also switches head, face, shirt, trousers and shoes.
+func change_body_type() -> bool:
+    if not available:
+        return false
+    var previous: String = body_type
+    body_type = "female" if body_type == "male" else "male"
+    if _load_appearance(skin_variant):
+        return true
+    body_type = previous
+    return false
+
+func change_option(option_key: String, direction: int) -> bool:
+    if not available:
+        return false
+    match option_key:
+        "body_type":
+            return change_body_type()
+        "skin_variant":
+            return _change_skin(direction)
+        "hair_variant":
+            return _change_variant("hair_variant", HAIR_COLORS, direction)
+        "shirt_variant":
+            return _change_variant("shirt_variant", SHIRT_COLORS, direction)
+        "pants_variant":
+            return _change_variant("pants_variant", PANTS_COLORS, direction)
+        "boots_variant":
+            return _change_variant("boots_variant", BOOTS_COLORS, direction)
+        "shirt_style":
+            return _change_variant("shirt_style", SHIRT_STYLES, direction)
+        "pants_style":
+            return _change_variant("pants_style", PANTS_STYLES, direction)
+        "footwear_style":
+            return _change_variant("footwear_style", FOOTWEAR_STYLES, direction)
+    return false
+
+func _change_skin(direction: int) -> bool:
+    var start: int = maxi(SKINS.find(skin_variant), 0)
+    var step_direction: int = 1 if direction >= 0 else -1
+    for step in range(1, SKINS.size()):
+        var index: int = posmod(start + step * step_direction, SKINS.size())
+        if _load_appearance(SKINS[index]):
+            return true
+    return false
+
+func _change_variant(property_name: String, options: Array, direction: int) -> bool:
+    var previous: String = str(get(property_name))
+    var start: int = maxi(options.find(previous), 0)
+    var step_direction: int = 1 if direction >= 0 else -1
+    for step in range(1, options.size()):
+        var index: int = posmod(start + step * step_direction, options.size())
+        set(property_name, str(options[index]))
+        if _load_appearance(skin_variant):
+            return true
+    set(property_name, previous)
+    return false
