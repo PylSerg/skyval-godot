@@ -1,9 +1,10 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://prototype/camera_test.gd" id="1_world"]
 [ext_resource type="Script" path="res://prototype/player.gd" id="2_player"]
 [ext_resource type="Script" path="res://prototype/smart_camera.gd" id="3_smart_camera"]
 [ext_resource type="Script" path="res://characters/character_visual.gd" id="4_visual"]
+[ext_resource type="Script" path="res://ui/character_creator.gd" id="5_creator"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(10, 8)
@@ -28,3 +29,7 @@ enabled = true
 zoom = Vector2(1, 1)
 position_smoothing_enabled = false
 script = ExtResource("3_smart_camera")
+
+[node name="CharacterCreator" type="CanvasLayer" parent="."]
+layer = 2
+script = ExtResource("5_creator")
