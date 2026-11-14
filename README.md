@@ -2,7 +2,7 @@
 
 Godot 4.7 top-down RPG prototype with the GL Compatibility renderer, built for a 320×240 logical viewport (R36H display: 640×480).
 
-## Character System v2.2: dressed Universal LPC character
+## Character System v2.3: modular LPC clothing styles
 
 The game reads **real Universal LPC spritesheets** for the body, human head, face, eyes, short hair, **shirt, pants and boots** from the local art library. All available layers animate together in four directions. The original GDScript-drawn character remains available as a fallback. No changes were made to the tested movement, collision, camera, or world.
 
@@ -12,7 +12,15 @@ The game reads **real Universal LPC spritesheets** for the body, human head, fac
 - **I/J/K/L / right stick**: smooth camera look-around.
 - **4**: switch between real LPC body and original prototype avatar.
 - **5**: cycle real LPC skin variants (light, amber, olive, brown, bronze).
-- **1/2/3**: change prototype clothing, hair, and debug sword. These are **only visible in prototype mode** (press 4). Modular LPC clothing, hair, and equipment are the next step.
+- **1**: change LPC shirt color (prototype outfit color when LPC is off).
+- **2**: change LPC hair color (prototype hair color when LPC is off).
+- **3**: change LPC pants color (toggle prototype sword when LPC is off).
+- **6**: change LPC footwear color.
+- **7**: cycle **LPC shirt style**.
+- **8**: cycle **LPC pants style**.
+- **9**: cycle **LPC footwear style**.
+
+Color and style are separate choices. The five style options per slot use the existing LPC animation rows; switching doesn't change the camera, movement, or player hitbox.
 
 ### Finding the actual LPC sprites
 
@@ -38,6 +46,22 @@ The v2.2 starting outfit is **blue short-sleeved shirt**, **charcoal pants**, **
 | Shirt | `torso/clothes/shortsleeve/shortsleeve/male/blue.png` | 35 |
 
 All three are sampled from the **same animation rows and 64px cells** as the body and head. If a garment's texture is missing, the complete new outfit is rejected instead of silently leaving an undressed or partially dressed hero. Female body type uses the `female` shirt sheet and `thin` legs/feet sheets.
+
+### Clothing styles
+
+Each slot has five tested LPC sprite directories and preserves its currently selected color while switching styles.
+
+| Hotkey | Slot | Styles in cycle order |
+|---|---|---|
+| **7** | Shirts | Shortsleeve · T-shirt · Longsleeve · Sleeveless · Polo |
+| **8** | Pants | Pants · Long Pants · Formal · Cuffed · Pantaloons |
+| **9** | Footwear | Basic boots · Folded boots · Rimmed boots · Basic shoes · Revised shoes |
+
+The initial outfit remains the blue short-sleeved shirt, charcoal pants and brown basic boots. Style changes retain independently chosen colors, using the same `male` or `female/thin` LPC sheet variants as the existing outfit. If a needed garment is missing, the character keeps the previous look and the program tries the next style. In Godot's **Output**, a successful change logs the selected style path.
+
+Footwear uses LPC metadata depth sorting: **boots at z=25**, while **shoes at z=15** so the trousers can overlap them. Pants remain at z=20 and shirts at z=35. Each set of frames stays synchronized with the other character layers.
+
+The style list is deliberately small and curated for the prototype. We can later drive it through a proper inventory/catalog.
 
 ### LPC animation layout
 
@@ -65,4 +89,4 @@ LPC artwork has mixed per-asset licenses and attribution conditions. Review [Uni
 - `characters/character_visual.gd`: appearance controller, fallback and optional addon integration.
 - `characters/lpc_body_visual.gd`: real LPC layered sprite loader (body, clothes, head, face, eyes, hair) with synchronized idle/walk animations.
 
-**Status:** Files committed and verified in GitHub. Real Godot 4.7.2 execution still needs to be verified on the developer's Linux machine.
+**Status:** Source, actual LPC directory paths and GitHub commits verified. Test v2.3 in Godot 4.7.2 on the developer's Linux machine after pulling.
