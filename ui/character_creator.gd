@@ -26,6 +26,7 @@ var _footer: Label
 var _preview_title: Label
 var _preview: Control
 var _missing_label: Label
+var _wardrobe_button: Button
 var _value_labels: Dictionary = {}
 var _locale: Node
 
@@ -164,6 +165,15 @@ func _build_interface() -> void:
     _missing_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _root.add_child(_missing_label)
 
+    # The bottom of the preview has 19 free logical pixels at 320x240.
+    # Keep this action outside the dense six-row clothing form.
+    _wardrobe_button = _button()
+    _wardrobe_button.position = Vector2(212, 222)
+    _wardrobe_button.size = Vector2(103, 16)
+    _wardrobe_button.add_theme_font_size_override("font_size", 9)
+    _root.add_child(_wardrobe_button)
+    _wardrobe_button.pressed.connect(_toggle_all_clothes)
+
     _refresh_text()
 
 func _button() -> Button:
@@ -212,6 +222,7 @@ func _refresh_text() -> void:
     _missing_label.visible = not avatar.has_lpc_character()
     _preview.set("character", avatar.get_lpc_character())
     _preview.queue_redraw()
+    _refresh_wardrobe_button()
     _rebuild_rows()
 
 func _rebuild_rows() -> void:
@@ -259,15 +270,31 @@ func _localized_value(key: String) -> String:
     if not avatar.has_lpc_character():
         return _tr("ui.missing_lpc")
     var value: String = avatar.get_lpc_option(key)
+    if value == "none":
+        return _tr("value.clothing.none")
     if key == "body_type" or key.ends_with("_style"):
         return _tr("value." + key + "." + value.replace("/", "_"))
     return _tr("color." + value)
 
+func _refresh_wardrobe_button() -> void:
+    if _wardrobe_button == null:
+        return
+    _wardrobe_button.disabled = not avatar.has_lpc_character()
+    _wardrobe_button.text = _tr("ui.restore_outfit") if avatar.is_lpc_fully_undressed() else _tr("ui.remove_all")
+
+func _refresh_options() -> void:
+    # Refresh live labels rather than rebuilding rows, preserving button focus.
+    for option_key in _value_labels.keys():
+        var field_label: Label = _value_labels[option_key] as Label
+        if is_instance_valid(field_label):
+            field_label.text = _localized_value(str(option_key))
+    _refresh_wardrobe_button()
+    _preview.queue_redraw()
+
+func _toggle_all_clothes() -> void:
+    if avatar.toggle_lpc_all_clothes():
+        _refresh_options()
+
 func _adjust(key: String, direction: int) -> void:
     if avatar.change_lpc_option(key, direction):
-        # Keep focused controls alive, so keyboard/gamepad navigation is smooth.
-        for option_key in _value_labels.keys():
-            var field_label: Label = _value_labels[option_key] as Label
-            if is_instance_valid(field_label):
-                field_label.text = _localized_value(str(option_key))
-        _preview.queue_redraw()
+        _refresh_options()
