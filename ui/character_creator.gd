@@ -556,6 +556,18 @@ func begin_creation() -> void:
     _set_open(true)
 
 
+# The name-entry B action returns to the SAME unfinished creation
+# draft. Do not reset the LPC appearance, counters, or selection, and do
+# not allocate a profile or save until the character name is confirmed.
+func resume_creation() -> void:
+    if not appearance_window or _opened:
+        return
+    _creation_mode = true
+    _confirmation_open = false
+    _edit_snapshot.clear()
+    _set_open(true)
+
+
 func open_for_edit() -> void:
     # Public entrypoint for future NPC/dialogue or other character services.
     if not appearance_window or _opened:
