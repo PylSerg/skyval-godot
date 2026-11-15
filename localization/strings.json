@@ -2,6 +2,7 @@
   "uk": {
     "ui.title": "Персонаж",
     "ui.appearance": "Зовнішність",
+    "ui.confirm_character": "Створити персонажа",
     "ui.clothes": "Одяг",
     "ui.close": "Закрити",
     "ui.language": "Мова",
@@ -82,6 +83,7 @@
   "en": {
     "ui.title": "Character",
     "ui.appearance": "Appearance",
+    "ui.confirm_character": "Create character",
     "ui.clothes": "Clothes",
     "ui.close": "Close",
     "ui.language": "Language",
