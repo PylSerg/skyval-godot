@@ -8,7 +8,7 @@ const LocaleScript = preload("res://localization/localization.gd")
 const FONT_PATH := "res://assets/fonts/CascadiaMono-Regular.ttf"
 const FONT_SIZE := 14
 const GRID_COLUMNS := 8
-const NAME_WIDTH := 288.0
+const NAME_WIDTH := 264.0
 const NAME_SPACING := 2
 const ACTIVE := Color("#e7ca86")
 const PRESS_THRESHOLD := 0.65
@@ -27,6 +27,7 @@ var _slots: Array[Label] = []
 var _name: String = ""
 var _selected: int = 0
 var _max_length: int = 0
+var _slot_width: float = 0.0
 var _body_type: String = "male"
 var _opened: bool = false
 var _confirmation: String = ""
@@ -61,10 +62,17 @@ func ensure_initialized() -> void:
             _font = _font.duplicate() as FontFile
             _font.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
             _font.hinting = TextServer.HINTING_NORMAL
+    # Label's true minimum includes the glyph width; dividing the full
+    # row by the raw width of only "Щ" produced too many name slots,
+    # expanding the parent PanelContainer beyond the 320px viewport.
+    # Use the widest displayed glyph, round UP to whole pixels and reserve
+    # 1px of slack per slot for fonts and Godot's container rounding.
     var glyph_width: float = 9.0
     if _font != null:
-        glyph_width = maxf(1.0, _font.get_string_size("Щ", HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x)
-    _max_length = maxi(1, int(floor((NAME_WIDTH + NAME_SPACING) / (glyph_width + NAME_SPACING))))
+        for symbol in ["_", "Щ", "W", "М"]:
+            glyph_width = maxf(glyph_width, _font.get_string_size(symbol, HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x)
+    _slot_width = ceilf(glyph_width) + 1.0
+    _max_length = maxi(1, int(floor((NAME_WIDTH + NAME_SPACING) / (_slot_width + NAME_SPACING))))
     _build_interface()
     _root.hide()
 
@@ -324,9 +332,10 @@ func _build_interface() -> void:
 
     var panel := PanelContainer.new()
     panel.name = "Panel"
-    panel.position = Vector2(5, 4)
-    panel.custom_minimum_size = Vector2(310, 232)
-    panel.size = Vector2(310, 232)
+    # 10px safe margins in the 320px game viewport.
+    panel.position = Vector2(10, 4)
+    panel.custom_minimum_size = Vector2(300, 232)
+    panel.size = Vector2(300, 232)
     var panel_style := StyleBoxFlat.new()
     panel_style.bg_color = Color("#202c3c")
     panel_style.border_color = Color("#7e95ae")
@@ -350,12 +359,12 @@ func _build_interface() -> void:
     _name_row.add_theme_constant_override("separation", NAME_SPACING)
     _name_row.alignment = BoxContainer.ALIGNMENT_CENTER
     _name_row.custom_minimum_size.y = 22
+    _name_row.clip_contents = true
     stack.add_child(_name_row)
-    var slot_width: float = (NAME_WIDTH + NAME_SPACING) / float(_max_length) - NAME_SPACING
     for i in range(_max_length):
         var slot := _new_label(FONT_SIZE)
         slot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        slot.custom_minimum_size = Vector2(slot_width, 20)
+        slot.custom_minimum_size = Vector2(_slot_width, 20)
         _name_row.add_child(slot)
         _slots.append(slot)
 
