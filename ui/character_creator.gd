@@ -704,8 +704,7 @@ func _rebuild_inventory_rows() -> void:
 
 
 func _activate_inventory_selection() -> void:
-    if not _can_navigate():
-        return
+    # A is an explicit action, not stick navigation. Do not debounce it.
     _inventory_action(_selected_index)
 
 
