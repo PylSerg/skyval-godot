@@ -144,8 +144,8 @@
     "game.quick_load": "Швидке завантаження",
     "game.save": "Зберегти",
     "game.load": "Завантажити",
-    "game.main_menu": "Головне меню",
-    "game.main_confirm": "Вийти в головне меню? Поточний прогрес буде збережено.",
+    "game.main_menu": "Головний екран",
+    "game.main_confirm": "Повернутися на головний екран? Поточний прогрес буде збережено.",
     "save.no_slots": "Немає доступних збережень",
     "save.load_title": "Завантаження",
     "save.load_hint": "A: вибрати  B: назад",
@@ -162,7 +162,9 @@
     "save.name_hint": "A: літера  B: меню\nY: випадкове  X: готово",
     "save.name_empty": "Введіть назву збереження!",
     "save.name_exit": "Скасувати створення збереження?",
-    "save.name_confirm": "Зберегти гру як «%s»?"
+    "save.name_confirm": "Зберегти гру як «%s»?",
+    "game.quit": "Вийти з гри",
+    "game.quit_confirm": "Вийти з гри? Поточний прогрес буде збережено."
   },
   "en": {
     "ui.title": "Character",
@@ -309,8 +311,8 @@
     "game.quick_load": "Quick Load",
     "game.save": "Save Game",
     "game.load": "Load Game",
-    "game.main_menu": "Main Menu",
-    "game.main_confirm": "Return to main menu? Your current progress will be saved.",
+    "game.main_menu": "Title Screen",
+    "game.main_confirm": "Return to the title screen? Current progress will be saved.",
     "save.no_slots": "No saves available",
     "save.load_title": "Load Game",
     "save.load_hint": "A: select  B: back",
@@ -327,6 +329,8 @@
     "save.name_hint": "A: letter  B: menu\nY: random  X: confirm",
     "save.name_empty": "Enter a save name!",
     "save.name_exit": "Cancel creating this save?",
-    "save.name_confirm": "Save game as «%s»?"
+    "save.name_confirm": "Save game as «%s»?",
+    "game.quit": "Quit Game",
+    "game.quit_confirm": "Quit the game? Current progress will be saved."
   }
 }
