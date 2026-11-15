@@ -23,6 +23,8 @@ const PANEL_INSET := 7
 const FIELD_GROUP_SPACING := 12
 const FIELD_INNER_SPACING := 5
 const TAB_SLIDE_SECONDS := 0.18
+# Equal left/right padding for each tab; labels determine natural tab width.
+const TAB_HORIZONTAL_PADDING := 10
 
 @onready var avatar: SkyvalCharacterVisual = get_parent().get_node("Player/CharacterVisual") as SkyvalCharacterVisual
 
@@ -40,6 +42,7 @@ var _joy_axis_direction: Dictionary = {}
 var _right_stick_latched: Dictionary = {}
 var _last_navigation_ms: int = -10000
 var _root: Control
+var _tab_scroll: ScrollContainer
 var _tab_appearance: Button
 var _tab_clothes: Button
 var _rows: VBoxContainer
@@ -296,19 +299,28 @@ func _build_interface() -> void:
     stack.add_theme_constant_override("separation", 4)
     panel.add_child(stack)
 
-    # The tabs are now the top row. Controller shortcuts replace the
-    # redundant title / language / close header on a 320x240 screen.
+    # Tabs take their natural text width plus equal side padding. The
+    # horizontal strip scrolls independently; neither tab is compressed to
+    # share the available width. L1 / R1 still select the pages.
+    _tab_scroll = ScrollContainer.new()
+    _tab_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    _tab_scroll.custom_minimum_size.y = 27
+    _tab_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+    _tab_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    stack.add_child(_tab_scroll)
+
     var tabs := HBoxContainer.new()
     tabs.add_theme_constant_override("separation", 2)
-    stack.add_child(tabs)
+    _tab_scroll.add_child(tabs)
+
     _tab_appearance = _button()
-    _tab_appearance.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    _tab_appearance.size_flags_horizontal = Control.SIZE_FILL
     _tab_appearance.custom_minimum_size.y = 20
     tabs.add_child(_tab_appearance)
     _tab_appearance.pressed.connect(_set_page.bind(0))
 
     _tab_clothes = _button()
-    _tab_clothes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    _tab_clothes.size_flags_horizontal = Control.SIZE_FILL
     _tab_clothes.custom_minimum_size.y = 20
     tabs.add_child(_tab_clothes)
     _tab_clothes.pressed.connect(_set_page.bind(1))
@@ -365,6 +377,8 @@ func _update_tab_styles() -> void:
         style.border_color = Color("#e7ca86") if selected else Color("#667f9a")
         style.set_border_width_all(1)
         style.set_content_margin_all(2)
+        style.set_content_margin(SIDE_LEFT, TAB_HORIZONTAL_PADDING)
+        style.set_content_margin(SIDE_RIGHT, TAB_HORIZONTAL_PADDING)
         button.add_theme_stylebox_override("normal", style)
         var hover := style.duplicate() as StyleBoxFlat
         hover.bg_color = Color("#6a8cac") if selected else Color("#4c6986")
@@ -374,6 +388,18 @@ func _update_tab_styles() -> void:
         button.add_theme_stylebox_override("pressed", pressed)
         var color: Color = Color("#fff0c8") if selected else Color("#edf1f5")
         button.add_theme_color_override("font_color", color)
+
+
+func _reveal_active_tab() -> void:
+    # Layout must settle after button text or selection changes before
+    # bringing an off-screen tab into view. Scrolling is horizontal only.
+    var target_page: int = _page
+    await get_tree().process_frame
+    if not is_instance_valid(_tab_scroll) or target_page != _page:
+        return
+    var active: Button = _tab_appearance if target_page == 0 else _tab_clothes
+    if is_instance_valid(active):
+        _tab_scroll.ensure_control_visible(active)
 
 
 func _button() -> Button:
@@ -449,6 +475,7 @@ func _refresh_text() -> void:
     _tab_appearance.text = _tr("ui.appearance")
     _tab_clothes.text = _tr("ui.clothes")
     _update_tab_styles()
+    _reveal_active_tab()
     _missing_label.text = _tr("ui.missing_lpc")
     _missing_label.visible = not avatar.has_lpc_character()
     _preview.set("character", avatar.get_lpc_character())
