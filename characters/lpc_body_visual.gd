@@ -357,6 +357,69 @@ func _change_variant(property_name: String, options: Array, direction: int) -> b
     set(property_name, previous)
     return false
 
+# Keep save files independent of sprite paths and translated labels.
+# Import is validated against supported variants before rebuilding layers.
+func export_appearance_state() -> Dictionary:
+    return {
+        "body_type": body_type,
+        "skin_variant": skin_variant,
+        "hair_variant": hair_variant,
+        "hair_style": hair_style,
+        "eye_variant": eye_variant,
+        "shirt_variant": shirt_variant,
+        "pants_variant": pants_variant,
+        "boots_variant": boots_variant,
+        "shirt_style": shirt_style,
+        "pants_style": pants_style,
+        "footwear_style": footwear_style,
+    }
+
+
+func apply_appearance_state(saved: Dictionary) -> bool:
+    if not available:
+        return false
+    var previous: Dictionary = export_appearance_state()
+    var supported: Dictionary = {
+        "body_type": ["male", "female"],
+        "skin_variant": SKINS,
+        "hair_variant": HAIR_COLORS,
+        "hair_style": HAIR_STYLES,
+        "eye_variant": EYE_COLORS,
+        "shirt_variant": SHIRT_COLORS,
+        "pants_variant": PANTS_COLORS,
+        "boots_variant": BOOTS_COLORS,
+        "shirt_style": SHIRT_STYLES,
+        "pants_style": PANTS_STYLES,
+        "footwear_style": FOOTWEAR_STYLES,
+    }
+    for key in supported:
+        if saved.has(key) and supported[key].has(saved[key]):
+            set(key, str(saved[key]))
+    if _load_appearance(skin_variant):
+        return true
+    # Missing/incompatible assets must never destroy the existing character.
+    for key in previous:
+        set(key, previous[key])
+    _load_appearance(skin_variant)
+    return false
+
+
+func reset_appearance_state() -> void:
+    apply_appearance_state({
+        "body_type": "male",
+        "skin_variant": "light",
+        "hair_variant": "black",
+        "hair_style": "buzzcut",
+        "eye_variant": "blue",
+        "shirt_variant": "blue",
+        "pants_variant": "charcoal",
+        "boots_variant": "brown",
+        "shirt_style": "shortsleeve/shortsleeve",
+        "pants_style": "pants",
+        "footwear_style": "boots/basic",
+    })
+
+
 # Stable wardrobe state for save files and future NPC dialogue conditions.
 func get_clothing_state() -> Dictionary:
     return {
