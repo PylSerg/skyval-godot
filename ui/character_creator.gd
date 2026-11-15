@@ -352,7 +352,10 @@ func _update_row_highlight() -> void:
             continue
         var selected: bool = index == _selected_index
         var style := StyleBoxFlat.new()
-        style.bg_color = Color("#38516c") if selected else Color(0, 0, 0, 0)
+        if appearance_window:
+            style.bg_color = Color(0.18, 0.26, 0.38, 0.78) if selected else Color(0.05, 0.08, 0.14, 0.19)
+        else:
+            style.bg_color = Color("#38516c") if selected else Color(0, 0, 0, 0)
         style.border_color = ACTIVE_HIGHLIGHT if selected else Color(0, 0, 0, 0)
         style.set_border_width_all(1)
         style.set_corner_radius_all(2)
@@ -1172,6 +1175,8 @@ func _refresh_options() -> void:
         _preview.queue_redraw()
     _refresh_preview_after_frame()
     _refresh_armor_status()
+    if appearance_window:
+        _update_appearance_choice()
     call_deferred("_refresh_all_value_marquees")
 
 
