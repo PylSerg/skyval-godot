@@ -113,8 +113,22 @@ panels, thin warm-gold borders, gold active-item outlines, readable
 Cascadia text (minimum 14px), and common button states. The shared style
 covers in-game menus, settings, character/save lists, confirmation
 dialogs, both loot chests, the name-entry keyboard, manual-save naming,
-character appearance and equipment screens. Each window keeps its
-existing size and gamepad bindings so it remains practical on R36H.
+character appearance and equipment screens. Window proportions
+are now adapted per purpose at 320×240 rather than stretching all
+submenus to a single fixed height. The title menu retains its original
+bottom-centered layout.
+
+Any menu presenting alternatives uses **one vertical column**:
+gameplay actions, character and save lists, loot-chest choices,
+the Ukrainian/English language settings, and confirmation actions.
+Long confirmation messages wrap within their own area, while the
+full-width **A: підтвердити** and **B: скасувати** options each occupy
+a separate row and also support mouse/touch activation.
+Settings navigate with up/down (left/right still moves between
+languages), and A confirms the highlighted language. The in-game
+menu and lists preserve their existing gamepad navigation rules.
+The name-entry **keyboard** intentionally remains an eight-column grid,
+and item/appearance variations retain their compact left/right selectors.
 
 The title screen retains its illustrated sunset and bottom-centered menu.
 Character creation and character naming retain the dedicated creation
