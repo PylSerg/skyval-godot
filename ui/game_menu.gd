@@ -371,7 +371,13 @@ func _choose_list_item() -> void:
         _selected_character_index = _selected_list
         _open_list("character_saves")
         return
-    _pending_save_path = str(selected.get("path", ""))
+    var selected_path: String = str(selected.get("path", ""))
+    if _list_mode == "character_saves":
+        # Selecting a save through Select Character loads it directly.
+        # Only the in-game Load menu requires confirmation.
+        _load_selected_save(selected_path)
+        return
+    _pending_save_path = selected_path
     _ask_confirmation("load")
 
 func _pick_profile(index: int) -> void:
@@ -562,6 +568,9 @@ func _write_snapshot(kind: String, save_name: String = "") -> void:
     data["saved_at"] = int(Time.get_unix_time_from_system() * 1000.0)
     if bool(_save_store.call("write_profile", path, data)):
         _status_message = _tr("save.quick_done") if kind == "quick" else _tr("save.manual_done")
+        if kind == "quick":
+            # Close only after a successful quick save, not on write errors.
+            _set_open(false)
     else:
         _status_message = _tr("save.write_failed")
 
