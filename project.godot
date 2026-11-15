@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 SkyvalLocale="*res://localization/localization.gd"
 SkyvalUiPause="*res://ui/pause_manager.gd"
+SkyvalInventory="*res://inventory/inventory_state.gd"
 
 [display]
 
