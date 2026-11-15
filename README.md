@@ -21,7 +21,7 @@ is used for both targets.
 | Select / Back or L3 | Open backpack | Close backpack |
 | Start or R3 | Open main menu | Open main menu (closes backpack) |
 | B | Reserved | Close backpack |
-| X | Reserved | Reserved |
+| X | Reserved | Reserved (creates character in Appearance window; takes all in chest) |
 | A | Interact with nearby test chest | Cycle owned option in selected field |
 | L1 / R1 | Reserved | Previous / next backpack tab |
 
@@ -40,9 +40,13 @@ options: **Continue / Продовжити**, **New Game / Нова гра**,
 On a fresh install, Continue is disabled. New Game first resets a
 **draft** character to the prototype spawn and opens the separate
 **Appearance / Зовнішність** window. Configure body type, skin, eyes,
-hairstyle and hair color, then select **Create character / Створити
-персонажа** at the bottom of the scrollable list and press **A**.
-Only then is the new save committed and the paused world started.
+hairstyle and hair color, then press **X**, as indicated by the fixed
+hint below the appearance heading. A separate modal asks for confirmation:
+**A** creates the character, while **B** dismisses the confirmation and
+returns to editing. There is no Create Character button in the parameter
+list. Only after confirming with A is the new save committed and the
+paused world started. The reusable appearance editor uses the same X →
+A/B confirmation to apply later changes.
 At creation time, the starting LPC outfit depends on the selected body type:
 **male** gets only **formal trousers** (no shirt, no shoes), while **female**
 gets **formal trousers plus a T-shirt** (no shoes). The draft outfit updates
@@ -82,7 +86,11 @@ Press **A** to open it. Use D-pad up/down or the left stick to navigate.
 Press **A** on an item to mark/unmark it, then navigate to
 **Take selected / Забрати вибране** and press **A** to transfer *only*
 marked items to the backpack. Unmarked items remain in the chest.
-Press **B** to close it. Start/R3 may open GameMenu from the chest.
+Alternatively, press **X** anywhere in the open chest to transfer **all
+remaining items**, regardless of selections. Whenever the last item is
+taken (either by X or by selecting them all via A), the chest closes
+automatically. Press **B** to close it without taking the rest.
+Start/R3 may open GameMenu from the chest.
 The chest and backpack pause the world through SkyvalUiPause.
 
 The starter outfit is **equipped**, not duplicated in the backpack.
@@ -154,8 +162,9 @@ Armor, Weapons), while the appearance creator has none. Fixed panel insets
 the 320×240 layout. The clothing list scrolls vertically with a hidden
 scrollbar; the tab strip scrolls horizontally and auto-reveals the active
 tab. L1/R1 switch backpack tabs with a slide transition. Horizontal
-right-stick flick rotates the portrait ±90°. Appearance creation adds
-a confirmation item at the end of its fields.
+right-stick flick rotates the portrait ±90°. The appearance window
+shows a fixed X hint instead of a button at the end of its fields; X
+opens a separate A/B confirmation dialog.
 
 The UI prefers the static **Cascadia Mono Regular** at
 `assets/fonts/CascadiaMono-Regular.ttf`. This is the correct font discovered
