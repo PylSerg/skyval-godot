@@ -5,10 +5,15 @@ extends CanvasLayer
 const PreviewScript = preload("res://ui/character_preview.gd")
 const LocaleScript = preload("res://localization/localization.gd")
 const APPEARANCE_FIELDS := ["body_type", "skin_variant", "eye_variant", "hair_style", "hair_variant"]
+# Both equipment categories share the same five body areas. Empty
+# categories are shown as None until their items are actually earned.
 const CLOTHING_FIELDS := [
-    "shirt_style", "shirt_variant",
-    "pants_style", "pants_variant",
-    "footwear_style", "boots_variant",
+    "clothes_head", "clothes_top", "clothes_bottom",
+    "clothes_hands", "clothes_feet",
+]
+const ARMOR_FIELDS := [
+    "armor_head", "armor_top", "armor_bottom",
+    "armor_hands", "armor_feet",
 ]
 const BACKPACK_TABS := ["ui.clothes", "inventory.tab.armor", "inventory.tab.weapons"]
 const TAB_SLIDE_SECONDS := 0.18
@@ -348,7 +353,7 @@ func _current_fields() -> Array:
     if _active_tab == 0:
         return CLOTHING_FIELDS
     if _active_tab == 1:
-        return ["armor_equipped"]
+        return ARMOR_FIELDS
     return []
 
 
@@ -426,6 +431,22 @@ func _set_open(next_open: bool) -> void:
     _root.visible = next_open
     _set_ui_pause(next_open)
     if next_open:
+        if not appearance_window:
+            # Every opening of Backpack starts at Clothing / Head, even
+            # after leaving while Armor or Weapons was selected.
+            if _page_tween != null and _page_tween.is_valid():
+                _page_tween.kill()
+            _page_tween = null
+            for old_page in _page_clip.get_children():
+                if old_page != _row_scroll:
+                    _page_clip.remove_child(old_page)
+                    old_page.queue_free()
+            _active_tab = 0
+            _selected_index = 0
+            _row_scroll.position = Vector2.ZERO
+            _row_scroll.scroll_vertical = 0
+            if _tab_scroll != null:
+                _tab_scroll.scroll_horizontal = 0
         _last_navigation_ms = -10000
         # Ignore the input event that launched this modal window.
         _ignore_presses_before_ms = Time.get_ticks_msec() + 150
@@ -878,22 +899,17 @@ func _reveal_selected_row() -> void:
 func _localized_value(key: String) -> String:
     if not avatar.has_lpc_character():
         return _tr("ui.missing_lpc")
-    if key == "armor_equipped" and _inventory != null:
-        var equipped_id: String = str(_inventory.call("get_equipped", "armor"))
-        if equipped_id.is_empty():
-            return _tr("value.clothing.none")
-        var armor_info: Dictionary = _inventory.call("get_item", equipped_id)
-        return _tr(str(armor_info.get("label", "inventory.none")))
-    var value: String = avatar.get_lpc_option(key)
-    if not appearance_window and _inventory != null:
-        # The empty equipment slot must show None in both its style and
-        # color rows, even if the renderer still remembers the last color.
-        var slot: String = _clothing_slot(key)
+    if not appearance_window:
+        if _inventory == null:
+            return _tr("inventory.none")
+        var slot: String = str(_inventory.call("get_equipment_slot", key))
         var equipped_id: String = str(_inventory.call("get_equipped", slot))
         if equipped_id.is_empty():
             return _tr("value.clothing.none")
         var garment: Dictionary = _inventory.call("get_item", equipped_id)
-        value = str(garment.get("style", "none")) if key.ends_with("_style") else str(garment.get("variant", "none"))
+        return _tr(str(garment.get("label", "inventory.none")))
+
+    var value: String = avatar.get_lpc_option(key)
     if value == "none":
         return _tr("value.clothing.none")
     if key == "body_type" or key.ends_with("_style"):
@@ -1020,10 +1036,7 @@ func _adjust(key: String, direction: int, index: int = -1) -> void:
     if not appearance_window:
         var changed: bool = false
         if _inventory != null:
-            if key == "armor_equipped":
-                changed = bool(_inventory.call("cycle_armor", direction, avatar))
-            else:
-                changed = bool(_inventory.call("cycle_field", key, direction, avatar))
+            changed = bool(_inventory.call("cycle_equipment_field", key, direction, avatar))
         if changed:
             _refresh_options()
             var menu: Node = get_parent().get_node_or_null("GameMenu")
@@ -1050,12 +1063,9 @@ func _field_counter(key: String) -> String:
         choices = avatar.get_lpc_option_choices(key)
         chosen = avatar.get_lpc_option(key)
     elif _inventory != null:
-        if key == "armor_equipped":
-            choices = _inventory.call("get_armor_choices")
-            chosen = str(_inventory.call("get_equipped", "armor"))
-        else:
-            choices = _inventory.call("get_field_choices", key)
-            chosen = str(_inventory.call("get_equipped", _clothing_slot(key)))
+        choices = _inventory.call("get_equipment_choices", key)
+        var slot: String = str(_inventory.call("get_equipment_slot", key))
+        chosen = str(_inventory.call("get_equipped", slot))
     if choices.is_empty():
         return "0/0"
     var index: int = choices.find(chosen)
@@ -1066,29 +1076,12 @@ func _can_adjust_field(key: String, direction: int) -> bool:
     if not avatar.has_lpc_character():
         return false
     if not appearance_window:
-        if key == "armor_equipped":
-            if _inventory == null:
-                return false
-            var available_armor: Array[String] = _inventory.call("get_armor_choices")
-            return available_armor.size() > 1
-        return _can_change_clothing_field(key)
+        if _inventory == null:
+            return false
+        var equipment_choices: Array[String] = _inventory.call("get_equipment_choices", key)
+        return equipment_choices.size() > 1
+    # Appearance options are cyclic, unlike menu-row navigation.
     var choices: Array[String] = avatar.get_lpc_option_choices(key)
-    var index: int = choices.find(avatar.get_lpc_option(key))
-    return index >= 0 and index + direction >= 0 and index + direction < choices.size()
-
-
-func _clothing_slot(key: String) -> String:
-    if key.begins_with("shirt_"):
-        return "shirt"
-    if key.begins_with("pants_"):
-        return "pants"
-    if key == "footwear_style" or key == "boots_variant":
-        return "footwear"
-    return ""
-
-
-func _can_change_clothing_field(key: String) -> bool:
-    if _inventory == null:
-        return false
-    var choices: Array[String] = _inventory.call("get_field_choices", key)
     return choices.size() > 1
+
+
