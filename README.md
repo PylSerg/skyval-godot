@@ -476,11 +476,12 @@ Older saves containing both a worn shirt and armor are repaired on
 load, keeping the shirt as a backpack item. Armor removal leaves
 the torso bare until the player selects a shirt again.
 
-These local full-size sheets are **not automatically bundled into
-R36H/PortMaster exports**. For standalone builds, copy the licensed
-necessary sprite sheets into the project's packed resource paths and
-verify the exported atlas and licenses. Do not ship the 900 MB source
-tree by accident.
+For a full private-development PortMaster install, the build script now
+ships the complete LPC sprite library **separately from the PCK** under
+`skyval/resources/lpc/`. Skyval loads the PNGs on demand via
+`SKYVAL_LPC_ROOT`, so a large asset set does not need to be imported
+into Godot for every build. Do not distribute this bundle publicly
+without reviewing every LPC license and attribution.
 
 ## Pause and Back navigation
 
@@ -571,8 +572,9 @@ and English. The `SkyvalLocale` service loads it. Language selection lives in th
 persisted in `user://skyval_settings.cfg`.
 
 The LPC sprites remain outside Git in the user's local resource library.
-Only the selected sprites are bundled for PortMaster tests. Inspect and
-retain each asset's original LPC license and attribution before distribution.
+The one-time full PortMaster package copies all available LPC source
+resources to the SD card; future code-only archives skip the art. Inspect
+and retain original LPC licensing/credits before distributing anything.
 
 ## PortMaster native-controller test
 
@@ -583,17 +585,25 @@ an inline argument through `westonwrap.sh`, whose command parsing
 breaks on the space in `GO-Super Gamepad` (exit code 127).
 No `.gptk` or keyboard-emulation project setting is included.
 
-Build from the Linux checkout with:
+Build the first **complete** install on Kubuntu:
 
 ```bash
+git pull --ff-only
 bash tools/build_portmaster.sh
 ```
 
-This writes `dist/portmaster/Skyval_PortMaster_Test.zip`.
-Copy `Skyval.sh` and `skyval/` from the ZIP into the SD card's
-`roms/ports/` directory. Replace the previous launcher **as well as**
-the `.pck`; changing only the PCK will leave the old keyboard-mapping
-launcher active.
+This produces `dist/portmaster/Skyval_PortMaster_Full.zip`, with all
+available local LPC resources in `skyval/resources/lpc/`. Copy the
+archive contents onto the SD card's `roms/ports/`, **merging** the
+existing `skyval/` folder and preserving `skyval/saves/` and
+`skyval/conf/`. For subsequent code/UI updates, build with
+`bash tools/build_portmaster.sh --code-only` and transfer the much
+smaller `Skyval_PortMaster_Update.zip` instead. It does not re-copy
+any LPC assets. The current launcher requires the initial external
+resource tree and sets `SKYVAL_LPC_ROOT` automatically; this replaces
+the old 14-test-sprite bundle. For source selection, use
+`LPC_SPRITES_ROOT=/path/to/spritesheets` if auto-detection misses
+your full LPC installation. See `portmaster/README.md` for details.
 
 **R36H status:** Native controls have been confirmed working on the physical
 R36H. Walking uses only the left-stick axes now, avoiding any D-pad override
