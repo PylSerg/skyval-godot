@@ -191,11 +191,12 @@ with many spritesheets, but the brief catalog view did not establish
 complete male/female variant coverage or which light armor pieces should
 be imported. The LPC renderer now overlays the matching heavy torso
 layer when a compatible sheet exists: female brass plate or male ceramic
-legion. For missing or incompatible heavy sheets, **and for both light
-vests**, it renders a provisional animated pixel-armor layer generated
-in Godot at the same 64x64 frame coordinates as the LPC body. These
-fallbacks cover the ordinary shirt in-world and in the 3× portrait:
-leather vest, reinforced vest and heavy cuirass all look distinct.
+legion. A provisional animated pixel-armor base is always drawn beneath
+any authentic armor layer at the same 64x64 LPC frame coordinates.
+It guarantees visible equipment even when the external heavy sheet is
+missing, partly transparent or incompatible. These fallback panels cover
+the ordinary shirt in-world and in the 3× portrait: leather vest,
+reinforced vest and heavy cuirass all look distinct.
 The equipment remains validated separately from the display layer.
 These hand-authored fallback designs are **prototypes**, not claimed
 to be original Universal LPC artwork. Future work should confirm
