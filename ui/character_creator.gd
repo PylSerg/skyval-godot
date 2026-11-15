@@ -452,6 +452,9 @@ func _set_open(next_open: bool) -> void:
                     old_page.queue_free()
             _active_tab = 0
             _selected_index = 0
+            # Avoid showing the stale, wrongly sized first-page content
+            # during the two short layout passes used for initialization.
+            _page_clip.modulate.a = 0.0
             _row_scroll.position = Vector2.ZERO
             _row_scroll.scroll_vertical = 0
             if _tab_scroll != null:
@@ -511,6 +514,7 @@ func _initialize_backpack_page_after_layout(generation: int) -> void:
     _row_scroll.scroll_vertical = 0
     if _tab_scroll != null:
         _tab_scroll.scroll_horizontal = 0
+    _page_clip.modulate.a = 1.0
 
 
 func _set_ui_pause(should_pause: bool) -> void:
