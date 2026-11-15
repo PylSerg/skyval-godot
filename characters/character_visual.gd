@@ -127,6 +127,25 @@ func change_lpc_option(option_key: String, direction: int) -> bool:
         return false
     return bool(_external_body.call("change_option", option_key, direction))
 
+# Outfit granted only when creating a new character. Do not call during
+# Continue or later appearance edits: existing wardrobe choices must survive.
+func apply_starter_outfit() -> bool:
+    if not has_lpc_character():
+        return false
+    var female: bool = get_lpc_option("body_type") == "female"
+    # LPC has an explicit "formal" trousers style and "shortsleeve/tshirt".
+    # No shoes are granted at the start for either body type.
+    var starter: Dictionary = {
+        "shirt_style": "shortsleeve/tshirt" if female else "none",
+        "pants_style": "formal",
+        "footwear_style": "none",
+    }
+    var ok: bool = bool(_external_body.call("apply_appearance_state", starter))
+    if not ok:
+        push_warning("Skyval: starter outfit sprites unavailable for selected body type.")
+    return ok
+
+
 # Minimal v1 saved-character state. The NPC / inventory state can be
 # added to the save format later without changing this API.
 func get_save_state() -> Dictionary:
