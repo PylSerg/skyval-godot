@@ -219,12 +219,15 @@ been removed to leave room for the three tabs.
 
 All five Clothing or Armor equipment locations are visible at once.
 Move the selected gold-highlighted field with D-pad/left-stick up/down.
-D-pad/left-stick left/right and the on-screen arrows **only preview**
-owned items; they do not equip, change the LPC portrait or write a save.
-Press **A** to actually equip the previewed item (or unequip when the
-candidate is None). A successful equipment change updates the character
-and checkpoints the game. Each row retains a `current/total` counter
-which follows the previewed item rather than changing the worn outfit. The **single
+D-pad/left-stick left/right and the on-screen arrows **preview**
+owned items **on the character portrait**, including visible clothing
+and armor swaps, without changing equipped inventory data or writing a save.
+The LPC appearance change is temporary: selecting another field/tab or
+closing the backpack restores the actual worn outfit. Press **A** to
+commit the previewed item (or unequip when the candidate is None).
+Only a successfully confirmed equipment change updates inventory
+ownership, the actual avatar and the save checkpoint. Each row retains
+a `current/total` counter that follows the previewed item. The **single
 value selector** shows only the currently selected field and uses
 14px-wide arrow controls and a clipped, horizontally scrolling item name
 when necessary. The Weapons tab still shows its empty-category message
