@@ -333,6 +333,9 @@ func _update_row_highlight() -> void:
         style.set_border_width_all(1)
         style.set_corner_radius_all(2)
         style.set_content_margin_all(2)
+        # Keep the background/border full-width while insetting its content.
+        style.set_content_margin(SIDE_LEFT, FIELD_HORIZONTAL_INSET)
+        style.set_content_margin(SIDE_RIGHT, FIELD_HORIZONTAL_INSET)
         field_panel.add_theme_stylebox_override("panel", style)
 
 
@@ -767,20 +770,13 @@ func _rebuild_rows() -> void:
         var index: int = _row_labels.size()
         var key: String = str(property_key)
 
-        # Each field sits 12px from both edges, matching the 12px
-        # vertical gap between consecutive fields. The inner panel retains
-        # its background highlight around heading, counter and selector.
-        var field_outer := MarginContainer.new()
-        field_outer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        field_outer.mouse_filter = Control.MOUSE_FILTER_PASS
-        field_outer.add_theme_constant_override("margin_left", FIELD_HORIZONTAL_INSET)
-        field_outer.add_theme_constant_override("margin_right", FIELD_HORIZONTAL_INSET)
-        _rows.add_child(field_outer)
-
+        # Full-width highlighted field. The panel's style (not an outer
+        # MarginContainer) supplies equal left/right content padding, so
+        # the background and golden selection border reach both edges.
         var field_panel := PanelContainer.new()
         field_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         field_panel.mouse_filter = Control.MOUSE_FILTER_PASS
-        field_outer.add_child(field_panel)
+        _rows.add_child(field_panel)
         _row_panels.append(field_panel)
 
         var field_box := VBoxContainer.new()
