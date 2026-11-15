@@ -80,8 +80,9 @@ PortMaster on the handheld.
 
 ## Test chest, backpack and equipped clothing
 
-A test chest is created in code beside the house at world position
-**(905, 554)**. Walk close to it until the **A** prompt appears.
+Two test chests are instantiated in code on opposite sides of the
+prototype house: **Clothing** (brown) at **(905, 554)** and **Armor**
+(blue-steel) at **(745, 554)**. Walk close until the **A** prompt appears.
 Press **A** to open it. Use D-pad up/down or the left stick to navigate.
 Press **A** on an item to mark/unmark it, then navigate to
 **Take selected / Забрати вибране** and press **A** to transfer *only*
@@ -97,15 +98,23 @@ The starter outfit is **equipped**, not duplicated in the backpack.
 The backpack initially contains **no spare clothes**. The chest contains
 seven test garments: white shirt, green polo, black long-sleeved top,
 brown pants, navy cuffed pants, brown boots and black shoes.
-Items are uniquely identified, transferred one by one, and never created
-by cycling arbitrary LPC clothing variants.
+The **armor chest** contains three distinct pieces: a leather vest
+(**Light armor +2**), reinforced vest (**Light armor +3**) and plate
+cuirass (**Heavy armor +5**). Neither chest grants items at startup:
+loot must be selected with A or collected all at once with X. Each
+chest is depleted and persisted independently. Items are unique and
+are never generated merely by cycling clothing or armor selectors.
 
 Open the backpack with Select/L3. The horizontally scrollable tabs are
 **Clothing / Одяг**, **Armor / Броня**, and **Weapons / Зброя**.
 Switch with L1/R1 or select the tabs by mouse/touch; page contents slide
 horizontally while the 3× portrait stays fixed. Tab navigation is **bounded**:
-L1 on the first tab or R1 on the last tab does nothing. Armor and Weapons
-are currently empty placeholders (no items or equipment mechanics yet).
+L1 on the first tab or R1 on the last tab does nothing. **Weapons** remains
+an empty placeholder. **Armor** now has a working, single-field cyclical
+selector with the owned options only (including None), live 1/N count
+and the same 12px full-width selection background. Switching armor
+returns the previously equipped piece to the backpack, updates the
+class/defense panel and checkpoints progress.
 The Clothing tab retains the **original six selector rows**: Top,
 Top color, Pants, Pants color, Shoes and Shoes color, with their
 left/right arrows. On the right edge of each field name, a 14px
@@ -122,8 +131,8 @@ the backpack state and become available through the original selectors.
 Changing the style equips an owned garment (returning the previous one
 to the backpack); changing its color cycles only through *owned*
 variants of that style. Selecting **None / Немає** in a style row
-unequips the garment. Clothes, and future weapon/armor item alternatives,
-remain **cyclic** (last choice returns to first), while navigation between
+unequips the garment. Clothes and armor alternatives remain **cyclic**
+(last choice returns to first), while navigation between
 parameter rows, between backpack tabs, in the main menu and in the chest
 is **non-cyclic**. Character appearance choices are also bounded
 (first/last value does not wrap). If no clothing alternatives are owned,
@@ -131,10 +140,12 @@ the relevant arrows are disabled. The LPC sprite validation still applies: faile
 leave items and appearance untouched.
 
 The game checkpoints after taking items and after equipment changes.
-The backpack, equipped slots and unlooted chest contents are also
-written in the same v1 save. Loading older v1 saves without inventory
-starts with an empty backpack and an unopened test chest, while keeping
-the already saved character appearance.
+The backpack, equipped slots and **both chests'** remaining contents
+are written in the same v1 save. Loading older v1 saves without inventory
+starts with an empty backpack and unopened chests, while keeping the
+saved character appearance. Loading existing saves that predate armor
+preserves their original clothing-chest depletion and initializes
+the new armor chest once, without resetting their clothing or position.
 
 ## Armor classes and portrait information
 
@@ -147,9 +158,10 @@ to make room for a two-line status block inside the right-side preview:
 - `Важка броня` / `Heavy armor`: default protection **+5**
 
 These are **prototype game-balancing numbers**, not ratings from LPC.
-Every current clothing item declares `armor_class: "cloth"` and
-`armor_value: 0`. The item catalog also supports `light` / `heavy`,
-class-specific default values, and per-item armor-value overrides.
+Every current ordinary clothing item declares `armor_class: "cloth"`
+and `armor_value: 0`. Armor loot declares light/heavy classes and
+item-specific protection: +2, +3 or +5. The item catalog also supports
+class-specific defaults and per-item protection overrides.
 `SkyvalInventory.get_total_armor()` sums equipped protection, while
 `get_equipped_armor_class()` reports the highest equipped class.
 `compare_item_armor(item_id)` calculates the change relative to the
@@ -173,11 +185,13 @@ The connected **Kvoka File Bridge** directory listing for the local
 The connected folder also contains `addons/Universal_LPC/resources/`
 with many spritesheets, but the brief catalog view did not establish
 complete male/female variant coverage or which light armor pieces should
-be imported. The paths above are **candidate asset layers**, not yet
-equippable armor: the current LPC rendering pipeline must support
-layer composition before these can be introduced safely. A heavy plate
-set is a reasonable first integration target after verifying compatible
-sprite sheets and the project's asset licenses.
+be imported. The LPC renderer now *optionally* overlays the matching
+heavy torso layer when `plate_cuirass` is equipped: female brass plate
+or male ceramic legion. If the corresponding valid sheet is absent,
+armor still equips and grants defense; its base garment remains visible.
+Light armor likewise works mechanically without a verified sprite overlay.
+Future work should verify both body types and licenses before shipping
+the full armor sets to PortMaster.
 
 ## Pause and Back navigation
 
@@ -188,7 +202,7 @@ ordinary animations and Timer nodes. For future gameplay timers created via
 `get_tree().create_timer()`, pass `process_always=false` so they also pause.
 Nodes explicitly set to always-process remain active. The last closing
 interface restores the pause state from before the first UI was opened.
-Transitions between the backpack, test chest, main menu and standalone
+Transitions between the backpack, both test chests, main menu and standalone
 appearance window transfer pause ownership **before** closing the previous
 layer, preventing an unpaused frame during the transition.
 
