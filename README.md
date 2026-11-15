@@ -114,7 +114,9 @@ a translucent navy/gold control panel and a framed LPC character preview.
 The five appearance fields remain visible together as a compact list:
 body type, skin, eyes, hairstyle and hair color. One shared selector below
 the list shows and changes the highlighted field's actual value and
-retains the original field counters. The D-pad and left stick move through the list or change its value,
+retains the original field counters. The hairstyle selector includes
+**None / Немає**, which hides the hair sprites completely and appears
+as **0/5** (the five nonempty hairstyles are numbered 1/5 to 5/5). The D-pad and left stick move through the list or change its value,
 right-stick horizontal flicks rotate the portrait by 90°.
 **During creation:** A does nothing, B returns to the main menu,
 Y randomizes the body type, skin, eyes, hair style and hair color (using
@@ -133,8 +135,10 @@ with left/right, or press **Y** to randomize the entire look. Press
 action in creation, and **B** returns to the main menu.
 The name-entry keyboard then appears. Its Ukrainian/English characters and space/backspace fit 320×240.
 **A** picks characters, **Y** suggests a random gender-appropriate name,
-**X** confirms with a dialog, and **B** cancels with a dialog. Only a
-confirmed name allocates a new profile. Default LPC outfits depend on
+**X** confirms with a dialog, and **B** immediately returns to the
+**same appearance draft**, retaining all previously selected features.
+Pressing X again advances to the name screen. Only a confirmed name
+allocates a new profile. Default LPC outfits depend on
 body type (male: formal trousers; female: trousers and T-shirt; both
 start without shoes).
 
