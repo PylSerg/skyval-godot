@@ -6,6 +6,7 @@ extends CanvasLayer
 const LocaleScript = preload("res://localization/localization.gd")
 const FONT_PATH := "res://assets/fonts/CascadiaMono-Regular.ttf"
 const MIN_UI_FONT_SIZE := 14
+const ACTIVE_HIGHLIGHT := Color("#e7ca86")
 const NAV_DEBOUNCE_MS := 100
 const STICK_PRESS := 0.65
 const STICK_RELEASE := 0.42
@@ -484,7 +485,7 @@ func _build_interface() -> void:
     _language_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     _language_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _language_value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    _language_value.add_theme_color_override("font_color", Color("#f8d984"))
+    _language_value.add_theme_color_override("font_color", ACTIVE_HIGHLIGHT)
     language_row.add_child(_language_value)
 
     var next_button := _button()
@@ -551,7 +552,7 @@ func _update_highlight() -> void:
         var selected: bool = index == _selected_option and not unavailable
         var style := StyleBoxFlat.new()
         style.bg_color = Color("#293748") if unavailable else (Color("#597a9b") if selected else Color("#354960"))
-        style.border_color = Color("#52657a") if unavailable else (Color("#e7ca86") if selected else Color("#667f9a"))
+        style.border_color = Color("#52657a") if unavailable else (ACTIVE_HIGHLIGHT if selected else Color("#667f9a"))
         style.set_border_width_all(1)
         style.set_content_margin_all(3)
         button.add_theme_stylebox_override("normal", style)
@@ -563,7 +564,12 @@ func _update_highlight() -> void:
         var pressed := style.duplicate() as StyleBoxFlat
         pressed.bg_color = Color("#7397b4") if selected else Color("#6683a1")
         button.add_theme_stylebox_override("pressed", pressed)
-        button.add_theme_color_override("font_color", Color("#fff0c8") if selected else Color("#edf1f5"))
+        # Selected menu text uses EXACTLY the same gold as its border.
+        # Apply the same color on hover/pressed for mouse and gamepad parity.
+        var menu_text: Color = ACTIVE_HIGHLIGHT if selected else Color("#edf1f5")
+        button.add_theme_color_override("font_color", menu_text)
+        button.add_theme_color_override("font_hover_color", menu_text)
+        button.add_theme_color_override("font_pressed_color", menu_text)
 
 
 func _refresh_text() -> void:
