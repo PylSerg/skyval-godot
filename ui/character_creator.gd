@@ -433,6 +433,8 @@ func _set_open(next_open: bool) -> void:
         _joy_axis_direction.clear()
         _right_stick_latched.clear()
         _refresh_text()
+        if _preview != null and _preview.has_method("clear_frame_cache"):
+            _preview.call("clear_frame_cache")
         _update_row_highlight()
     else:
         # Infinite marquee tweens should not consume CPU while this
@@ -915,7 +917,12 @@ func _refresh_options() -> void:
                 var button: Button = arrows[index] as Button
                 if is_instance_valid(button):
                     button.disabled = not _can_adjust_field(key, -1 if index == 0 else 1)
-    _preview.queue_redraw()
+    # Drop cropped frames from the previous equipment set immediately.
+    # The preview creates fresh 64x64 textures for the new LPC nodes.
+    if _preview != null and _preview.has_method("clear_frame_cache"):
+        _preview.call("clear_frame_cache")
+    else:
+        _preview.queue_redraw()
     _refresh_preview_after_frame()
     _refresh_armor_status()
     call_deferred("_refresh_all_value_marquees")
