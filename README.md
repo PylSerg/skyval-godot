@@ -43,8 +43,11 @@ the menu. The selected language is stored in
 ## Pause and Back navigation
 
 The autoload `SkyvalUiPause` (`ui/pause_manager.gd`) tracks every blocking UI
-owner. The first open interface pauses the entire SceneTree, including world
-movement, NPCs, ordinary animations and gameplay timers. The last closing
+owner. The first open interface pauses the SceneTree: world nodes
+using inherited/pausable processing stop, including player movement, NPCs,
+ordinary animations and Timer nodes. For future gameplay timers created via
+`get_tree().create_timer()`, pass `process_always=false` so they also pause.
+Nodes explicitly set to always-process remain active. The last closing
 interface restores the pause state from before the first UI was opened.
 Opening GameMenu from CharacterCreator transfers pause ownership **before**
 closing the creator, preventing an unpaused frame during the transition.
