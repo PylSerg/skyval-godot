@@ -486,10 +486,10 @@ func _build_interface() -> void:
     choices.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     confirmation_stack.add_child(choices)
 
-    # Plain right-aligned options, not button-shaped panels.
+    # Plain left-aligned options, not button-shaped panels.
     _confirm_accept = _new_label(FONT_SIZE)
     _confirm_accept.custom_minimum_size.y = 22
-    _confirm_accept.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    _confirm_accept.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
     _confirm_accept.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     _confirm_accept.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
     _confirm_accept.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -498,7 +498,7 @@ func _build_interface() -> void:
 
     _confirm_cancel = _new_label(FONT_SIZE)
     _confirm_cancel.custom_minimum_size.y = 22
-    _confirm_cancel.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    _confirm_cancel.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
     _confirm_cancel.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     _confirm_cancel.add_theme_color_override("font_color", UiTheme.MUTED)
     _confirm_cancel.mouse_filter = Control.MOUSE_FILTER_STOP
