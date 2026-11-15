@@ -163,8 +163,8 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
         return
 
     match event.button_index:
-        JOY_BUTTON_B:
-            # B is the only Back action. Select/L3 only opens this panel.
+        JOY_BUTTON_BACK, JOY_BUTTON_LEFT_STICK, JOY_BUTTON_B:
+            # Select/L3 toggles the panel; B returns to the world.
             _set_open(false)
         JOY_BUTTON_A:
             _adjust_selected(1)
