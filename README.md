@@ -119,7 +119,12 @@ submenus to a single fixed height. The title menu retains its original
 bottom-centered layout.
 
 The gameplay menu, character/save lists, loot chests and confirmation
-choices use vertically arranged options. Confirmation choices have
+choices use vertically arranged options. Main-menu confirmation dialogs,
+including character deletion, load, return to title and quit, have a
+compact 280×158 nominal size rather than consuming the full height.
+Their message area is 52px instead of 94px; Godot remeasures any
+longer wrapped text and recenters the actual window so it stays within
+the 320×240 viewport. Confirmation choices have
 **no selected-row highlighting or button backgrounds**. Instead, they
 are left-aligned text rows with small colored circular Nintendo/Super
 Famicom glyphs: red **A** beside “Підтвердити”, yellow **B** beside
