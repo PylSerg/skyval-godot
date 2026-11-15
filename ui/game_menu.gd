@@ -182,7 +182,9 @@ func _set_open(next_open: bool) -> void:
         if _creator != null and _creator.has_method("close_for_menu"):
             _creator.call("close_for_menu")
         var appearance: Node = get_parent().get_node_or_null("AppearanceEditor")
-        if appearance != null and bool(appearance.call("is_open")):
+        # During New Game cancellation, the editor already owns its close
+        # sequence; re-entering it here would emit cancelled twice.
+        if appearance != null and not _creation_in_progress and bool(appearance.call("is_open")):
             appearance.call("close_for_menu")
         if _session_started and not _creation_in_progress:
             # Discard unfinished appearance edits before checkpointing.
