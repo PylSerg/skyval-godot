@@ -614,4 +614,8 @@ func _adjust(key: String, direction: int, index: int = -1) -> void:
         _update_row_highlight()
         _reveal_selected_row()
     if avatar.change_lpc_option(key, direction):
+        # While creating a character, update the draft's starter clothes
+        # immediately when body type changes. Later edits leave clothes alone.
+        if appearance_window and _creation_mode and key == "body_type":
+            avatar.apply_starter_outfit()
         _refresh_options()
