@@ -1095,6 +1095,7 @@ func _update_compact_choice() -> void:
         _stop_value_marquees()
         _value_labels.clear()
         _value_windows.clear()
+        _refresh_armor_status()
         return
     _compact_choice_panel.show()
     var field_key: String = str(fields[clampi(_selected_index, 0, fields.size() - 1)])
@@ -1106,6 +1107,7 @@ func _update_compact_choice() -> void:
     _compact_next.disabled = not _can_adjust_field(field_key, 1)
     _value_labels[field_key] = _compact_choice_value
     _value_windows[field_key] = _compact_choice_window
+    _refresh_armor_status()
     call_deferred("_refresh_all_value_marquees")
 
 
@@ -1126,11 +1128,10 @@ func _localized_value(key: String) -> String:
     if not appearance_window:
         if _inventory == null:
             return _tr("inventory.none")
-        var slot: String = str(_inventory.call("get_equipment_slot", key))
-        var equipped_id: String = str(_inventory.call("get_equipped", slot))
-        if equipped_id.is_empty():
+        var candidate_id: String = _selected_equipment_id(key)
+        if candidate_id.is_empty():
             return _tr("value.clothing.none")
-        var garment: Dictionary = _inventory.call("get_item", equipped_id)
+        var garment: Dictionary = _inventory.call("get_item", candidate_id)
         return _tr(str(garment.get("label", "inventory.none")))
 
     var value: String = avatar.get_lpc_option(key)
@@ -1247,9 +1248,32 @@ func _refresh_armor_status() -> void:
         return
     if _armor_class_label == null or _armor_value_label == null:
         return
+
     var armor_class: String = str(_inventory.call("get_equipped_armor_class"))
+    var current_armor: int = int(_inventory.call("get_total_armor"))
+    var projected_armor: int = current_armor
+    var difference: int = 0
+    var fields: Array = _current_fields()
+    if _selected_index >= 0 and _selected_index < fields.size():
+        var field: String = str(fields[_selected_index])
+        var candidate_id: String = _selected_equipment_id(field)
+        var comparison: Dictionary = _inventory.call("preview_equipment", field, candidate_id)
+        if not comparison.is_empty():
+            projected_armor = int(comparison.get("projected_total", current_armor))
+            difference = int(comparison.get("delta", 0))
+            if difference != 0:
+                armor_class = str(comparison.get("class", armor_class))
+
     _armor_class_label.text = _tr("armor.class." + armor_class)
-    _armor_value_label.text = _tr("armor.value") % int(_inventory.call("get_total_armor"))
+    if difference == 0:
+        _armor_value_label.text = _tr("armor.value") % current_armor
+        _armor_value_label.add_theme_color_override("font_color", Color("#f0f1ed"))
+    else:
+        # The narrow 104px portrait can fit +5 (+3), not
+        # 'Броня +5 (+3)'. Show projected protection and its +/- delta.
+        _armor_value_label.text = "+%d (%+d)" % [projected_armor, difference]
+        var ink: Color = Color("#99e1ad") if difference > 0 else Color("#ffb5a6")
+        _armor_value_label.add_theme_color_override("font_color", ink)
 
 
 func _adjust(key: String, direction: int, index: int = -1) -> void:
@@ -1289,8 +1313,7 @@ func _field_counter(key: String) -> String:
         chosen = avatar.get_lpc_option(key)
     elif _inventory != null:
         choices = _inventory.call("get_equipment_choices", key)
-        var slot: String = str(_inventory.call("get_equipment_slot", key))
-        chosen = str(_inventory.call("get_equipped", slot))
+        chosen = _selected_equipment_id(key)
     if choices.is_empty():
         return "0/0"
 
