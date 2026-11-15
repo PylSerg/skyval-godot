@@ -1,7 +1,7 @@
 extends Node2D
 ## Test loot chest beside the prototype house (world coordinates).
-## A opens it nearby. A marks individual items; selecting the bottom
-## action takes only marked items. B closes without taking the rest.
+## A opens it nearby. A marks individual items; the bottom action takes
+## only marked items. X takes everything and closes; B leaves the rest.
 
 const LOOT_DISTANCE := 35.0
 const STICK_PRESS := 0.65
@@ -118,6 +118,8 @@ func _input(event: InputEvent) -> void:
                         var stock: Array[String] = _inventory.call("get_chest")
                         if _selected_index >= 0 and _selected_index < stock.size():
                             _toggle_item(stock[_selected_index])
+                JOY_BUTTON_X:
+                    _take_all()
                 JOY_BUTTON_DPAD_UP:
                     _move_selection(-1)
                 JOY_BUTTON_DPAD_DOWN:
@@ -197,16 +199,38 @@ func _take_selected() -> void:
     for item_id in stock:
         if _selection.has(item_id):
             chosen.append(item_id)
-    if chosen.is_empty():
+    _take_items(chosen)
+
+
+func _take_all() -> void:
+    # X ignores checkboxes and transfers every item still in the chest.
+    var stock: Array[String] = _inventory.call("get_chest")
+    if stock.is_empty():
+        _set_open(false)
         return
-    var taken: int = int(_inventory.call("take_from_chest", chosen))
-    if taken > 0:
-        var menu: Node = get_parent().get_node_or_null("GameMenu")
-        if menu != null:
-            menu.call("save_checkpoint")
+    _take_items(stock)
+
+
+func _take_items(items: Array[String]) -> void:
+    if items.is_empty():
+        return
+    var taken: int = int(_inventory.call("take_from_chest", items))
+    if taken <= 0:
+        return
+
+    # Persist the transfer before closing the chest.
+    var menu: Node = get_parent().get_node_or_null("GameMenu")
+    if menu != null:
+        menu.call("save_checkpoint")
+
     _selection.clear()
     _selected_index = 0
-    _refresh()
+    var remaining: Array[String] = _inventory.call("get_chest")
+    if remaining.is_empty():
+        # Works for both X -> Take All and A -> Take Selected (all checked).
+        _set_open(false)
+    else:
+        _refresh()
 
 
 func _refresh() -> void:
