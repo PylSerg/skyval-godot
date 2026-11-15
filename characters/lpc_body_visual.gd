@@ -191,16 +191,11 @@ func _load_appearance(skin: String) -> bool:
             candidate.free()
         return false
 
-    # The bridge currently verifies heavy torso sprites only for specific
-    # genders/colors. For light armor and missing/incompatible heavy sheets,
-    # generate pixel armor on the same 64x64 animation grid. This guarantees
-    # the player visibly wears the armor in-world and in the 3x preview.
-    var has_original_armor: bool = false
-    for layer in validated:
-        if str(layer["name"]) == "Armor":
-            has_original_armor = true
-            break
-    if armor_style != "none" and not has_original_armor:
+    # A guaranteed opaque armor base, matching the body frame layout,
+    # sits below any available authentic LPC torso layer. This prevents
+    # invisible armor even when the original sprite is partly transparent
+    # or uses different action cells.
+    if armor_style != "none":
         replacements.append(_build_fallback_armor_layer(armor_style))
 
     for old in _sprites:
@@ -253,10 +248,10 @@ func _add_action(frames: SpriteFrames, atlas: Texture2D, action: String, start_y
 # names as the body/head layers, so the vest follows character movement.
 func _build_fallback_armor_layer(style: String) -> AnimatedSprite2D:
     var sprite := AnimatedSprite2D.new()
-    sprite.name = "Armor"
+    sprite.name = "ArmorBase"
     sprite.centered = false
     sprite.offset = Vector2(-32, -54)
-    sprite.z_index = 45  # In front of ordinary clothing, behind face/hair.
+    sprite.z_index = 44  # Original LPC layer, when present, draws above us.
     sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
     var frames := SpriteFrames.new()
     if frames.has_animation("default"):
