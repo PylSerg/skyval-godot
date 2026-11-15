@@ -22,7 +22,7 @@ is used for both targets.
 | Start or R3 | Open main menu | Open main menu (closes backpack) |
 | B | Reserved | Close backpack |
 | X | Reserved | Reserved (creates character in Appearance window; takes all in chest) |
-| A | Interact with nearby test chest | Cycle owned option in selected field |
+| A | Interact with nearby test chest | Equip/unequip highlighted item (confirm selection) |
 | L1 / R1 | Reserved | Previous / next backpack tab |
 
 Press **Select / Back** or **L3** in the world to open the **backpack**.
@@ -218,15 +218,24 @@ lightly darkened for readability. The redundant “Рюкзак” heading has
 been removed to leave room for the three tabs.
 
 All five Clothing or Armor equipment locations are visible at once.
-Move the selected gold-highlighted field with D-pad/left-stick up/down;
-cycle its owned items with D-pad/left-stick left/right or A, or click its
-value arrows. Each row retains a `current/total` counter. The **single
+Move the selected gold-highlighted field with D-pad/left-stick up/down.
+D-pad/left-stick left/right and the on-screen arrows **only preview**
+owned items; they do not equip, change the LPC portrait or write a save.
+Press **A** to actually equip the previewed item (or unequip when the
+candidate is None). A successful equipment change updates the character
+and checkpoints the game. Each row retains a `current/total` counter
+which follows the previewed item rather than changing the worn outfit. The **single
 value selector** shows only the currently selected field and uses
 14px-wide arrow controls and a clipped, horizontally scrolling item name
 when necessary. The Weapons tab still shows its empty-category message
 without a useless selector. The portrait is drawn at **3×**, rotates by
 90° with the right stick, and keeps the armor-class/value text below a
-gold separator. Tabs switch with L1/R1 or by clicking them.
+gold separator. When browsing an item, the panel shows the **projected**
+armor and its change in parentheses, e.g. `+5 (+3)` or `+2 (-3)`.
+Positive changes are green, negative red; the preview also accounts
+for a shirt being removed when armor is equipped. The pending item
+name is gold until A confirms it, with an `A: екіпірувати` hint.
+Tabs switch with L1/R1 or by clicking them.
 
 The original first-open layout stabilization remains: on every opening,
 the active tab resets to Clothing, the selected field resets to Head,
@@ -240,15 +249,15 @@ Each row has a right-edge
 owned physical items**. **None / Немає never contributes to either number**:
 an empty slot with no owned items shows `0/0`, no equipped item with
 three owned choices shows `0/3`, and equipping the second of those
-three items shows `2/3`. None remains a valid cyclic selector choice
-for unequipping; only its counter representation changes. Character
+three items shows `2/3`. None remains a valid cyclic preview choice: pressing A while None
+is highlighted actually unequips the slot. Browsing alone never does. Character
 creation appearance counters continue to count all real appearance
 choices normally. Item names are never abbreviated; when needed,
 their label scrolls smoothly forward and back.
-Pressing left/right cycles through actual items for that body area,
-returning replaced equipment to the backpack. Clothing and armor tops
-remain mutually exclusive; putting on either returns the other to the
-backpack. There are no separate "Equipped" and "In backpack" sections.
+Left/right previews actual items for that body area; pressing A commits
+the selected change and returns replaced equipment to the backpack.
+Clothing and armor tops remain mutually exclusive; putting on either
+returns the other to the backpack. There are no separate "Equipped" and "In backpack" sections.
 
 **Navigation rules:** moving between fields, tabs, menu items and chest
 rows stops at the first/last entry (no wrapping). Item choices **and
