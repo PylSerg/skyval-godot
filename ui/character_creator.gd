@@ -25,6 +25,7 @@ const RIGHT_STICK_RELEASE := 0.35
 const MIN_UI_FONT_SIZE := 14
 const PANEL_INSET := 7
 const FIELD_GROUP_SPACING := 12
+const FIELD_HORIZONTAL_INSET := FIELD_GROUP_SPACING
 const FIELD_INNER_SPACING := 5
 # This script is instantiated twice: the tabbed backpack in the scene,
 # and appearance as an independent, reusable window.
@@ -766,12 +767,20 @@ func _rebuild_rows() -> void:
         var index: int = _row_labels.size()
         var key: String = str(property_key)
 
-        # Wrap the complete field in a panel so navigation can highlight
-        # the background behind the heading, counter and value selector.
+        # Each field sits 12px from both edges, matching the 12px
+        # vertical gap between consecutive fields. The inner panel retains
+        # its background highlight around heading, counter and selector.
+        var field_outer := MarginContainer.new()
+        field_outer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        field_outer.mouse_filter = Control.MOUSE_FILTER_PASS
+        field_outer.add_theme_constant_override("margin_left", FIELD_HORIZONTAL_INSET)
+        field_outer.add_theme_constant_override("margin_right", FIELD_HORIZONTAL_INSET)
+        _rows.add_child(field_outer)
+
         var field_panel := PanelContainer.new()
         field_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         field_panel.mouse_filter = Control.MOUSE_FILTER_PASS
-        _rows.add_child(field_panel)
+        field_outer.add_child(field_panel)
         _row_panels.append(field_panel)
 
         var field_box := VBoxContainer.new()
@@ -784,7 +793,9 @@ func _rebuild_rows() -> void:
         heading_row.add_theme_constant_override("separation", 2)
         field_box.add_child(heading_row)
 
-        var name_label := _label(16)
+        # Smaller 14px field headings preserve complete Ukrainian labels
+        # alongside the counter inside the symmetric 12px side insets.
+        var name_label := _label(MIN_UI_FONT_SIZE)
         name_label.text = _tr("field." + key)
         name_label.custom_minimum_size.y = 17
         name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -792,7 +803,7 @@ func _rebuild_rows() -> void:
         _row_labels.append(name_label)
 
         var counter_label := _label(MIN_UI_FONT_SIZE)
-        counter_label.custom_minimum_size.x = 49
+        counter_label.custom_minimum_size.x = 44
         counter_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
         counter_label.add_theme_color_override("font_color", Color("#b5c7d9"))
         counter_label.text = _field_counter(key)
