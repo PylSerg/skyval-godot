@@ -97,6 +97,20 @@ checkpoints, which occur on menu opening, equipment changes, loot and
 returning to main menu. The last opened character is updated on every
 successful load and after new-character creation, not when viewing lists.
 
+### Illustrated character creator (320×240)
+
+The dedicated appearance editor now uses
+`assets/images/create_hero_bg.jpg` as a full-screen background, plus
+a translucent navy/gold control panel and a framed LPC character preview.
+The five appearance fields remain visible together as a compact list:
+body type, skin, eyes, hairstyle and hair color. One shared selector below
+the list shows and changes the highlighted field's actual value and
+retains the original field counters. The D-pad and left stick move through
+the list or change its value, A changes the value, right-stick horizontal
+flicks rotate the portrait by 90°, X confirms and B cancels.
+The backpack keeps its original two-column styling and independent item
+selectors; no backpack behavior changes with this redesign.
+
 ### Character creation
 
 New Game opens the appearance editor. Choose the body, eyes and hair,
