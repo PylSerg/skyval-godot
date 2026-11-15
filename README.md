@@ -213,31 +213,32 @@ currently worn garment or claiming armor protection**. The user
 keeps the armor in the backpack; previously saved armor items are
 preserved in the backpack if their source art is missing.
 
-**Leather-vest front visibility (video inspection, 2026-11-15):**
-The existing `torso/armour/leather` overlay appeared on the character's
-back but left the front chest exposed in both the 3× portrait and the
-world. The fix uses **two existing Universal LPC sprite layers** rather
-than any generated/painted armor: the leather armour overlay at z=45,
-plus a sleeveless LPC leather/brown torso layer at z=40, from
-`torso/clothes/sleeveless/sleeveless/<female|male>/`. The runtime
-discovers installed colors and verifies that the chosen lining has
-non-transparent central torso pixels in all four idle **and** walk
-directions. If no compatible lining exists, the equip is declined,
-leaving the original outfit and inventory unchanged instead of
-pretending that a bare torso is covered. The connected file bridge
-verified the sleeveless folder structure but did not expose the exact
-PNG variants; the new runtime selection still needs a Godot visual test.
+**Armor stability fixes (log and recording, 2026-11-15):**
+A reported `leather vest has no verified front layer` warning stopped
+every attempt to select the first owned armor item. The sleeveless
+authentic LPC lining (`torso/clothes/sleeveless/sleeveless/<female|male>/`,
+at z=40) is now **optional**: the primary real LPC leather armor
+remains the required layer, and missing lining no longer traps the
+selector. Cycling also skips other armor pieces whose original LPC
+images cannot be loaded, without consuming them. The leather armor
+can still look partially bare from the front until an appropriate
+real sleeveless sheet is installed; this is explicitly a remaining
+visual limitation, not a substitute drawn with procedural pixels.
 
-**Armor preview regression (recording, 2026-11-15):**
-Rapidly cycling between the three armor pieces and None repeatedly
-caused the right-hand 3× portrait area to turn solid white, sometimes
-for several seconds. The paused preview now draws the underlying
-atlas using `draw_texture_rect_region()` rather than passing a
-nested `AtlasTexture` directly to `draw_texture()`, ignores
-sprite nodes queued for deletion, and schedules one additional
-preview redraw after the next frame when the new LPC layers settle.
-This is a targeted fix based on code analysis, **not yet confirmed
-by a live Godot test**.
+When a change fails, the live LPC sprites are already intact because
+validation happens before sprite replacement. The state is restored
+without reloading the previous large PNGs. External LPC textures now
+have a bounded 10-atlas cache, and both successful and unsuccessful
+armor-path discoveries are remembered for the session. That avoids
+repeated directory scans and most repeated PNG decoding.
+
+The persistent solid-white portrait seen in the recording is addressed
+by extracting real **64×64 RGBA frames** from the underlying source
+atlas, caching those frame textures, and drawing the cropped textures
+instead of rendering an `AtlasTexture` region through the GPU. Frames
+from deleted sprites are ignored and portrait caches are invalidated
+after every outfit change. This change is based on the reported log
+and video, **not yet verified by launching Godot**.
 
 **Torso exclusivity:** Equipping torso armor sets shirt style to
 `none` and returns the previously equipped shirt to the backpack.
