@@ -570,7 +570,8 @@ func _rebuild_rows() -> void:
 
     if appearance_window:
         _confirm_button = _button()
-        _confirm_button.text = _tr("ui.confirm_character")
+        _confirm_button.text = _tr("ui.confirm_character") if _creation_mode else _tr("ui.confirm_appearance_edit")
+        _confirm_button.add_theme_font_size_override("font_size", 13)
         _confirm_button.custom_minimum_size.y = 26
         _confirm_button.pressed.connect(_accept_appearance)
         _rows.add_child(_confirm_button)
