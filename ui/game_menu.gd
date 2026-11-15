@@ -60,10 +60,12 @@ var _profile_list: VBoxContainer
 var _profile_hint: Label
 var _confirm_panel: VBoxContainer
 var _confirm_message: Label
-var _confirm_hint: Label
+var _confirm_accept: Button
+var _confirm_cancel: Button
 var _menu_buttons: Array[Button] = []
 var _language_caption: Label
-var _language_value: Label
+var _language_buttons: Array[Button] = []
+var _language_selection: int = 0
 var _held_buttons: Dictionary = {}
 var _stick_direction: Dictionary = {}
 var _last_navigation_ms: int = -10000
@@ -183,10 +185,14 @@ func _handle_button(event: InputEventJoypadButton) -> void:
                 elif _session_started:
                     _set_open(false)
             JOY_BUTTON_DPAD_UP:
-                if not _settings_open:
+                if _settings_open:
+                    _move_language_selection(-1)
+                else:
                     _move_selection(-1)
             JOY_BUTTON_DPAD_DOWN:
-                if not _settings_open:
+                if _settings_open:
+                    _move_language_selection(1)
+                else:
                     _move_selection(1)
             JOY_BUTTON_DPAD_LEFT:
                 if _settings_open:
@@ -196,7 +202,7 @@ func _handle_button(event: InputEventJoypadButton) -> void:
                     _change_language(1)
             JOY_BUTTON_A:
                 if _settings_open:
-                    _change_language(1)
+                    _select_language(_language_selection)
                 else:
                     _activate_option(_selected_option)
     get_viewport().set_input_as_handled()
@@ -222,9 +228,12 @@ func _handle_axis(event: InputEventJoypadMotion) -> void:
         if direction != 0 and _can_navigate() and _confirm_action.is_empty():
             if not _list_mode.is_empty() and event.axis == JOY_AXIS_LEFT_Y:
                 _move_list(direction)
-            elif _settings_open and event.axis == JOY_AXIS_LEFT_X:
-                _change_language(direction)
-            elif _list_mode.is_empty() and not _settings_open and event.axis == JOY_AXIS_LEFT_Y:
+            elif _settings_open:
+                if event.axis == JOY_AXIS_LEFT_Y:
+                    _move_language_selection(direction)
+                elif event.axis == JOY_AXIS_LEFT_X:
+                    _move_language_selection(direction)
+            elif _list_mode.is_empty() and event.axis == JOY_AXIS_LEFT_Y:
                 _move_selection(direction)
     get_viewport().set_input_as_handled()
 
@@ -280,6 +289,9 @@ func _set_ui_pause(is_open: bool) -> void:
 
 func _show_settings(show: bool) -> void:
     _settings_open = show
+    if show:
+        # Up/Down highlights one of the vertically stacked languages.
+        _language_selection = 0 if str(_locale.get("language")) == "uk" else 1
     _refresh_text()
 
 
@@ -725,12 +737,35 @@ func _on_appearance_cancelled() -> void:
     _set_open(true)
     _creation_in_progress = false
 
-func _change_language(direction: int) -> void:
+func _move_language_selection(direction: int) -> void:
     if not _opened or not _settings_open:
         return
-    var current: String = str(_locale.get("language"))
-    var desired: String = "en" if current == "uk" else "uk"
-    _locale.call("set_language", desired)
+    _language_selection = clampi(_language_selection + direction, 0, 1)
+    _refresh_language_buttons()
+
+
+func _select_language(index: int) -> void:
+    if not _opened or not _settings_open or index < 0 or index > 1:
+        return
+    _language_selection = index
+    var desired: String = "uk" if index == 0 else "en"
+    if str(_locale.get("language")) != desired:
+        _locale.call("set_language", desired)
+    _refresh_text()
+
+
+func _change_language(direction: int) -> void:
+    # Backwards-compatible left/right shortcut: no horizontal widget.
+    _move_language_selection(direction)
+
+
+func _refresh_language_buttons() -> void:
+    for index in range(_language_buttons.size()):
+        var button: Button = _language_buttons[index]
+        var key: String = "settings.language.uk" if index == 0 else "settings.language.en"
+        var active: bool = str(_locale.get("language")) == ("uk" if index == 0 else "en")
+        button.text = ("* " if active else "  ") + _tr(key)
+        UiTheme.apply_button(button, index == _language_selection, false, 3.0)
 
 
 func _build_interface() -> void:
@@ -807,28 +842,19 @@ func _build_interface() -> void:
     _language_caption.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
     _settings_panel.add_child(_language_caption)
 
-    var language_row := HBoxContainer.new()
-    language_row.add_theme_constant_override("separation", 3)
-    _settings_panel.add_child(language_row)
-
-    var previous := _button()
-    previous.text = "‹"
-    previous.custom_minimum_size = Vector2(25, 29)
-    previous.pressed.connect(_change_language.bind(-1))
-    language_row.add_child(previous)
-
-    _language_value = _label(14)
-    _language_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    _language_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    _language_value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    _language_value.add_theme_color_override("font_color", ACTIVE_HIGHLIGHT)
-    language_row.add_child(_language_value)
-
-    var next_button := _button()
-    next_button.text = "›"
-    next_button.custom_minimum_size = Vector2(25, 29)
-    next_button.pressed.connect(_change_language.bind(1))
-    language_row.add_child(next_button)
+    # Language choices are a single vertical column, just like save
+    # slots and gameplay actions. No cramped arrow/value/arrow strip.
+    var language_options := VBoxContainer.new()
+    language_options.add_theme_constant_override("separation", 3)
+    language_options.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    _settings_panel.add_child(language_options)
+    for index in range(2):
+        var choice: Button = _button()
+        choice.add_theme_font_size_override("font_size", MIN_UI_FONT_SIZE)
+        choice.custom_minimum_size.y = 26
+        choice.pressed.connect(_select_language.bind(index))
+        language_options.add_child(choice)
+        _language_buttons.append(choice)
 
     _continue_panel = VBoxContainer.new()
     _continue_panel.add_theme_constant_override("separation", 5)
@@ -842,22 +868,35 @@ func _build_interface() -> void:
     _profile_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _continue_panel.add_child(_profile_hint)
 
-    # Confirmations remain modal in the framed panel.
+    # Confirmation choices form their own one-column button list.
+    # No "A: ... B: ..." line that can wrap in the middle at 320x240.
     _confirm_panel = VBoxContainer.new()
-    _confirm_panel.add_theme_constant_override("separation", 12)
+    _confirm_panel.add_theme_constant_override("separation", 5)
     stack.add_child(_confirm_panel)
 
-    _confirm_message = _label(15)
+    _confirm_message = _label(MIN_UI_FONT_SIZE)
     _confirm_message.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
     _confirm_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    _confirm_message.custom_minimum_size.y = 65
+    _confirm_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    _confirm_message.custom_minimum_size.y = 94
     _confirm_panel.add_child(_confirm_message)
 
-    _confirm_hint = _label(MIN_UI_FONT_SIZE)
-    _confirm_hint.add_theme_color_override("font_color", UiTheme.MUTED)
-    _confirm_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    _confirm_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    _confirm_panel.add_child(_confirm_hint)
+    var confirm_options := VBoxContainer.new()
+    confirm_options.add_theme_constant_override("separation", 4)
+    confirm_options.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    _confirm_panel.add_child(confirm_options)
+
+    _confirm_accept = _button()
+    _confirm_accept.add_theme_font_size_override("font_size", MIN_UI_FONT_SIZE)
+    _confirm_accept.custom_minimum_size.y = 25
+    _confirm_accept.pressed.connect(_accept_confirmation)
+    confirm_options.add_child(_confirm_accept)
+
+    _confirm_cancel = _button()
+    _confirm_cancel.add_theme_font_size_override("font_size", MIN_UI_FONT_SIZE)
+    _confirm_cancel.custom_minimum_size.y = 25
+    _confirm_cancel.pressed.connect(_dismiss_confirmation)
+    confirm_options.add_child(_confirm_cancel)
 
     _refresh_text()
 
@@ -907,11 +946,19 @@ func _style_menu_layout() -> void:
         for i in range(_menu_buttons.size()):
             _main_panel.move_child(_menu_buttons[i], i)
     else:
-        for i in range(_menu_buttons.size()):
-            _main_panel.move_child(_menu_buttons[i], i)
-        _panel.custom_minimum_size = Vector2(252, 224)
-        _panel.size = Vector2(252, 224)
-        _panel.position = Vector2(34, 8)
+        # Content-aware window sizes, centered within the native 320x240.
+        # Confirmations have a larger text area and TWO vertical choices.
+        # Settings need less height; seven-action gameplay needs all 224px.
+        var panel_size: Vector2 = Vector2(252, 224)
+        if not _confirm_action.is_empty():
+            panel_size = Vector2(280, 202)
+        elif _settings_open:
+            panel_size = Vector2(260, 155)
+        elif not _list_mode.is_empty():
+            panel_size = Vector2(284, 218)
+        _panel.custom_minimum_size = panel_size
+        _panel.size = panel_size
+        _panel.position = ((Vector2(320, 240) - panel_size) * 0.5).round()
 
 
 func _update_highlight() -> void:
@@ -997,8 +1044,9 @@ func _refresh_text() -> void:
                 _confirm_message.text = _tr("game.quit_confirm")
 
     _language_caption.text = _tr("settings.language")
-    _language_value.text = _tr("settings.language.en") if str(_locale.get("language")) == "en" else _tr("settings.language.uk")
-    _confirm_hint.text = _tr("menu.confirm_hint")
+    _refresh_language_buttons()
+    _confirm_accept.text = _tr("menu.confirm_accept")
+    _confirm_cancel.text = _tr("menu.confirm_cancel")
     _main_panel.visible = not _settings_open and _list_mode.is_empty() and _confirm_action.is_empty()
     _settings_panel.visible = _settings_open and _confirm_action.is_empty()
     _continue_panel.visible = not _list_mode.is_empty() and _confirm_action.is_empty()
