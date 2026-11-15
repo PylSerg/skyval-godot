@@ -412,13 +412,13 @@ func _set_open(next_open: bool) -> void:
         get_viewport().gui_release_focus()
 
 
-func _set_ui_pause(is_open: bool) -> void:
+func _set_ui_pause(should_pause: bool) -> void:
     var pause_manager: Node = get_node_or_null("/root/SkyvalUiPause")
     if pause_manager != null:
-        pause_manager.call("set_open", self, is_open)
+        pause_manager.call("set_open", self, should_pause)
     else:
         # Fallback for an editor that has not reloaded project.godot yet.
-        get_tree().paused = is_open
+        get_tree().paused = should_pause
 
 
 func _build_interface() -> void:
