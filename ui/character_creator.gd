@@ -74,11 +74,11 @@ var _last_navigation_ms: int = -10000
 var _ignore_presses_before_ms: int = 0
 var _root: Control
 var _appearance_bg: TextureRect
-var _appearance_choice_panel: PanelContainer
-var _appearance_choice_window: Control
-var _appearance_choice_value: Label
-var _appearance_prev: Button
-var _appearance_next: Button
+var _compact_choice_panel: PanelContainer
+var _compact_choice_window: Control
+var _compact_choice_value: Label
+var _compact_prev: Button
+var _compact_next: Button
 var _title_label: Label
 var _rows: VBoxContainer
 var _preview: Control
@@ -90,8 +90,7 @@ var _missing_label: Label
 var _value_labels: Dictionary = {}
 var _value_windows: Dictionary = {}
 var _value_marquees: Dictionary = {}
-var _field_arrows: Dictionary = {}
-var _inventory: Node
+ var _inventory: Node
 var _locale: Node
 
 func _ready() -> void:
@@ -332,8 +331,7 @@ func _move_selection(amount: int) -> void:
         return
     _selected_index = next_index
     _update_row_highlight()
-    if appearance_window:
-        _update_appearance_choice()
+    _update_compact_choice()
     _reveal_selected_row()
 
 func _adjust_selected(direction: int) -> void:
@@ -352,16 +350,13 @@ func _update_row_highlight() -> void:
             continue
         var selected: bool = index == _selected_index
         var style := StyleBoxFlat.new()
-        if appearance_window:
-            style.bg_color = Color(0.18, 0.26, 0.38, 0.78) if selected else Color(0.05, 0.08, 0.14, 0.19)
-        else:
-            style.bg_color = Color("#38516c") if selected else Color(0, 0, 0, 0)
+        style.bg_color = Color(0.18, 0.26, 0.38, 0.78) if selected else Color(0.05, 0.08, 0.14, 0.19)
         style.border_color = ACTIVE_HIGHLIGHT if selected else Color(0, 0, 0, 0)
         style.set_border_width_all(1)
         style.set_corner_radius_all(2)
-        # Equal 12px content padding on all four sides. The highlighted
-        # background and border still span the complete available row.
-        style.set_content_margin_all(3 if appearance_window else FIELD_CONTENT_PADDING)
+        # Compact rows free room for all five categories and their shared
+        # selector; inventory and appearance use identical highlighting.
+        style.set_content_margin_all(3)
         field_panel.add_theme_stylebox_override("panel", style)
         if index < _row_labels.size():
             var name: Label = _row_labels[index]
@@ -639,45 +634,45 @@ func _build_interface() -> void:
 
     # Both the creation editor and inventory use the same compact,
     # single-value selector, preserving room for five visible fields.
-    _appearance_choice_panel = PanelContainer.new()
-    _appearance_choice_panel.custom_minimum_size.y = 25
+    _compact_choice_panel = PanelContainer.new()
+    _compact_choice_panel.custom_minimum_size.y = 25
     var choice_style := StyleBoxFlat.new()
     choice_style.bg_color = Color(0.11, 0.17, 0.25, 0.84)
     choice_style.border_color = ACTIVE_HIGHLIGHT
     choice_style.set_border_width_all(1)
     choice_style.set_corner_radius_all(2)
     choice_style.set_content_margin_all(2)
-    _appearance_choice_panel.add_theme_stylebox_override("panel", choice_style)
-    stack.add_child(_appearance_choice_panel)
+    _compact_choice_panel.add_theme_stylebox_override("panel", choice_style)
+    stack.add_child(_compact_choice_panel)
 
     var choice_row := HBoxContainer.new()
     choice_row.add_theme_constant_override("separation", 3)
-    _appearance_choice_panel.add_child(choice_row)
+    _compact_choice_panel.add_child(choice_row)
 
-    _appearance_prev = _selector_arrow_button()
-    _appearance_prev.text = _tr("ui.previous")
-    _appearance_prev.custom_minimum_size = Vector2(SELECTOR_ARROW_WIDTH, 20)
-    _appearance_prev.pressed.connect(_adjust_selected.bind(-1))
-    choice_row.add_child(_appearance_prev)
+    _compact_prev = _selector_arrow_button()
+    _compact_prev.text = _tr("ui.previous")
+    _compact_prev.custom_minimum_size = Vector2(SELECTOR_ARROW_WIDTH, 20)
+    _compact_prev.pressed.connect(_adjust_selected.bind(-1))
+    choice_row.add_child(_compact_prev)
 
-    _appearance_choice_window = Control.new()
-    _appearance_choice_window.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    _appearance_choice_window.custom_minimum_size = Vector2(60, 20)
-    _appearance_choice_window.clip_contents = true
-    _appearance_choice_window.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    choice_row.add_child(_appearance_choice_window)
+    _compact_choice_window = Control.new()
+    _compact_choice_window.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    _compact_choice_window.custom_minimum_size = Vector2(60, 20)
+    _compact_choice_window.clip_contents = true
+    _compact_choice_window.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    choice_row.add_child(_compact_choice_window)
 
-    _appearance_choice_value = _label(MIN_UI_FONT_SIZE)
-    _appearance_choice_value.clip_text = false
-    _appearance_choice_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    _appearance_choice_value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    _appearance_choice_window.add_child(_appearance_choice_value)
+    _compact_choice_value = _label(MIN_UI_FONT_SIZE)
+    _compact_choice_value.clip_text = false
+    _compact_choice_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    _compact_choice_value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    _compact_choice_window.add_child(_compact_choice_value)
 
-    _appearance_next = _selector_arrow_button()
-    _appearance_next.text = _tr("ui.next")
-    _appearance_next.custom_minimum_size = Vector2(SELECTOR_ARROW_WIDTH, 20)
-    _appearance_next.pressed.connect(_adjust_selected.bind(1))
-    choice_row.add_child(_appearance_next)
+    _compact_next = _selector_arrow_button()
+    _compact_next.text = _tr("ui.next")
+    _compact_next.custom_minimum_size = Vector2(SELECTOR_ARROW_WIDTH, 20)
+    _compact_next.pressed.connect(_adjust_selected.bind(1))
+    choice_row.add_child(_compact_next)
 
     # Use the full right column; the portrait itself is drawn at 3×.
     _preview = PreviewScript.new() as Control
@@ -849,7 +844,7 @@ func _create_page_scroll() -> ScrollContainer:
 
     _rows = VBoxContainer.new()
     _rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    _rows.add_theme_constant_override("separation", 2 if appearance_window else FIELD_GROUP_SPACING)
+    _rows.add_theme_constant_override("separation", 2)
     scroll.add_child(_rows)
     return scroll
 
@@ -930,8 +925,7 @@ func _rebuild_rows() -> void:
     _stop_value_marquees()
     _value_windows.clear()
     _value_labels.clear()
-    _field_arrows.clear()
-    _row_counters.clear()
+     _row_counters.clear()
     _row_labels.clear()
     _row_panels.clear()
     _row_values.clear()
@@ -940,137 +934,38 @@ func _rebuild_rows() -> void:
         child.queue_free()
 
     var fields: Array = _current_fields()
-    if not appearance_window and _active_tab == 2:
+    _compact_choice_panel.visible = not fields.is_empty()
+    if fields.is_empty():
+        # Weapons currently have no equipment fields. Keep their tab and
+        # empty-state text without an inert selector.
         var placeholder := VBoxContainer.new()
-        placeholder.add_theme_constant_override("separation", 10)
+        placeholder.add_theme_constant_override("separation", 9)
         _rows.add_child(placeholder)
-        var caption := _label(15)
-        caption.text = _tr(str(BACKPACK_TABS[_active_tab]))
-        caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        placeholder.add_child(caption)
         var empty_text := _label(MIN_UI_FONT_SIZE)
         empty_text.text = _tr("inventory.empty_category")
         empty_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         empty_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        empty_text.custom_minimum_size.y = 52
         placeholder.add_child(empty_text)
-
-    if appearance_window:
-        _build_appearance_field_list(fields)
-        _update_row_highlight()
-        _update_appearance_choice()
-        _reveal_selected_row()
-        return
-
-    for property_key in fields:
-        var index: int = _row_labels.size()
-        var key: String = str(property_key)
-
-        # Full-width highlighted field. The panel's style (not an outer
-        # MarginContainer) supplies equal left/right content padding, so
-        # the background and golden selection border reach both edges.
-        var field_panel := PanelContainer.new()
-        field_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        field_panel.mouse_filter = Control.MOUSE_FILTER_PASS
-        _rows.add_child(field_panel)
-        _row_panels.append(field_panel)
-
-        var field_box := VBoxContainer.new()
-        field_box.add_theme_constant_override("separation", FIELD_INNER_SPACING)
-        field_panel.add_child(field_box)
-
-        # Never let a heading or a long translated item name enlarge the
-        # field beyond the 320x240 inventory column. Fixed anchors keep
-        # the counter and BOTH arrows visible on the very first opening.
-        var heading_row := Control.new()
-        heading_row.custom_minimum_size.y = 18
-        heading_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        field_box.add_child(heading_row)
-
-        var name_label := _label(MIN_UI_FONT_SIZE)
-        name_label.text = _tr("field." + key)
-        heading_row.add_child(name_label)
-        name_label.anchor_right = 1.0
-        name_label.anchor_bottom = 1.0
-        name_label.offset_right = -46.0
-        name_label.clip_text = true
-        _row_labels.append(name_label)
-
-        var counter_label := _label(MIN_UI_FONT_SIZE)
-        counter_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-        counter_label.add_theme_color_override("font_color", Color("#b5c7d9"))
-        counter_label.text = _field_counter(key)
-        heading_row.add_child(counter_label)
-        counter_label.anchor_left = 1.0
-        counter_label.anchor_right = 1.0
-        counter_label.offset_left = -44.0
-        counter_label.offset_right = 0.0
-        counter_label.offset_bottom = 18.0
-        _row_counters[key] = counter_label
-
-        var choice_row := Control.new()
-        choice_row.custom_minimum_size.y = 22
-        choice_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        field_box.add_child(choice_row)
-
-        var previous := _selector_arrow_button()
-        previous.text = _tr("ui.previous")
-        previous.custom_minimum_size = Vector2(SELECTOR_ARROW_WIDTH, 21)
-        previous.disabled = not _can_adjust_field(key, -1)
-        choice_row.add_child(previous)
-        previous.position = Vector2.ZERO
-        previous.size = Vector2(SELECTOR_ARROW_WIDTH, 21)
-        previous.pressed.connect(_adjust.bind(key, -1, index))
-
-        # A fixed clipped viewport extends only between the arrow slots.
-        # Its label may move left/right but cannot resize the row itself.
-        var value_window := Control.new()
-        value_window.clip_contents = true
-        value_window.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        choice_row.add_child(value_window)
-        value_window.anchor_right = 1.0
-        value_window.offset_left = SELECTOR_ARROW_WIDTH + SELECTOR_ARROW_GAP
-        value_window.offset_right = -(SELECTOR_ARROW_WIDTH + SELECTOR_ARROW_GAP)
-        value_window.offset_bottom = 21.0
-
-        var value_label := _label(MIN_UI_FONT_SIZE)
-        value_label.clip_text = false
-        value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-        value_label.text = _localized_value(key)
-        value_window.add_child(value_label)
-        _value_windows[key] = value_window
-        _value_labels[key] = value_label
-        _row_values.append(value_label)
-        value_window.resized.connect(_update_value_marquee.bind(key))
-
-        var following := _selector_arrow_button()
-        following.text = _tr("ui.next")
-        following.custom_minimum_size = Vector2(SELECTOR_ARROW_WIDTH, 21)
-        following.disabled = not _can_adjust_field(key, 1)
-        choice_row.add_child(following)
-        following.anchor_left = 1.0
-        following.anchor_right = 1.0
-        following.offset_left = -SELECTOR_ARROW_WIDTH
-        following.offset_right = 0.0
-        following.offset_bottom = 21.0
-        following.pressed.connect(_adjust.bind(key, 1, index))
-        _field_arrows[key] = [previous, following]
+    else:
+        _build_compact_field_list(fields)
 
     _update_row_highlight()
-    call_deferred("_refresh_all_value_marquees")
+    _update_compact_choice()
     _reveal_selected_row()
 
-func _build_appearance_field_list(fields: Array) -> void:
+
+func _build_compact_field_list(fields: Array) -> void:
     for field_key in fields:
         var index: int = _row_panels.size()
         var key: String = str(field_key)
 
         var field_panel := PanelContainer.new()
-        field_panel.name = "Appearance_" + key
+        field_panel.name = "Field_" + key
         field_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         field_panel.custom_minimum_size.y = 23
         field_panel.mouse_filter = Control.MOUSE_FILTER_PASS
-        field_panel.gui_input.connect(_on_appearance_row_input.bind(index))
+        field_panel.gui_input.connect(_on_compact_row_input.bind(index))
         _rows.add_child(field_panel)
         _row_panels.append(field_panel)
 
@@ -1094,32 +989,37 @@ func _build_appearance_field_list(fields: Array) -> void:
         _row_counters[key] = counter
 
 
-func _on_appearance_row_input(event: InputEvent, index: int) -> void:
-    if not appearance_window or not _opened or _confirmation_open:
+func _on_compact_row_input(event: InputEvent, index: int) -> void:
+    if not _opened or _confirmation_open:
         return
     if event is InputEventMouseButton:
         var click: InputEventMouseButton = event as InputEventMouseButton
         if click.button_index == MOUSE_BUTTON_LEFT and click.pressed:
             _selected_index = index
             _update_row_highlight()
-            _update_appearance_choice()
+            _update_compact_choice()
 
 
-func _update_appearance_choice() -> void:
-    if not appearance_window or _appearance_choice_value == null:
+func _update_compact_choice() -> void:
+    if _compact_choice_value == null:
         return
     var fields: Array = _current_fields()
     if fields.is_empty():
+        _compact_choice_panel.hide()
+        _stop_value_marquees()
+        _value_labels.clear()
+        _value_windows.clear()
         return
+    _compact_choice_panel.show()
     var field_key: String = str(fields[clampi(_selected_index, 0, fields.size() - 1)])
     _stop_value_marquees()
     _value_labels.clear()
     _value_windows.clear()
-    _appearance_choice_value.text = _localized_value(field_key)
-    _appearance_prev.disabled = not _can_adjust_field(field_key, -1)
-    _appearance_next.disabled = not _can_adjust_field(field_key, 1)
-    _value_labels[field_key] = _appearance_choice_value
-    _value_windows[field_key] = _appearance_choice_window
+    _compact_choice_value.text = _localized_value(field_key)
+    _compact_prev.disabled = not _can_adjust_field(field_key, -1)
+    _compact_next.disabled = not _can_adjust_field(field_key, 1)
+    _value_labels[field_key] = _compact_choice_value
+    _value_windows[field_key] = _compact_choice_window
     call_deferred("_refresh_all_value_marquees")
 
 
@@ -1155,22 +1055,17 @@ func _localized_value(key: String) -> String:
     return _tr("color." + value)
 
 func _refresh_options() -> void:
-    # Refresh live labels rather than rebuilding rows, preserving button focus.
+    # Refresh the shared selector without rebuilding the list or losing the
+    # current selection, then update all five counters independently.
     for option_key in _value_labels.keys():
         var key: String = str(option_key)
         var field_label: Label = _value_labels[option_key] as Label
         if is_instance_valid(field_label):
             field_label.text = _localized_value(key)
-        if _row_counters.has(option_key):
-            var counter: Label = _row_counters[option_key] as Label
-            if is_instance_valid(counter):
-                counter.text = _field_counter(key)
-        if _field_arrows.has(option_key):
-            var arrows: Array = _field_arrows[option_key]
-            for index in range(arrows.size()):
-                var button: Button = arrows[index] as Button
-                if is_instance_valid(button):
-                    button.disabled = not _can_adjust_field(key, -1 if index == 0 else 1)
+    for option_key in _row_counters.keys():
+        var counter: Label = _row_counters[option_key] as Label
+        if is_instance_valid(counter):
+            counter.text = _field_counter(str(option_key))
     # Drop cropped frames from the previous equipment set immediately.
     # The preview creates fresh 64x64 textures for the new LPC nodes.
     if _preview != null and _preview.has_method("clear_frame_cache"):
@@ -1179,8 +1074,7 @@ func _refresh_options() -> void:
         _preview.queue_redraw()
     _refresh_preview_after_frame()
     _refresh_armor_status()
-    if appearance_window:
-        _update_appearance_choice()
+    _update_compact_choice()
     call_deferred("_refresh_all_value_marquees")
 
 
