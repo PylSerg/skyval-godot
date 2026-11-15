@@ -15,6 +15,11 @@ const ITEMS := {
     "navy_cuffed_pants": {"slot": "pants", "style": "cuffed", "variant": "navy", "label": "item.navy_cuffed_pants", "armor_class": "cloth", "armor_value": 0},
     "brown_boots": {"slot": "footwear", "style": "boots/basic", "variant": "brown", "label": "item.brown_boots", "armor_class": "cloth", "armor_value": 0},
     "black_shoes": {"slot": "footwear", "style": "shoes/basic", "variant": "black", "label": "item.black_shoes", "armor_class": "cloth", "armor_value": 0},
+    # Separate equippable armor slot. These items are physical loot,
+    # never offered as free options or granted at character creation.
+    "leather_vest": {"slot": "armor", "style": "leather_vest", "label": "item.leather_vest", "armor_class": "light", "armor_value": 2},
+    "reinforced_vest": {"slot": "armor", "style": "reinforced_vest", "label": "item.reinforced_vest", "armor_class": "light", "armor_value": 3},
+    "plate_cuirass": {"slot": "armor", "style": "plate_cuirass", "label": "item.plate_cuirass", "armor_class": "heavy", "armor_value": 5},
 }
 # Armor classes are data, not inferred from garment sprite paths.
 # Future LPC armor pieces will declare their own class and protection
@@ -34,10 +39,16 @@ const TEST_CHEST_ITEMS := [
     "brown_boots",
     "black_shoes",
 ]
+const TEST_ARMOR_CHEST_ITEMS := [
+    "leather_vest",
+    "reinforced_vest",
+    "plate_cuirass",
+]
 
 var _bag: Array[String] = []
 var _chest: Array[String] = []
-var _equipped: Dictionary = {"shirt": "", "pants": "", "footwear": ""}
+var _armor_chest: Array[String] = []
+var _equipped: Dictionary = {"shirt": "", "pants": "", "footwear": "", "armor": ""}
 
 
 func _ready() -> void:
@@ -49,6 +60,9 @@ func reset_for_new_game(body_type: String = "male") -> void:
     _chest.clear()
     for item_id in TEST_CHEST_ITEMS:
         _chest.append(item_id)
+    _armor_chest.clear()
+    for item_id in TEST_ARMOR_CHEST_ITEMS:
+        _armor_chest.append(item_id)
     set_starter_equipment(body_type)
 
 
@@ -57,6 +71,7 @@ func set_starter_equipment(body_type: String) -> void:
         "shirt": "basic_tshirt" if body_type == "female" else "",
         "pants": "formal_pants",
         "footwear": "",
+        "armor": "",
     }
     changed.emit()
 
@@ -67,6 +82,10 @@ func get_bag() -> Array[String]:
 
 func get_chest() -> Array[String]:
     return _chest.duplicate()
+
+
+func get_chest_items(chest_kind: String = "clothes") -> Array[String]:
+    return _armor_chest.duplicate() if chest_kind == "armor" else _chest.duplicate()
 
 
 func get_equipped(slot: String) -> String:
@@ -141,6 +160,7 @@ func get_save_state() -> Dictionary:
     return {
         "bag": _bag.duplicate(),
         "chest": _chest.duplicate(),
+        "armor_chest": _armor_chest.duplicate(),
         "equipped": _equipped.duplicate(),
     }
 
@@ -153,7 +173,10 @@ func load_save_state(data: Variant, avatar: Node) -> void:
         _chest.clear()
         for item_id in TEST_CHEST_ITEMS:
             _chest.append(item_id)
-        _equipped = {"shirt": "", "pants": "", "footwear": ""}
+        _armor_chest.clear()
+        for item_id in TEST_ARMOR_CHEST_ITEMS:
+            _armor_chest.append(item_id)
+        _equipped = {"shirt": "", "pants": "", "footwear": "", "armor": ""}
         _infer_legacy_equipment(avatar)
         changed.emit()
         return
@@ -162,7 +185,8 @@ func load_save_state(data: Variant, avatar: Node) -> void:
     var used: Dictionary = {}
     var bag: Array[String] = []
     var chest: Array[String] = []
-    var equipment: Dictionary = {"shirt": "", "pants": "", "footwear": ""}
+    var armor_chest: Array[String] = []
+    var equipment: Dictionary = {"shirt": "", "pants": "", "footwear": "", "armor": ""}
 
     var saved_equipment: Variant = raw.get("equipped", {})
     if saved_equipment is Dictionary:
@@ -189,9 +213,22 @@ func load_save_state(data: Variant, avatar: Node) -> void:
                 chest.append(item_id)
                 used[item_id] = true
 
+    # Older saves have no armor_chest field: introduce its initial stock
+    # while preserving their existing bag, gear and original clothing chest.
+    var saved_armor_chest: Variant = raw.get("armor_chest", TEST_ARMOR_CHEST_ITEMS)
+    if saved_armor_chest is Array:
+        for value in saved_armor_chest:
+            var armor_id: String = str(value)
+            if TEST_ARMOR_CHEST_ITEMS.has(armor_id) and not used.has(armor_id):
+                armor_chest.append(armor_id)
+                used[armor_id] = true
+
     _bag = bag
     _chest = chest
+    _armor_chest = armor_chest
     _equipped = equipment
+    # Restore a saved armor visual, even if the LPC sprites are absent.
+    _apply_armor_to_avatar(avatar, get_equipped("armor"))
     changed.emit()
 
 
@@ -199,6 +236,8 @@ func _infer_legacy_equipment(avatar: Node) -> void:
     if avatar == null or not avatar.has_method("get_lpc_option"):
         return
     for slot in _equipped.keys():
+        if slot == "armor":
+            continue
         var style_key: String = "footwear_style" if slot == "footwear" else slot + "_style"
         var variant_key: String = "boots_variant" if slot == "footwear" else slot + "_variant"
         var style: String = str(avatar.call("get_lpc_option", style_key))
@@ -210,11 +249,12 @@ func _infer_legacy_equipment(avatar: Node) -> void:
                 break
 
 
-func take_from_chest(requested: Array[String]) -> int:
+func take_from_chest(requested: Array[String], chest_kind: String = "clothes") -> int:
+    var source: Array[String] = _armor_chest if chest_kind == "armor" else _chest
     var count: int = 0
     for item_id in requested:
-        if _chest.has(item_id) and not _bag.has(item_id):
-            _chest.erase(item_id)
+        if source.has(item_id) and not _bag.has(item_id):
+            source.erase(item_id)
             _bag.append(item_id)
             count += 1
     if count > 0:
@@ -291,6 +331,39 @@ func cycle_field(field: String, direction: int, avatar: Node) -> bool:
     return equip(new_id, avatar)
 
 
+# One cyclical field in the Armor backpack tab, containing only the
+# armor pieces the player has recovered from the second chest.
+func get_armor_choices() -> Array[String]:
+    var options: Array[String] = [""]
+    for item_id in TEST_ARMOR_CHEST_ITEMS:
+        if get_equipped("armor") == item_id or _bag.has(item_id):
+            options.append(item_id)
+    return options
+
+
+func cycle_armor(direction: int, avatar: Node) -> bool:
+    var options: Array[String] = get_armor_choices()
+    if options.size() < 2:
+        return false
+    var equipped_id: String = get_equipped("armor")
+    var index: int = options.find(equipped_id)
+    if index < 0:
+        return false
+    var next_id: String = options[posmod(index + (1 if direction >= 0 else -1), options.size())]
+    if next_id.is_empty():
+        return unequip("armor", avatar)
+    return equip(next_id, avatar)
+
+
+func _apply_armor_to_avatar(avatar: Node, item_id: String) -> bool:
+    if avatar == null:
+        return false
+    if not avatar.has_method("apply_armor_visual"):
+        return true  # Gear stats still work without optional LPC art.
+    var style: String = str(get_item(item_id).get("style", "none"))
+    return bool(avatar.call("apply_armor_visual", style))
+
+
 func equip(item_id: String, avatar: Node) -> bool:
     if not _bag.has(item_id):
         return false
@@ -298,7 +371,10 @@ func equip(item_id: String, avatar: Node) -> bool:
     if item.is_empty():
         return false
     var slot: String = str(item["slot"])
-    if not _apply_to_avatar(avatar, slot, item):
+    if slot == "armor":
+        if not _apply_armor_to_avatar(avatar, item_id):
+            return false
+    elif not _apply_to_avatar(avatar, slot, item):
         return false
     var previous_id: String = get_equipped(slot)
     _bag.erase(item_id)
@@ -313,7 +389,10 @@ func unequip(slot: String, avatar: Node) -> bool:
     var previous_id: String = get_equipped(slot)
     if previous_id.is_empty():
         return false
-    if not _apply_to_avatar(avatar, slot, {"style": "none"}):
+    if slot == "armor":
+        if not _apply_armor_to_avatar(avatar, ""):
+            return false
+    elif not _apply_to_avatar(avatar, slot, {"style": "none"}):
         return false
     _equipped[slot] = ""
     _bag.append(previous_id)
