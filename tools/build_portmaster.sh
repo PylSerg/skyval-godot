@@ -58,6 +58,16 @@ else
     echo "NOTE: title art missing from assets/images; title falls back to dark menu."
 fi
 
+# Character creation has its own illustrated backdrop. Unlike optional LPC
+# sprite sheets, this small UI asset is always included in test builds.
+CREATION_ART="$ROOT/assets/images/create_hero_bg.jpg"
+if [ -f "$CREATION_ART" ]; then
+    mkdir -p "$STAGE/assets/images"
+    cp "$CREATION_ART" "$STAGE/assets/images/create_hero_bg.jpg"
+else
+    echo "NOTE: creation art missing; character editor will use a plain backdrop."
+fi
+
 # Prefer the static Cascadia Mono Regular from the connected asset library.
 # Copy only the font actually used by the creator, not the old Cascadia.ttf.
 FONT_SOURCE="${SKYVAL_FONT_PATH:-}"
