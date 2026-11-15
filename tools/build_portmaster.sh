@@ -50,12 +50,12 @@ done
 
 # Include the dedicated title illustration. Keep it bundled with the PCK
 # even in --no-assets smoke tests (that option only skips LPC sheets).
-TITLE_ART="$ROOT/assets/ui/title_background.jpg"
+TITLE_ART="$ROOT/assets/images/title_bg.jpg"
 if [ -f "$TITLE_ART" ]; then
-    mkdir -p "$STAGE/assets/ui"
-    cp "$TITLE_ART" "$STAGE/assets/ui/title_background.jpg"
+    mkdir -p "$STAGE/assets/images"
+    cp "$TITLE_ART" "$STAGE/assets/images/title_bg.jpg"
 else
-    echo "NOTE: title art missing from assets/ui; title falls back to dark menu."
+    echo "NOTE: title art missing from assets/images; title falls back to dark menu."
 fi
 
 # Prefer the static Cascadia Mono Regular from the connected asset library.
