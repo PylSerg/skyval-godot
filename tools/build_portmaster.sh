@@ -50,10 +50,10 @@ done
 
 # Include the dedicated title illustration. Keep it bundled with the PCK
 # even in --no-assets smoke tests (that option only skips LPC sheets).
-TITLE_ART="$ROOT/assets/ui/title_background.webp"
+TITLE_ART="$ROOT/assets/ui/title_background.jpg"
 if [ -f "$TITLE_ART" ]; then
     mkdir -p "$STAGE/assets/ui"
-    cp "$TITLE_ART" "$STAGE/assets/ui/title_background.webp"
+    cp "$TITLE_ART" "$STAGE/assets/ui/title_background.jpg"
 else
     echo "NOTE: title art missing from assets/ui; title falls back to dark menu."
 fi
