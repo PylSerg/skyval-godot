@@ -45,6 +45,12 @@ reversing their order. Up/down on the D-pad and stick follow the visual
 order. Once a submenu opens, the normal readable framed menu is used.
 The separate in-game menu keeps its existing layout and options.
 
+The title artwork is a separate 320×240 JPEG resource. Put
+`title_background.jpg` in `assets/ui/` in the source checkout; the
+PortMaster build script copies it into the PCK. If the file is absent,
+the menu falls back to its dark overlay without changing gameplay.
+
+
 
 - **Continue / Продовжити** resumes the **last opened character**.
   `saves/last_opened.json` keeps its ID between launches; if the marker
