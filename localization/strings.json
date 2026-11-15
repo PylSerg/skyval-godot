@@ -166,7 +166,9 @@
     "game.quit": "Вийти з гри",
     "game.quit_confirm": "Вийти з гри? Незбережений прогрес буде втрачено.",
     "ui.create_hero": "Створення героя",
-    "inventory.equip_hint": "A: екіпірувати"
+    "inventory.equip_hint": "A: екіпірувати",
+    "menu.confirm_accept": "A: підтвердити",
+    "menu.confirm_cancel": "B: скасувати"
   },
   "en": {
     "ui.title": "Character",
@@ -335,6 +337,8 @@
     "game.quit": "Quit Game",
     "game.quit_confirm": "Quit the game? Unsaved progress will be lost.",
     "ui.create_hero": "Create Hero",
-    "inventory.equip_hint": "A: equip item"
+    "inventory.equip_hint": "A: equip item",
+    "menu.confirm_accept": "A: confirm",
+    "menu.confirm_cancel": "B: cancel"
   }
 }
