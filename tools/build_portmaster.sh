@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Build a first-launch PortMaster smoke-test pack from Skyval's Git checkout.
-# Run on the developer's Linux laptop. This does NOT alter the source project.
+# Build Skyval for PortMaster from the Git checkout (Linux desktop).
+# Full mode ships the entire external LPC PNG library once, OUTSIDE the PCK.
+# Later --code-only builds replace only the launcher/PCK, preserving SD assets.
+# This script never alters source project files or on-console saves.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -8,11 +10,17 @@ DIST="$ROOT/dist/portmaster"
 STAGE="$(mktemp -d "${TMPDIR:-/tmp}/skyval-port-XXXXXX")"
 trap 'rm -rf "$STAGE"' EXIT
 
-if [ "${1:-}" = "--no-assets" ]; then
-    NO_ASSETS=1
-else
-    NO_ASSETS=0
-fi
+MODE="full"
+case "${1:-}" in
+    ""|--full-assets) MODE="full" ;;
+    --code-only|--no-assets) MODE="code" ;;
+    *)
+        echo "Usage: bash tools/build_portmaster.sh [--full-assets|--code-only]"
+        echo "  (default) --full-assets: ship all LPC PNG resources once"
+        echo "            --code-only: update PCK/launcher without recopying art"
+        exit 2
+        ;;
+esac
 
 GODOT="${GODOT_BIN:-}"
 if [ -z "$GODOT" ]; then
@@ -35,8 +43,8 @@ fi
 echo "Godot editor: $GODOT"
 "$GODOT" --version
 
-# Copy only the code and small resources required by the smoke test.
-# Never import a 900 MB external library into the main Godot project.
+# Stage code and UI art only. The LPC tree is kept OUTSIDE the PCK,
+# so Godot never imports a ~900MB library and runtime loads PNGs on demand.
 for source_file in project.godot export_presets.cfg icon.svg; do
     cp "$ROOT/$source_file" "$STAGE/"
 done
@@ -94,68 +102,59 @@ else
     echo "NOTE: CascadiaMono-Regular.ttf not found; Godot default UI font will be used."
 fi
 
-# Only the current default outfit, both body types, and basic face/hair.
-# Missing non-default variants remain intentionally unavailable in this test.
-SHEETS=(
-    body/bodies/male/light.png
-    head/heads/human/male/light.png
-    head/faces/male/neutral/light.png
-    torso/clothes/shortsleeve/shortsleeve/male/blue.png
-    legs/pants/male/charcoal.png
-    feet/boots/basic/male/brown.png
-
-    body/bodies/female/light.png
-    head/heads/human/female/light.png
-    head/faces/female/neutral/light.png
-    torso/clothes/shortsleeve/shortsleeve/female/blue.png
-    legs/pants/thin/charcoal.png
-    feet/boots/basic/thin/brown.png
-
-    eyes/human/adult/default/blue.png
-    hair/buzzcut/adult/black.png
-)
-
-if [ "$NO_ASSETS" -eq 0 ]; then
-    # Accept an explicit LPC_SPRITES_ROOT; otherwise try known local layouts.
-    ROOTS=(
-        "${LPC_SPRITES_ROOT:-}"
-        "$HOME/Godot/res/assets/lpc_sprites"
-        "$HOME/Godot/res/assets/lpc_sprites/spritesheets"
-        "$HOME/Godot/res/assets/lpc_sprites/resources/spritesheets"
-        "$HOME/Godot/res/addons/Universal_LPC/resources/spritesheets"
-        "$HOME/Godot/res/addons/universal_lpc/resources/spritesheets"
-        "$HOME/Godot/res/addons/Godot_LPC_Spritesheet/resources/spritesheets"
-    )
-    FOUND=""
-    for candidate in "${ROOTS[@]}"; do
-        if [ -n "$candidate" ] && [ -f "$candidate/body/bodies/male/light.png" ]; then
-            FOUND="$candidate"
-            break
+# Validate the one-time full LPC distribution source before compiling.
+# Prefer the full Universal LPC addon over a partial local smoke-test set.
+LPC_SOURCE=""
+if [ "$MODE" = "full" ]; then
+    if [ -n "${LPC_SPRITES_ROOT:-}" ]; then
+        LPC_SOURCE="${LPC_SPRITES_ROOT%/}"
+        if [ ! -s "$LPC_SOURCE/body/bodies/male/light.png" ]; then
+            echo "ERROR: LPC_SPRITES_ROOT must contain body/bodies/male/light.png: $LPC_SOURCE"
+            exit 1
         fi
-    done
-    if [ -z "$FOUND" ]; then
-        echo "NOTE: LPC art directory not found; packing procedural fallback only."
     else
-        missing=0
-        for image in "${SHEETS[@]}"; do
-            if [ ! -f "$FOUND/$image" ]; then
-                echo "NOTE: missing LPC test sprite: $image"
-                missing=1
+        SOURCE_CANDIDATES=(
+            "$HOME/Godot/res/addons/Universal_LPC/resources/spritesheets"
+            "$HOME/Godot/res/addons/universal_lpc/resources/spritesheets"
+            "$HOME/Godot/res/addons/Godot_LPC_Spritesheet/resources/spritesheets"
+            "$HOME/Godot/res/assets/lpc_sprites/resources/spritesheets"
+            "$HOME/Godot/res/assets/lpc_sprites/spritesheets"
+            "$HOME/Godot/res/assets/lpc_sprites"
+            "$ROOT/assets/lpc_sprites"
+        )
+        for candidate in "${SOURCE_CANDIDATES[@]}"; do
+            if [ -s "$candidate/body/bodies/male/light.png" ]; then
+                LPC_SOURCE="$candidate"
+                break
             fi
         done
-        if [ "$missing" -eq 0 ]; then
-            echo "Packing ${#SHEETS[@]} selected LPC sprites from $FOUND"
-            for image in "${SHEETS[@]}"; do
-                dest="$STAGE/assets/characters/lpc/$image"
-                mkdir -p "$(dirname "$dest")"
-                cp "$FOUND/$image" "$dest"
-            done
-        else
-            echo "NOTE: incomplete test art set, using procedural fallback instead."
-        fi
     fi
+    if [ -z "$LPC_SOURCE" ]; then
+        echo "ERROR: full LPC sprite library not found."
+        echo "Set LPC_SPRITES_ROOT=/absolute/path/to/spritesheets and rerun."
+        echo "No incomplete full package will be created."
+        exit 1
+    fi
+    for required in \
+        body/bodies/male/light.png \
+        body/bodies/female/light.png \
+        head/heads/human/male/light.png \
+        head/heads/human/female/light.png; do
+        if [ ! -s "$LPC_SOURCE/$required" ]; then
+            echo "ERROR: essential LPC sheet missing: $required"
+            echo "Source: $LPC_SOURCE"
+            exit 1
+        fi
+    done
+    echo "Full LPC source: $LPC_SOURCE"
+    for part in eyes hair legs feet torso/clothes torso/armour; do
+        if [ ! -d "$LPC_SOURCE/$part" ]; then
+            echo "WARNING: LPC category absent in source: $part"
+        fi
+    done
 else
-    echo "Explicit --no-assets mode: engine-only smoke test."
+    echo "Code-only build: LPC resources on the SD card will NOT be replaced."
+    echo "Use --full-assets once before installing code-only updates."
 fi
 
 echo "Importing the staged project..."
@@ -170,29 +169,79 @@ if [ ! -s "$PACK" ]; then
     exit 1
 fi
 
+# Keep the complete source sprite tree in its original LPC directory layout.
+# The handheld loads these PNGs directly using SKYVAL_LPC_ROOT: no
+# compression into Godot's PCK, no import overhead, no RAM preloading.
+# Only this output folder may be replaced; never touch any saves/ folder.
+LPC_OUTPUT="$DIST/roms/ports/skyval/resources/lpc"
+if [ "$MODE" = "full" ]; then
+    echo "Copying complete LPC resource library (one-time SD transfer)..."
+    mkdir -p "$(dirname "$LPC_OUTPUT")"
+    rm -rf "$LPC_OUTPUT"
+    mkdir -p "$LPC_OUTPUT"
+    cp -a "$LPC_SOURCE/." "$LPC_OUTPUT/"
+    for required in \
+        body/bodies/male/light.png \
+        body/bodies/female/light.png \
+        head/heads/human/male/light.png \
+        head/heads/human/female/light.png; do
+        if [ ! -s "$LPC_OUTPUT/$required" ]; then
+            echo "ERROR: copied LPC resources are incomplete: $required"
+            exit 1
+        fi
+    done
+    IMAGE_COUNT="$(find "$LPC_OUTPUT" -type f -iname '*.png' | wc -l)"
+    if [ "$IMAGE_COUNT" -lt 14 ]; then
+        echo "ERROR: only $IMAGE_COUNT PNG files found in LPC output"
+        exit 1
+    fi
+    echo "Packed external LPC library: $IMAGE_COUNT PNGs"
+    du -sh "$LPC_OUTPUT"
+fi
+
 cp "$ROOT/portmaster/Skyval.sh" "$DIST/roms/ports/Skyval.sh"
 # Prevent leftovers from older keyboard-emulation builds.
 rm -f "$DIST/roms/ports/skyval/skyval.gptk"
 chmod +x "$DIST/roms/ports/Skyval.sh"
 
 cat > "$DIST/roms/ports/skyval/README.txt" <<'EOF'
-Skyval / PortMaster first-run test, not a public release.
-Requires PortMaster runtimes godot_4.7.1 and weston_pkg_0.2 (aarch64).
-For correct LPC redistributions, retain and audit all individual LPC credits.
+Skyval / PortMaster. Requires godot_4.7.1 and weston_pkg_0.2 (aarch64).
+FIRST INSTALL: use Skyval_PortMaster_Full.zip, including resources/lpc.
+FUTURE UPDATES: use Skyval_PortMaster_Update.zip (launcher and PCK only).
+Unzip into roms/ports/, replacing files but NEVER deleting skyval/saves/
+or skyval/conf/. Old skyval.gptk is not required.
+Retain and audit original Universal LPC sprite licenses/credits before sharing.
 Source: https://github.com/PylSerg/skyval-godot
-Log after launching: ports/skyval/log.txt
+Log after launching: roms/ports/skyval/log.txt
 EOF
 
 if command -v zip >/dev/null 2>&1; then
-    # zip -r normally updates an existing ZIP; remove it to avoid stale .gptk.
-    rm -f "$DIST/Skyval_PortMaster_Test.zip"
+    # ZIP stores already-compressed PNGs without another expensive pass.
+    # Each build removes the previous named archive to avoid stale files.
+    if [ "$MODE" = "full" ]; then
+        ARCHIVE="$DIST/Skyval_PortMaster_Full.zip"
+    else
+        ARCHIVE="$DIST/Skyval_PortMaster_Update.zip"
+    fi
+    rm -f "$ARCHIVE"
     (
         cd "$DIST/roms/ports"
-        zip -q -r "$DIST/Skyval_PortMaster_Test.zip" "Skyval.sh" "skyval"
+        if [ "$MODE" = "full" ]; then
+            zip -q -r -0 "$ARCHIVE" "Skyval.sh" "skyval/skyval.pck" \
+                "skyval/README.txt" "skyval/resources/lpc"
+        else
+            zip -q -r -0 "$ARCHIVE" "Skyval.sh" "skyval/skyval.pck" \
+                "skyval/README.txt"
+        fi
     )
-    echo "READY: $DIST/Skyval_PortMaster_Test.zip"
+    echo "READY: $ARCHIVE"
 else
-    echo "zip not found. Ready-to-copy files are at: $DIST/roms/ports/"
+    echo "zip not found; files are in: $DIST/roms/ports/"
 fi
-echo "Copy Skyval.sh and skyval/ into the SD card's roms/ports/ directory."
-echo "Launch Skyval in EmulationStation > Ports. Check skyval/log.txt on failure."
+if [ "$MODE" = "full" ]; then
+    echo "FIRST INSTALL: copy Skyval.sh, skyval.pck and resources/lpc/ to roms/ports/."
+else
+    echo "UPDATE: copy only Skyval.sh and skyval.pck; KEEP resources/lpc/ on SD."
+fi
+echo "NEVER delete the existing skyval/saves/ directory on the SD card."
+echo "Launch via EmulationStation > Ports; diagnostics: skyval/log.txt."
