@@ -1,0 +1,389 @@
+extends CanvasLayer
+## Controller-only name entry designed for a 320x240 logical viewport.
+
+signal accepted(character_name: String)
+signal cancelled
+
+const LocaleScript = preload("res://localization/localization.gd")
+const FONT_PATH := "res://assets/fonts/CascadiaMono-Regular.ttf"
+const FONT_SIZE := 14
+const GRID_COLUMNS := 8
+const NAME_WIDTH := 288.0
+const NAME_SPACING := 2
+const ACTIVE := Color("#e7ca86")
+const PRESS_THRESHOLD := 0.65
+const RELEASE_THRESHOLD := 0.40
+const NAV_DEBOUNCE_MS := 90
+
+var _locale: Node
+var _font: FontFile
+var _root: Control
+var _title: Label
+var _hint: Label
+var _name_row: HBoxContainer
+var _keys: Array[String] = []
+var _key_buttons: Array[Button] = []
+var _slots: Array[Label] = []
+var _name: String = ""
+var _selected: int = 0
+var _max_length: int = 0
+var _body_type: String = "male"
+var _opened: bool = false
+var _confirmation: String = ""
+var _confirm_overlay: Control
+var _confirm_message: Label
+var _confirm_hint: Label
+var _held_buttons: Dictionary = {}
+var _axis_latches: Dictionary = {}
+var _last_nav_ms: int = -10000
+var _ignore_buttons_until: int = 0
+
+
+func _ready() -> void:
+    process_mode = Node.PROCESS_MODE_ALWAYS
+    _locale = get_node_or_null("/root/SkyvalLocale")
+    if _locale == null:
+        _locale = LocaleScript.new()
+        _locale.name = "NameEntryLocale"
+        add_child(_locale)
+    if ResourceLoader.exists(FONT_PATH):
+        _font = load(FONT_PATH) as FontFile
+        if _font != null:
+            _font = _font.duplicate() as FontFile
+            _font.antialiasing = TextServer.FONT_ANTIALIASING_GRAY
+            _font.hinting = TextServer.HINTING_NORMAL
+    var glyph_width: float = 9.0
+    if _font != null:
+        glyph_width = maxf(1.0, _font.get_string_size("Щ", HORIZONTAL_ALIGNMENT_LEFT, -1, FONT_SIZE).x)
+    _max_length = maxi(1, int(floor((NAME_WIDTH + NAME_SPACING) / (glyph_width + NAME_SPACING))))
+    _build_interface()
+    _root.hide()
+
+
+func is_open() -> bool:
+    return _opened
+
+
+func open_entry(body_type: String = "male") -> void:
+    _body_type = body_type
+    _name = ""
+    _selected = 0
+    _confirmation = ""
+    _held_buttons.clear()
+    _axis_latches.clear()
+    _last_nav_ms = -10000
+    _ignore_buttons_until = Time.get_ticks_msec() + 180
+    _rebuild_keyboard()
+    _refresh_slots()
+    _confirm_overlay.hide()
+    _set_open(true)
+
+
+func _tr(key: String) -> String:
+    return str(_locale.call("t", key))
+
+
+func _set_open(next_open: bool) -> void:
+    if _opened == next_open:
+        return
+    _opened = next_open
+    _root.visible = next_open
+    var pause_manager: Node = get_node_or_null("/root/SkyvalUiPause")
+    if pause_manager != null:
+        pause_manager.call("set_open", self, next_open)
+    else:
+        get_tree().paused = next_open
+
+
+func _input(event: InputEvent) -> void:
+    if not _opened:
+        return
+    if event is InputEventJoypadButton:
+        var button: InputEventJoypadButton = event
+        var button_id: String = "%s:%s" % [button.device, button.button_index]
+        if not button.pressed:
+            _held_buttons.erase(button_id)
+            return
+        if _held_buttons.has(button_id):
+            return
+        _held_buttons[button_id] = true
+        if Time.get_ticks_msec() < _ignore_buttons_until:
+            get_viewport().set_input_as_handled()
+            return
+        if not _confirmation.is_empty():
+            if button.button_index == JOY_BUTTON_A:
+                _complete_confirmation()
+            elif button.button_index == JOY_BUTTON_B:
+                _close_confirmation()
+        else:
+            match button.button_index:
+                JOY_BUTTON_DPAD_LEFT:
+                    _move(-1, 0)
+                JOY_BUTTON_DPAD_RIGHT:
+                    _move(1, 0)
+                JOY_BUTTON_DPAD_UP:
+                    _move(0, -1)
+                JOY_BUTTON_DPAD_DOWN:
+                    _move(0, 1)
+                JOY_BUTTON_A:
+                    _select_key(_selected)
+                JOY_BUTTON_B:
+                    _show_confirmation("exit")
+                JOY_BUTTON_X:
+                    _randomize_name()
+                JOY_BUTTON_Y:
+                    if not _name.strip_edges().is_empty():
+                        _show_confirmation("accept")
+                    else:
+                        _hint.text = _tr("name.empty")
+        get_viewport().set_input_as_handled()
+    elif event is InputEventJoypadMotion:
+        var motion: InputEventJoypadMotion = event
+        if motion.axis not in [JOY_AXIS_LEFT_X, JOY_AXIS_LEFT_Y, JOY_AXIS_RIGHT_X, JOY_AXIS_RIGHT_Y]:
+            get_viewport().set_input_as_handled()
+            return
+        var axis_id: String = "%s:%s" % [motion.device, motion.axis]
+        var previous: int = int(_axis_latches.get(axis_id, 0))
+        var direction: int = 0
+        if motion.axis_value >= PRESS_THRESHOLD:
+            direction = 1
+        elif motion.axis_value <= -PRESS_THRESHOLD:
+            direction = -1
+        elif absf(motion.axis_value) > RELEASE_THRESHOLD:
+            direction = previous
+        if direction != previous:
+            _axis_latches[axis_id] = direction
+            if direction != 0 and _confirmation.is_empty():
+                if motion.axis == JOY_AXIS_LEFT_X or motion.axis == JOY_AXIS_RIGHT_X:
+                    _move(direction, 0)
+                else:
+                    _move(0, direction)
+        get_viewport().set_input_as_handled()
+
+
+func _move(dx: int, dy: int) -> void:
+    var now: int = Time.get_ticks_msec()
+    if now - _last_nav_ms < NAV_DEBOUNCE_MS:
+        return
+    _last_nav_ms = now
+    var column: int = _selected % GRID_COLUMNS
+    var row: int = _selected / GRID_COLUMNS
+    var next: int = (row + dy) * GRID_COLUMNS + column + dx
+    if dx != 0 and (column + dx < 0 or column + dx >= GRID_COLUMNS):
+        return
+    if next >= 0 and next < _keys.size():
+        _selected = next
+        _update_key_highlight()
+
+
+func _rebuild_keyboard() -> void:
+    for button in _key_buttons:
+        button.queue_free()
+    _key_buttons.clear()
+    _keys.clear()
+    var alphabet: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    if str(_locale.get("language")) == "uk":
+        alphabet = "АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯ"
+    for i in range(alphabet.length()):
+        _keys.append(alphabet.substr(i, 1))
+    _keys.append(" ")
+    _keys.append("<")
+    var grid: GridContainer = _root.get_node("Panel/Stack/Grid") as GridContainer
+    for i in range(_keys.size()):
+        var button := Button.new()
+        button.focus_mode = Control.FOCUS_NONE
+        button.custom_minimum_size = Vector2(31, 23)
+        button.text = "␣" if _keys[i] == " " else ("←" if _keys[i] == "<" else _keys[i])
+        button.add_theme_font_size_override("font_size", FONT_SIZE)
+        if _font != null:
+            button.add_theme_font_override("font", _font)
+        button.pressed.connect(_select_key.bind(i))
+        grid.add_child(button)
+        _key_buttons.append(button)
+    _title.text = _tr("name.title")
+    _hint.text = _tr("name.hint")
+    _update_key_highlight()
+
+
+func _update_key_highlight() -> void:
+    for i in range(_key_buttons.size()):
+        var selected: bool = i == _selected
+        var style := StyleBoxFlat.new()
+        style.bg_color = Color("#567895") if selected else Color("#354960")
+        style.border_color = ACTIVE if selected else Color("#667f9a")
+        style.set_border_width_all(1)
+        style.set_content_margin_all(1)
+        _key_buttons[i].add_theme_stylebox_override("normal", style)
+        _key_buttons[i].add_theme_stylebox_override("hover", style)
+        _key_buttons[i].add_theme_stylebox_override("pressed", style)
+        var color: Color = ACTIVE if selected else Color("#f0f1ed")
+        _key_buttons[i].add_theme_color_override("font_color", color)
+        _key_buttons[i].add_theme_color_override("font_hover_color", color)
+        _key_buttons[i].add_theme_color_override("font_pressed_color", color)
+
+
+func _select_key(index: int) -> void:
+    if not _opened or not _confirmation.is_empty() or index < 0 or index >= _keys.size():
+        return
+    var symbol: String = _keys[index]
+    if symbol == "<":
+        if not _name.is_empty():
+            _name = _name.substr(0, _name.length() - 1)
+    elif symbol == " ":
+        if not _name.is_empty() and not _name.ends_with(" ") and _name.length() < _max_length:
+            _name += " "
+    elif _name.length() < _max_length:
+        _name += symbol.to_upper() if _name.is_empty() or _name.ends_with(" ") else symbol.to_lower()
+    _refresh_slots()
+    _hint.text = _tr("name.hint")
+
+
+func _randomize_name() -> void:
+    var ukrainian: bool = str(_locale.get("language")) == "uk"
+    var male_names: Array[String] = ["Олександр", "Андрій", "Максим", "Богдан", "Тарас", "Данило", "Сергій", "Ярослав"]
+    var female_names: Array[String] = ["Олена", "Марія", "Софія", "Дарина", "Соломія", "Катерина", "Аліна", "Оксана"]
+    if not ukrainian:
+        male_names = ["Alexander", "Daniel", "Arthur", "Oliver", "Thomas", "Max", "Leo", "James"]
+        female_names = ["Alice", "Emma", "Sophia", "Olivia", "Amelia", "Nora", "Luna", "Mia"]
+    var options: Array[String] = female_names if _body_type == "female" else male_names
+    _name = options.pick_random().substr(0, _max_length)
+    _refresh_slots()
+    _hint.text = _tr("name.hint")
+
+
+func _refresh_slots() -> void:
+    for i in range(_slots.size()):
+        var slot: Label = _slots[i]
+        slot.text = _name.substr(i, 1) if i < _name.length() else "_"
+        slot.add_theme_color_override("font_color", ACTIVE if i < _name.length() else Color("#9ba9bb"))
+
+
+func _show_confirmation(action: String) -> void:
+    _confirmation = action
+    _confirm_message.text = _tr("name.confirm_exit") if action == "exit" else _tr("name.confirm_accept") % _name.strip_edges()
+    _confirm_hint.text = _tr("menu.confirm_hint")
+    _confirm_overlay.show()
+
+
+func _close_confirmation() -> void:
+    _confirmation = ""
+    _confirm_overlay.hide()
+
+
+func _complete_confirmation() -> void:
+    var action: String = _confirmation
+    _close_confirmation()
+    if action == "exit":
+        cancelled.emit()
+        _set_open(false)
+    elif action == "accept":
+        var final_name: String = _name.strip_edges()
+        if not final_name.is_empty():
+            accepted.emit(final_name)
+            _set_open(false)
+
+
+func _new_label(size: int) -> Label:
+    var label := Label.new()
+    label.add_theme_font_size_override("font_size", maxi(size, FONT_SIZE))
+    if _font != null:
+        label.add_theme_font_override("font", _font)
+    label.add_theme_color_override("font_color", Color("#f0f1ed"))
+    return label
+
+
+func _build_interface() -> void:
+    _root = Control.new()
+    _root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    _root.mouse_filter = Control.MOUSE_FILTER_STOP
+    add_child(_root)
+
+    var shade := ColorRect.new()
+    shade.color = Color(0.02, 0.04, 0.08, 0.90)
+    shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _root.add_child(shade)
+
+    var panel := PanelContainer.new()
+    panel.name = "Panel"
+    panel.position = Vector2(5, 4)
+    panel.custom_minimum_size = Vector2(310, 232)
+    panel.size = Vector2(310, 232)
+    var panel_style := StyleBoxFlat.new()
+    panel_style.bg_color = Color("#202c3c")
+    panel_style.border_color = Color("#7e95ae")
+    panel_style.set_border_width_all(1)
+    panel_style.set_corner_radius_all(3)
+    panel_style.set_content_margin_all(5)
+    panel.add_theme_stylebox_override("panel", panel_style)
+    _root.add_child(panel)
+
+    var stack := VBoxContainer.new()
+    stack.name = "Stack"
+    stack.add_theme_constant_override("separation", 4)
+    panel.add_child(stack)
+
+    _title = _new_label(16)
+    _title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    _title.custom_minimum_size.y = 18
+    stack.add_child(_title)
+
+    _name_row = HBoxContainer.new()
+    _name_row.add_theme_constant_override("separation", NAME_SPACING)
+    _name_row.alignment = BoxContainer.ALIGNMENT_CENTER
+    _name_row.custom_minimum_size.y = 22
+    stack.add_child(_name_row)
+    var slot_width: float = (NAME_WIDTH + NAME_SPACING) / float(_max_length) - NAME_SPACING
+    for i in range(_max_length):
+        var slot := _new_label(FONT_SIZE)
+        slot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        slot.custom_minimum_size = Vector2(slot_width, 20)
+        _name_row.add_child(slot)
+        _slots.append(slot)
+
+    var grid := GridContainer.new()
+    grid.name = "Grid"
+    grid.columns = GRID_COLUMNS
+    grid.add_theme_constant_override("h_separation", 4)
+    grid.add_theme_constant_override("v_separation", 3)
+    stack.add_child(grid)
+
+    _hint = _new_label(FONT_SIZE)
+    _hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    _hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _hint.custom_minimum_size.y = 33
+    stack.add_child(_hint)
+
+    _confirm_overlay = Control.new()
+    _confirm_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    _confirm_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+    _root.add_child(_confirm_overlay)
+    var confirmation_shade := ColorRect.new()
+    confirmation_shade.color = Color(0.03, 0.06, 0.10, 0.9)
+    confirmation_shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    confirmation_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _confirm_overlay.add_child(confirmation_shade)
+    var confirmation_panel := PanelContainer.new()
+    confirmation_panel.position = Vector2(20, 65)
+    confirmation_panel.custom_minimum_size = Vector2(280, 110)
+    confirmation_panel.size = Vector2(280, 110)
+    var confirm_style := StyleBoxFlat.new()
+    confirm_style.bg_color = Color("#202c3c")
+    confirm_style.border_color = ACTIVE
+    confirm_style.set_border_width_all(1)
+    confirm_style.set_content_margin_all(8)
+    confirmation_panel.add_theme_stylebox_override("panel", confirm_style)
+    _confirm_overlay.add_child(confirmation_panel)
+    var confirmation_stack := VBoxContainer.new()
+    confirmation_stack.add_theme_constant_override("separation", 8)
+    confirmation_panel.add_child(confirmation_stack)
+    _confirm_message = _new_label(FONT_SIZE)
+    _confirm_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    _confirm_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _confirm_message.custom_minimum_size.y = 47
+    confirmation_stack.add_child(_confirm_message)
+    _confirm_hint = _new_label(FONT_SIZE)
+    _confirm_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    _confirm_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    confirmation_stack.add_child(_confirm_hint)
+    _confirm_overlay.hide()
