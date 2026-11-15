@@ -63,8 +63,10 @@ func _draw() -> void:
     )
 
     var animation: StringName = StringName("idle-" + DIRECTIONS[facing])
-    # Raise the standing figure so its feet clear the relocated divider.
-    var origin: Vector2 = Vector2(roundf(size.x * 0.5), roundf(size.y * 0.57))
+    # Center the full-height LPC figure in the creation portrait.
+    # Backpack retains the original raised position above armor statistics.
+    var vertical_anchor: float = 0.72 if scenic_mode else 0.57
+    var origin: Vector2 = Vector2(roundf(size.x * 0.5), roundf(size.y * vertical_anchor))
     draw_set_transform(origin, 0.0, Vector2(PREVIEW_SCALE, PREVIEW_SCALE))
     for sprite in layers:
         if sprite.sprite_frames == null or not sprite.sprite_frames.has_animation(animation):
