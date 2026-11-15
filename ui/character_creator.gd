@@ -318,7 +318,7 @@ func _build_interface() -> void:
     _rows = VBoxContainer.new()
     _rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     # Dividers provide the main separation between groups.
-    _rows.add_theme_constant_override("separation", 6)
+    _rows.add_theme_constant_override("separation", 12)
     _row_scroll.add_child(_rows)
 
     # Use the full right column; the portrait itself is drawn at 3×.
@@ -341,7 +341,7 @@ func _button() -> Button:
     # Gamepad selection is owned by _input(), not GUI focus traversal.
     # Mouse/touch button clicks still work normally.
     button.focus_mode = Control.FOCUS_NONE
-    button.add_theme_font_size_override("font_size", 11)
+    button.add_theme_font_size_override("font_size", 18)
     if _ui_font != null:
         button.add_theme_font_override("font", _ui_font)
     button.add_theme_color_override("font_color", Color("#edf1f5"))
@@ -407,7 +407,7 @@ func _rebuild_rows() -> void:
         field_box.add_theme_constant_override("separation", 5)
         _rows.add_child(field_box)
 
-        var name_label := _label(13)
+        var name_label := _label(16)
         name_label.text = _tr("field." + key)
         name_label.custom_minimum_size.y = 17
         field_box.add_child(name_label)
@@ -425,7 +425,7 @@ func _rebuild_rows() -> void:
         choice_row.add_child(previous)
         previous.pressed.connect(_adjust.bind(key, -1, index))
 
-        var value_label := _label(11)
+        var value_label := _label(14)
         value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
