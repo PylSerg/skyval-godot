@@ -12,7 +12,7 @@ const ACTIVE_HIGHLIGHT := Color("#e7ca86")
 const NAV_DEBOUNCE_MS := 100
 const STICK_PRESS := 0.65
 const STICK_RELEASE := 0.42
-const VISIBLE_PROFILES := 5
+const VISIBLE_PROFILES := 4
 const MAIN_OPTIONS := ["menu.continue", "menu.new_game", "menu.settings", "menu.quit"]
 
 @onready var _creator: CanvasLayer = get_parent().get_node("CharacterCreator") as CanvasLayer
@@ -384,7 +384,8 @@ func _get_player() -> CharacterBody2D:
 
 
 func _has_valid_save() -> bool:
-    return not _save_store.call("list_profiles").is_empty()
+    var available: Array[Dictionary] = _save_store.call("list_profiles")
+    return not available.is_empty()
 
 
 func _save_current_game() -> bool:
@@ -430,7 +431,7 @@ func _load_profile(path: String, touch_launch: bool = true) -> bool:
     _profile_data = data
     _session_started = true
     if touch_launch:
-        _profile_data["last_played"] = int(Time.get_unix_time_from_system())
+        _profile_data["last_played"] = int(Time.get_unix_time_from_system() * 1000.0)
         _save_current_game()
     return true
 
