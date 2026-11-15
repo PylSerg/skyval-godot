@@ -348,28 +348,29 @@ func _find_leather_vest_lining(body_root: String) -> String:
             var atlas: Texture2D = _load_texture(path)
             if atlas == null or atlas.get_width() < 9 * CELL or atlas.get_height() < IDLE_Y + 4 * CELL:
                 continue
-            if _has_front_torso_pixels(atlas):
+            if _has_visible_torso_in_all_directions(atlas):
                 return path
     return ""
 
 
-func _has_front_torso_pixels(atlas: Texture2D) -> bool:
+func _has_visible_torso_in_all_directions(atlas: Texture2D) -> bool:
     var image: Image = atlas.get_image()
     if image == null or image.is_empty():
         return false
-    # LPC faces south on the third directional row. Check both standing
-    # and walking, so preview and gameplay cannot disagree. Scan only
-    # the central chest: transparent/empty sheets must not pass.
-    var front_row: int = ROW_INDEX[0] * CELL
-    for region_y in [IDLE_Y + front_row, WALK_Y + front_row]:
-        var x_offset: int = 0 if region_y >= IDLE_Y else CELL
-        var pixels: int = 0
-        for cy in range(23, 51, 2):
-            for cx in range(20, 45, 2):
-                if image.get_pixel(x_offset + cx, region_y + cy).a > 0.20:
-                    pixels += 1
-        if pixels < 6:
-            return false
+    # Validate ALL four facings in both idle and walk, not just overall
+    # atlas dimensions. A sheet with an empty south/west/east cell
+    # must never pass as a usable vest.
+    for row_index in ROW_INDEX:
+        for action_y in [IDLE_Y, WALK_Y]:
+            var region_y: int = int(action_y) + int(row_index) * CELL
+            var x_offset: int = 0 if int(action_y) == IDLE_Y else CELL
+            var pixels: int = 0
+            for cy in range(23, 51, 2):
+                for cx in range(20, 45, 2):
+                    if image.get_pixel(x_offset + cx, region_y + cy).a > 0.20:
+                        pixels += 1
+            if pixels < 6:
+                return false
     return true
 
 
