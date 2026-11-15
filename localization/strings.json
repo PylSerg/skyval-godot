@@ -165,7 +165,8 @@
     "save.name_confirm": "Зберегти гру як «%s»?",
     "game.quit": "Вийти з гри",
     "game.quit_confirm": "Вийти з гри? Поточний прогрес буде збережено.",
-    "ui.create_hero": "Створення героя"
+    "ui.create_hero": "Створення героя",
+    "inventory.equip_hint": "A: екіпірувати"
   },
   "en": {
     "ui.title": "Character",
@@ -333,6 +334,7 @@
     "save.name_confirm": "Save game as «%s»?",
     "game.quit": "Quit Game",
     "game.quit_confirm": "Quit the game? Current progress will be saved.",
-    "ui.create_hero": "Create Hero"
+    "ui.create_hero": "Create Hero",
+    "inventory.equip_hint": "A: equip item"
   }
 }
