@@ -138,13 +138,13 @@ func change_lpc_option(option_key: String, direction: int) -> bool:
         return false
     return bool(_external_body.call("change_option", option_key, direction))
 
-# World and backpack share the same LPC armor slot. The armor stat
-# remains usable even if the optional sprite sheet is not installed.
+# Compatibility API for world scripts. Do not report a visual equip as
+# successful when the original LPC character or armor sheet is missing.
 func apply_armor_visual(style: String) -> bool:
     if not has_lpc_character():
-        return true
+        return false
     if not _external_body.has_method("set_armor_style"):
-        return true
+        return false
     return bool(_external_body.call("set_armor_style", style))
 
 
