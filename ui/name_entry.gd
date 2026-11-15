@@ -39,8 +39,8 @@ var _opened: bool = false
 var _confirmation: String = ""
 var _confirm_overlay: Control
 var _confirm_message: Label
-var _confirm_accept: Button
-var _confirm_cancel: Button
+var _confirm_accept: Label
+var _confirm_cancel: Label
 var _held_buttons: Dictionary = {}
 var _axis_latches: Dictionary = {}
 var _last_nav_ms: int = -10000
@@ -336,6 +336,19 @@ func _show_confirmation(action: String) -> void:
     _confirm_overlay.show()
 
 
+func _on_confirmation_choice_input(event: InputEvent, accept: bool) -> void:
+    if not _opened or _confirmation.is_empty():
+        return
+    if event is InputEventMouseButton:
+        var click: InputEventMouseButton = event as InputEventMouseButton
+        if click.button_index == MOUSE_BUTTON_LEFT and click.pressed:
+            if accept:
+                _complete_confirmation()
+            else:
+                _close_confirmation()
+            get_viewport().set_input_as_handled()
+
+
 func _close_confirmation() -> void:
     _confirmation = ""
     _confirm_overlay.hide()
@@ -473,23 +486,22 @@ func _build_interface() -> void:
     choices.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     confirmation_stack.add_child(choices)
 
-    _confirm_accept = Button.new()
-    _confirm_accept.focus_mode = Control.FOCUS_NONE
-    _confirm_accept.custom_minimum_size.y = 25
-    _confirm_accept.add_theme_font_size_override("font_size", FONT_SIZE)
-    if _font != null:
-        _confirm_accept.add_theme_font_override("font", _font)
-    UiTheme.apply_button(_confirm_accept)
-    _confirm_accept.pressed.connect(_complete_confirmation)
+    # Plain right-aligned options, not button-shaped panels.
+    _confirm_accept = _new_label(FONT_SIZE)
+    _confirm_accept.custom_minimum_size.y = 22
+    _confirm_accept.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    _confirm_accept.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    _confirm_accept.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
+    _confirm_accept.mouse_filter = Control.MOUSE_FILTER_STOP
+    _confirm_accept.gui_input.connect(_on_confirmation_choice_input.bind(true))
     choices.add_child(_confirm_accept)
 
-    _confirm_cancel = Button.new()
-    _confirm_cancel.focus_mode = Control.FOCUS_NONE
-    _confirm_cancel.custom_minimum_size.y = 25
-    _confirm_cancel.add_theme_font_size_override("font_size", FONT_SIZE)
-    if _font != null:
-        _confirm_cancel.add_theme_font_override("font", _font)
-    UiTheme.apply_button(_confirm_cancel)
-    _confirm_cancel.pressed.connect(_close_confirmation)
+    _confirm_cancel = _new_label(FONT_SIZE)
+    _confirm_cancel.custom_minimum_size.y = 22
+    _confirm_cancel.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    _confirm_cancel.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    _confirm_cancel.add_theme_color_override("font_color", UiTheme.MUTED)
+    _confirm_cancel.mouse_filter = Control.MOUSE_FILTER_STOP
+    _confirm_cancel.gui_input.connect(_on_confirmation_choice_input.bind(false))
     choices.add_child(_confirm_cancel)
     _confirm_overlay.hide()
