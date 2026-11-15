@@ -92,6 +92,7 @@ else
     echo "Starting Godot from PCK..."
     $ESUDO env "$WESTON_DIR/westonwrap.sh" headless noop kiosk crusty_x11egl \
         XDG_DATA_HOME="$CONFDIR" \
+        SKYVAL_SAVES_DIR="$GAMEDIR/saves" \
         "$GODOT_DIR/$GODOT_EXEC" \
         --resolution "${DISPLAY_WIDTH:-640}x${DISPLAY_HEIGHT:-480}" -f \
         --disable-cursor \
