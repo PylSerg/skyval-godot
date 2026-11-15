@@ -209,6 +209,15 @@ right-stick flick rotates the portrait ±90°. The appearance window
 shows a fixed X hint instead of a button at the end of its fields; X
 opens a separate A/B confirmation dialog.
 
+**Minimum UI font size: 14** at the 320×240 logical resolution.
+All visible labels, gamepad hints, status text, menu buttons and chest
+prompts must use at least 14, including future tabs and dialogs.
+The shared label builders in `ui/character_creator.gd`,
+`ui/game_menu.gd` and `world/test_chest.gd` enforce this minimum.
+The two defense labels in the right-side portrait were enlarged from
+11 to 14 and widened to fit localized class names. Do not shrink text
+below 14 to work around tight layouts: adjust spacing or wrap text.
+
 The UI prefers the static **Cascadia Mono Regular** at
 `assets/fonts/CascadiaMono-Regular.ttf`. This is the correct font discovered
 through Kvoka File Bridge at `Cascadia_Mono/static/CascadiaMono-Regular.ttf`
