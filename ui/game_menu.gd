@@ -8,6 +8,7 @@ const SaveStoreScript = preload("res://game/save_store.gd")
 const NameEntryScript = preload("res://ui/name_entry.gd")
 const UiTheme = preload("res://ui/skyval_theme.gd")
 const ControllerChoiceScript = preload("res://ui/nintendo_choice.gd")
+const ControllerHintsScript = preload("res://ui/nintendo_hints.gd")
 const FONT_PATH := "res://assets/fonts/CascadiaMono-Regular.ttf"
 const TITLE_IMAGE_PATH := "res://assets/images/title_bg.jpg"
 const TITLE_MENU_WIDTH := 184.0
@@ -58,7 +59,7 @@ var _main_panel: VBoxContainer
 var _settings_panel: VBoxContainer
 var _continue_panel: VBoxContainer
 var _profile_list: VBoxContainer
-var _profile_hint: Label
+var _profile_hint: Control
 var _confirm_panel: VBoxContainer
 var _confirm_message: Label
 var _confirm_accept: Control
@@ -499,7 +500,7 @@ func _draw_profiles() -> void:
         UiTheme.apply_button(button, selected, false, 3.0)
         _profile_list.add_child(button)
     var hint_key: String = "save.list_hint" if _list_mode == "characters" else "save.load_hint"
-    _profile_hint.text = "%d/%d  %s" % [_selected_list + 1, _listed_items.size(), _tr(hint_key)]
+    _profile_hint.call("set_hint", "%d/%d  %s" % [_selected_list + 1, _listed_items.size(), _tr(hint_key)])
 
 
 func _time_label(timestamp_ms: int) -> String:
@@ -839,10 +840,9 @@ func _build_interface() -> void:
     _profile_list = VBoxContainer.new()
     _profile_list.add_theme_constant_override("separation", 3)
     _continue_panel.add_child(_profile_list)
-    _profile_hint = _label(MIN_UI_FONT_SIZE)
-    _profile_hint.add_theme_color_override("font_color", UiTheme.MUTED)
-    _profile_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    _profile_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _profile_hint = ControllerHintsScript.new() as Control
+    _profile_hint.call("configure", "", _font, true)
+    _profile_hint.custom_minimum_size.y = 20
     _continue_panel.add_child(_profile_hint)
 
     # Confirmation alternatives are neutral, unhighlighted text with
