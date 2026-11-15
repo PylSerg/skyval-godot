@@ -36,6 +36,16 @@ The world pauses while a blocking interface is open.
 
 Skyval starts paused at 320×240 in the **main menu**.
 
+The **title screen** uses the 320×240 Skyval sunset illustration as a
+full-screen background (`assets/ui/title_background.jpg`). Its menu stays
+in the original **top-to-bottom order**: Continue, Select Character,
+New Game, Settings, Quit. The entire list is anchored to the **bottom-right
+edge** with a small margin, so shorter menus move downward instead of
+reversing their order. Up/down on the D-pad and stick follow the visual
+order. Once a submenu opens, the normal readable framed menu is used.
+The separate in-game menu keeps its existing layout and options.
+
+
 - **Continue / Продовжити** resumes the **last opened character**.
   `saves/last_opened.json` keeps its ID between launches; if the marker
   has not been created yet, the most recently opened valid profile is used.
