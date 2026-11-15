@@ -123,10 +123,21 @@ choices use vertically arranged options. Confirmation choices have
 **no selected-row highlighting or button backgrounds**. Instead, they
 are left-aligned text rows with small colored circular Nintendo/Super
 Famicom glyphs: red **A** beside “Підтвердити”, yellow **B** beside
-“Скасувати” (the reusable component also supports blue X and green Y).
+“Скасувати” (blue **X** and green **Y** complete the set).
 Both captions use the same readable white color. Gamepad A/B still
 perform the actions, and each row accepts mouse/touch clicks. Hints and
 choices start with capital letters in Ukrainian and English.
+
+The same circular markers now appear in **every on-screen A/B/X/Y
+instruction**: appearance creation/editing, inventory equip prompt,
+both loot chests, character/save lists and the two-line name/Save
+keyboard instructions. The shared `ui/nintendo_hints.gd` parses the
+existing localized hint strings, preserves their line breaks and uses
+compact 17px circles where several actions share one 320px row.
+`ui/nintendo_choice.gd` supplies the 20px circle for standalone
+confirmation choices. **Instructional chips never highlight**; item
+lists, the keyboard cursor and other navigable selections retain their
+original functional selection indicators.
 
 The language selector is unchanged from its original layout:
 **‹ Українська ›** / **‹ Англійська ›**, with D-pad or left-stick
