@@ -18,18 +18,17 @@ is used for both targets.
 | D-pad ↓ | Reserved for future quick actions | Next item |
 | D-pad ↑/←/→ | Reserved for future equipment/items | Select item / change value |
 | Right stick | Smooth camera look | Horizontal flick rotates portrait ±90° |
-| Select / Back or L3 | Open wardrobe (future inventory) | Close wardrobe |
-| Start or R3 | Open main menu | Open main menu (closes creator) |
-| B | Reserved | Close creator |
+| Select / Back or L3 | Open backpack | Close backpack |
+| Start or R3 | Open main menu | Open main menu (closes backpack) |
+| B | Reserved | Close backpack |
 | X | Reserved | Reserved |
-| A | Reserved | Change selected option |
-| L1 / R1 | Reserved | Reserved (appearance is a separate window) |
+| A | Interact with nearby test chest | Equip selected item / unequip selected slot |
+| L1 / R1 | Reserved | Reserved |
 
-Press **Select / Back** or **L3** in the world to open the **wardrobe**
-(the clothing-only window, prepared for the future inventory).
+Press **Select / Back** or **L3** in the world to open the **backpack**.
 Press **Select/L3** again to close it, or use **B** to return to the world.
-**X** is not a Back shortcut. **Appearance** is now a separate,
-reusable window which is opened during New Game, not a wardrobe tab.
+**X** is not a Back shortcut. **Appearance** is a separate,
+reusable window which is opened during New Game, not a backpack tab.
 Press **Start** or **R3** during gameplay to open the global menu.
 The world pauses while a blocking interface is open.
 
@@ -58,8 +57,8 @@ Continue loads saved position and appearance before unpausing; when
 already playing, it simply resumes the world.
 
 The provisional save file is `user://skyval_save_v1.json`. It stores the
-player position and appearance (including LPC wardrobe variants, if
-available). The game writes the initial save **after character creation is confirmed**,
+player position, appearance, equipped item ids, backpack inventory and
+the remaining contents of the test chest (when available). The game writes the initial save **after character creation is confirmed**,
 then checkpoints when opening the in-game menu or choosing Quit. This is **not yet**
 a complete RPG save system: future inventory, NPCs, quests and world changes
 will need their own serialization. Continue stays disabled if the v1 save
@@ -73,6 +72,39 @@ menu only after a game has begun, preventing startup-menu bypass.
 The selected language is stored in `user://skyval_settings.cfg` via
 the existing localization service. **Quit** exits Godot, returning to
 PortMaster on the handheld.
+
+## Test chest, backpack and equipped clothing
+
+A test chest is created in code beside the house at world position
+**(905, 554)**. Walk close to it until the **A** prompt appears.
+Press **A** to open it. Use D-pad up/down or the left stick to navigate.
+Press **A** on an item to mark/unmark it, then navigate to
+**Take selected / Забрати вибране** and press **A** to transfer *only*
+marked items to the backpack. Unmarked items remain in the chest.
+Press **B** to close it. Start/R3 may open GameMenu from the chest.
+The chest and backpack pause the world through SkyvalUiPause.
+
+The starter outfit is **equipped**, not duplicated in the backpack.
+The backpack initially contains **no spare clothes**. The chest contains
+seven test garments: white shirt, green polo, black long-sleeved top,
+brown pants, navy cuffed pants, brown boots and black shoes.
+Items are uniquely identified, transferred one by one, and never created
+by cycling arbitrary LPC clothing variants.
+
+Open the backpack with Select/L3. Its **Equipped** section shows
+top, trousers and footwear, including empty slots. Press **A** on an
+equipped item to put it back into the bag. Its **In backpack** section
+lists only physically owned items. Press **A** on a bag item to equip it,
+moving any previously equipped item of the same slot into the bag.
+The existing LPC sprite validation still applies: when a required
+sprite is missing, the failed equipment change leaves inventory and
+the previous appearance untouched.
+
+The game checkpoints after taking items and after equipment changes.
+The backpack, equipped slots and unlooted chest contents are also
+written in the same v1 save. Loading older v1 saves without inventory
+starts with an empty backpack and an unopened test chest, while keeping
+the already saved character appearance.
 
 ## Pause and Back navigation
 
@@ -93,7 +125,7 @@ controller navigation, and call
 The future inventory should follow the same contract; it is **not yet
 implemented**. **B** moves one level back: Settings → Main Menu → World,
 or CharacterCreator → World. No on-screen Back button is required.
-**Select/L3** toggles the wardrobe (future inventory); **Start/R3** toggles
+**Select/L3** toggles the backpack; **Start/R3** toggles
 the global menu while playing. At launch, neither gameplay nor the wardrobe
 can be entered until a valid Continue or a *completed* character creation.
 The appearance editor also exposes `open_for_edit()` for future NPC or
@@ -104,9 +136,10 @@ The creator pauses world movement. Its right-stick rotation cycles through
 The stick must return to center before another step. Vertical right-stick
 motions do nothing in the creator.
 
-The wardrobe and appearance editor share the same 3× character portrait,
-single-column field layout and full-width selection rows. Each is now
-a **separate window** without tabs. Shared fixed panel insets (7px),
+The backpack and appearance editor share the same 3× character portrait.
+The backpack has equipped slots and owned items; the appearance window
+has single-column full-width selectors. They are **separate windows**
+without tabs. Shared fixed panel insets (7px),
 group spacing (12px), and inner field spacing (5px) preserve the 320×240
 layout. Overflowing fields scroll vertically and reveal the selection,
 with a hidden vertical bar. Horizontal right-stick flick rotates the
@@ -135,8 +168,8 @@ individually. No quick-undress button or language switch is present.
 ## Appearance and localization
 
 The standalone appearance window changes LPC body type (male/female),
-skin, eyes, hairstyle and hair color. The separate wardrobe window manages
-shirt/trousers/footwear styles and colors. Body, head, hair and
+skin, eyes, hairstyle and hair color. Clothing is now selected from
+owned items in the backpack, not through unrestricted style/color cycling. Body, head, hair and
 clothes are separate synchronized LPC sprite layers. The original procedural
 avatar remains as a missing-assets fallback.
 
@@ -181,7 +214,9 @@ See [portmaster/README.md](portmaster/README.md) for details.
 
 - `prototype/player.gd`: left-stick-only analog movement; D-pad reserved
 - `prototype/smart_camera.gd`: native right-stick look
-- `ui/character_creator.gd`: shared controller UI, instantiated as clothing-only Wardrobe and reusable AppearanceEditor
+- `ui/character_creator.gd`: shared controller UI, instantiated as Backpack and reusable AppearanceEditor
+- `inventory/inventory_state.gd`: physical item catalog, bag, equipment and chest persistence
+- `world/test_chest.gd`: visible house-side chest with multi-select loot UI
 - `prototype/camera_test.gd`: ensures the independent AppearanceEditor is created at runtime
 - `ui/game_menu.gd`: launch/pause menu, prototype save/load, language and Quit
 - `ui/pause_manager.gd`: shared pause ownership for menus and future inventory
