@@ -106,6 +106,25 @@ The last opened character is updated on every successful load and after
 new-character creation in `last_opened.json`. This stores only the
 character ID and launch-order timestamps, not any game progress.
 
+### Unified Skyval window design (320×240)
+
+All windows use `ui/skyval_theme.gd` for translucent midnight-blue
+panels, thin warm-gold borders, gold active-item outlines, readable
+Cascadia text (minimum 14px), and common button states. The shared style
+covers in-game menus, settings, character/save lists, confirmation
+dialogs, both loot chests, the name-entry keyboard, manual-save naming,
+character appearance and equipment screens. Each window keeps its
+existing size and gamepad bindings so it remains practical on R36H.
+
+The title screen retains its illustrated sunset and bottom-centered menu.
+Character creation and character naming retain the dedicated creation
+background. The backpack, chest dialogs, in-game menu and manual-save
+name editor instead dim the **paused gameplay world** behind their
+semi-opaque panels. The settings/save screens entered from the title
+menu keep the Skyval title artwork behind them. No extra bitmaps are
+required by the common theme, and the PortMaster builder already copies
+the entire `ui/` directory into the PCK.
+
 ### Illustrated character creator (320×240)
 
 The dedicated appearance editor now uses
