@@ -52,6 +52,7 @@ var _rows: VBoxContainer
 var _preview: Control
 var _missing_label: Label
 var _value_labels: Dictionary = {}
+var _field_arrows: Dictionary = {}
 var _inventory: Node
 var _locale: Node
 
@@ -510,6 +511,7 @@ func _refresh_text() -> void:
 
 func _rebuild_rows() -> void:
     _value_labels.clear()
+    _field_arrows.clear()
     _row_labels.clear()
     _row_values.clear()
     for child in _rows.get_children():
@@ -561,6 +563,7 @@ func _rebuild_rows() -> void:
         following.disabled = not avatar.has_lpc_character() or (not appearance_window and not _can_change_clothing_field(key))
         choice_row.add_child(following)
         following.pressed.connect(_adjust.bind(key, 1, index))
+        _field_arrows[key] = [previous, following]
 
         # Draw a full-width divider between properties, but not after the
         # last one. Its muted color matches the frame without competing
@@ -620,6 +623,13 @@ func _refresh_options() -> void:
         var field_label: Label = _value_labels[option_key] as Label
         if is_instance_valid(field_label):
             field_label.text = _localized_value(str(option_key))
+        if not appearance_window and _field_arrows.has(option_key):
+            var allow_change: bool = avatar.has_lpc_character() and _can_change_clothing_field(str(option_key))
+            var arrows: Array = _field_arrows[option_key]
+            for arrow in arrows:
+                var button: Button = arrow as Button
+                if is_instance_valid(button):
+                    button.disabled = not allow_change
     _preview.queue_redraw()
 
 func _adjust(key: String, direction: int, index: int = -1) -> void:
