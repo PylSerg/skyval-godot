@@ -4,6 +4,7 @@ extends Node2D
 const WORLD_SIZE := Vector2(1280, 960)
 const TILE_SIZE := 16
 const GameMenuScript = preload("res://ui/game_menu.gd")
+const CharacterEditorScript = preload("res://ui/character_creator.gd")
 
 func _ready() -> void:
     # One source of truth for world boundaries.
@@ -21,6 +22,7 @@ func _ready() -> void:
     # Scenes edited in Godot can be saved from a stale in-memory tree,
     # accidentally removing GameMenu. Recover it without touching .tscn.
     _ensure_game_menu()
+    _ensure_appearance_editor()
 
 func _ensure_game_menu() -> void:
     if has_node("GameMenu"):
@@ -30,6 +32,19 @@ func _ensure_game_menu() -> void:
     game_menu.layer = 3
     add_child(game_menu)
     print("Skyval: GameMenu missing from scene; created automatically at runtime.")
+
+
+func _ensure_appearance_editor() -> void:
+    # Reuse the field/portrait component in an independent modal window.
+    # Created at runtime to avoid stale Godot scene files dropping UI nodes.
+    if has_node("AppearanceEditor"):
+        return
+    var editor: CanvasLayer = CharacterEditorScript.new() as CanvasLayer
+    editor.name = "AppearanceEditor"
+    editor.layer = 4
+    editor.set("appearance_window", true)
+    add_child(editor)
+
 
 func _draw() -> void:
     # A large enough map to make scrolling visible in 320x240.
