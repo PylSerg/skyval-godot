@@ -173,8 +173,6 @@ func _can_navigate() -> bool:
 func _set_open(next_open: bool) -> void:
     if _opened == next_open or (not next_open and not _session_started and not _creation_in_progress):
         return
-    if next_open and _session_started and not _creation_in_progress:
-        _save_current_game() # Never overwrite a save with an unfinished character.
     _opened = next_open
     if next_open:
         # Do not treat the B/A press used to exit a modal as a menu action.
@@ -186,6 +184,9 @@ func _set_open(next_open: bool) -> void:
         var appearance: Node = get_parent().get_node_or_null("AppearanceEditor")
         if appearance != null and bool(appearance.call("is_open")):
             appearance.call("close_for_menu")
+        if _session_started and not _creation_in_progress:
+            # Discard unfinished appearance edits before checkpointing.
+            _save_current_game()
 
     print("Skyval GameMenu: OPEN=", _opened)
     _settings_open = false
