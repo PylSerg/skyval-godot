@@ -223,12 +223,25 @@ func load_save_state(data: Variant, avatar: Node) -> void:
                 armor_chest.append(armor_id)
                 used[armor_id] = true
 
+    # Migrate older saves that allowed torso clothing and armor together.
+    # Armor takes precedence; a displaced shirt becomes owned bag loot.
+    if not str(equipment["armor"]).is_empty() and not str(equipment["shirt"]).is_empty():
+        bag.append(str(equipment["shirt"]))
+        equipment["shirt"] = ""
+
     _bag = bag
     _chest = chest
     _armor_chest = armor_chest
     _equipped = equipment
-    # Restore a saved armor visual, even if the LPC sprites are absent.
-    _apply_armor_to_avatar(avatar, get_equipped("armor"))
+    if not get_equipped("armor").is_empty():
+        # If a save references missing art, keep that armor as an owned
+        # item rather than claiming it is worn without a visible sprite.
+        if not _apply_armor_to_avatar(avatar, get_equipped("armor")):
+            var missing_armor: String = get_equipped("armor")
+            _equipped["armor"] = ""
+            if not _bag.has(missing_armor):
+                _bag.append(missing_armor)
+            _apply_armor_to_avatar(avatar, "")
     changed.emit()
 
 
@@ -355,14 +368,23 @@ func cycle_armor(direction: int, avatar: Node) -> bool:
     return equip(next_id, avatar)
 
 
+# One LPC rebuild applies BOTH layers in a single, validated step.
+# No intermediate frame with overlapping shirt and armor is rendered.
 func _apply_armor_to_avatar(avatar: Node, item_id: String) -> bool:
-    if avatar == null:
-        return false
-    if not avatar.has_method("apply_armor_visual"):
-        return true  # Gear stats still work without optional LPC art.
     var style: String = str(get_item(item_id).get("style", "none"))
-    return bool(avatar.call("apply_armor_visual", style))
+    var changes: Dictionary = {"armor_style": style}
+    if not item_id.is_empty():
+        changes["shirt_style"] = "none"
+    return _apply_lpc_changes(avatar, changes)
 
+
+func _apply_lpc_changes(avatar: Node, changes: Dictionary) -> bool:
+    if avatar == null or not avatar.has_method("get_lpc_character"):
+        return false
+    var lpc: Node = avatar.call("get_lpc_character") as Node
+    if lpc == null or not lpc.has_method("apply_appearance_state"):
+        return false
+    return bool(lpc.call("apply_appearance_state", changes))
 
 func equip(item_id: String, avatar: Node) -> bool:
     if not _bag.has(item_id):
@@ -371,16 +393,25 @@ func equip(item_id: String, avatar: Node) -> bool:
     if item.is_empty():
         return false
     var slot: String = str(item["slot"])
+    # Only torso clothing and torso armor are exclusive; pants and shoes
+    # remain equipped. All mutations happen AFTER the LPC validation.
     if slot == "armor":
         if not _apply_armor_to_avatar(avatar, item_id):
             return false
     elif not _apply_to_avatar(avatar, slot, item):
         return false
-    var previous_id: String = get_equipped(slot)
+
+    var old_id: String = get_equipped(slot)
+    var conflicting_slot: String = "shirt" if slot == "armor" else ("armor" if slot == "shirt" else "")
+    var conflicting_id: String = get_equipped(conflicting_slot) if not conflicting_slot.is_empty() else ""
+
     _bag.erase(item_id)
-    if not previous_id.is_empty():
-        _bag.append(previous_id)
+    if not old_id.is_empty():
+        _bag.append(old_id)
     _equipped[slot] = item_id
+    if not conflicting_id.is_empty():
+        _equipped[conflicting_slot] = ""
+        _bag.append(conflicting_id)
     changed.emit()
     return true
 
@@ -411,4 +442,7 @@ func _apply_to_avatar(avatar: Node, slot: String, item: Dictionary) -> bool:
     var state: Dictionary = {style_key: str(item["style"])}
     if item.has("variant"):
         state[variant_key] = str(item["variant"])
+    if slot == "shirt" and str(item["style"]) != "none":
+        # Putting on a top removes any worn torso armor atomically.
+        state["armor_style"] = "none"
     return bool(lpc.call("apply_appearance_state", state))
