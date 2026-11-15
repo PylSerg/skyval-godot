@@ -1501,6 +1501,16 @@ func _field_counter(key: String) -> String:
         return "0/0"
 
     if appearance_window:
+        # "Немає" is hairstyle zero, not a sixth hairstyle.
+        # Keep all five actual hairstyles in the denominator.
+        if key == "hair_style" and choices.has("none"):
+            if chosen == "none":
+                return "0/%d" % (choices.size() - 1)
+            var hair_index: int = choices.find(chosen)
+            var none_index: int = choices.find("none")
+            if hair_index >= 0:
+                var ordinal: int = hair_index + 1 if hair_index < none_index else hair_index
+                return "%d/%d" % [ordinal, choices.size() - 1]
         var index: int = choices.find(chosen)
         return "%d/%d" % [index + 1 if index >= 0 else 0, choices.size()]
 
