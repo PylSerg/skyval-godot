@@ -309,8 +309,10 @@ func set_armor_style(new_style: String) -> bool:
     if armor_style == new_style:
         return true
     var previous: String = armor_style
+    if not available:
+        return false
     armor_style = new_style
-    if not available or _load_appearance(skin_variant):
+    if _load_appearance(skin_variant):
         return true
     armor_style = previous
     _load_appearance(skin_variant)
