@@ -22,6 +22,7 @@ const RIGHT_STICK_RELEASE := 0.35
 
 # Shared across the standalone Appearance window and all backpack tabs
 # to preserve the small-screen insets and row spacing.
+const MIN_UI_FONT_SIZE := 14
 const PANEL_INSET := 7
 const FIELD_GROUP_SPACING := 12
 const FIELD_INNER_SPACING := 5
@@ -460,7 +461,7 @@ func _build_interface() -> void:
 
     if appearance_window:
         # Always-visible instruction, outside the scrollable parameter list.
-        _action_hint = _label(11)
+        _action_hint = _label(MIN_UI_FONT_SIZE)
         _action_hint.custom_minimum_size.y = 17
         _action_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         stack.add_child(_action_hint)
@@ -478,7 +479,7 @@ func _build_interface() -> void:
         _tab_scroll.add_child(tabs)
         for index in range(BACKPACK_TABS.size()):
             var tab: Button = _button()
-            tab.add_theme_font_size_override("font_size", 13)
+            tab.add_theme_font_size_override("font_size", MIN_UI_FONT_SIZE)
             tab.custom_minimum_size.y = 21
             tab.size_flags_horizontal = Control.SIZE_FILL
             tab.pressed.connect(_set_tab.bind(index))
@@ -504,19 +505,19 @@ func _build_interface() -> void:
 
     if not appearance_window:
         # Two status lines in the space below the raised portrait divider.
-        _armor_class_label = _label(11)
-        _armor_class_label.position = Vector2(5, 173)
-        _armor_class_label.size = Vector2(93, 17)
+        _armor_class_label = _label(MIN_UI_FONT_SIZE)
+        _armor_class_label.position = Vector2(1, 172)
+        _armor_class_label.size = Vector2(101, 20)
         _armor_class_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         _preview.add_child(_armor_class_label)
 
-        _armor_value_label = _label(11)
-        _armor_value_label.position = Vector2(5, 192)
-        _armor_value_label.size = Vector2(93, 17)
+        _armor_value_label = _label(MIN_UI_FONT_SIZE)
+        _armor_value_label.position = Vector2(1, 194)
+        _armor_value_label.size = Vector2(101, 20)
         _armor_value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         _preview.add_child(_armor_value_label)
 
-    _missing_label = _label(9)
+    _missing_label = _label(MIN_UI_FONT_SIZE)
     _missing_label.position = Vector2(214, 94)
     _missing_label.size = Vector2(99, 46)
     _missing_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -644,7 +645,7 @@ func _build_confirmation_overlay() -> void:
     _confirmation_message.custom_minimum_size.y = 45
     content.add_child(_confirmation_message)
 
-    _confirmation_hint = _label(12)
+    _confirmation_hint = _label(MIN_UI_FONT_SIZE)
     _confirmation_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _confirmation_hint.clip_text = false
     content.add_child(_confirmation_hint)
@@ -694,7 +695,7 @@ func _button() -> Button:
 
 func _label(font_size: int) -> Label:
     var label := Label.new()
-    label.add_theme_font_size_override("font_size", font_size)
+    label.add_theme_font_size_override("font_size", maxi(font_size, MIN_UI_FONT_SIZE))
     if _ui_font != null:
         label.add_theme_font_override("font", _ui_font)
     label.add_theme_color_override("font_color", Color("#f0f1ed"))
@@ -739,7 +740,7 @@ func _rebuild_rows() -> void:
         caption.text = _tr(str(BACKPACK_TABS[_active_tab]))
         caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         placeholder.add_child(caption)
-        var empty_text := _label(12)
+        var empty_text := _label(MIN_UI_FONT_SIZE)
         empty_text.text = _tr("inventory.empty_category")
         empty_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         empty_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
