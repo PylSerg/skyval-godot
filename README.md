@@ -18,22 +18,22 @@ is used for both targets.
 | D-pad ↓ | Reserved for future quick actions | Next item |
 | D-pad ↑/←/→ | Reserved for future equipment/items | Select item / change value |
 | Right stick | Smooth camera look | Horizontal flick rotates portrait ±90° |
-| Select / Back | Open character creator (future inventory) | Close creator |
-| Start | Open main menu | Open main menu (closes creator) |
+| Select / Back or L3 | Open character creator (future inventory) | Close creator |
+| Start or R3 | Open main menu | Open main menu (closes creator) |
 | X or B | Reserved | Close creator |
 | A | Reserved | Change selected option |
 | L1 / R1 | Reserved | Appearance / Clothing tab |
 
-Press **Select / Back** in the world to open the character creator. Close
-it with **Select**, **B**, or **X**. Press **Start** from the world or while
-editing the character to open the global game menu. The world pauses
+Press **Select / Back** or **L3** in the world to open the character creator.
+Close it with **Select**, **L3**, **B**, or **X**. Press **Start** or **R3**
+from the world or while editing the character to open the global game menu. The world pauses
 while either interface is open.
 
 The main menu initially has two actions: **Settings** and **Quit**.
 Settings currently contains only language (Ukrainian / English). Use
 D-pad up/down or left-stick vertical to pick a menu item and **A** to
 activate it. Inside Settings, use D-pad left/right, left-stick horizontal,
-or **A** to switch languages, **B/X** to go back, and **Start** to close
+or **A** to switch languages, **B/X** to go back, and **Start/R3** to close
 the menu. The selected language is stored in
 `user://skyval_settings.cfg` via the existing localization service.
 **Quit** exits Godot, returning to PortMaster on the handheld.
