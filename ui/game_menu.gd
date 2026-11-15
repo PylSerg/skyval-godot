@@ -712,10 +712,16 @@ func _on_name_cancelled() -> void:
         return
     if not _creation_in_progress:
         return
-    if not _active_save_path.is_empty():
-        _load_profile(_active_save_path, false)
-    _set_open(true)
-    _creation_in_progress = false
+    # B from the character-name keyboard returns to the same appearance
+    # draft. Do not load an old character, show the title screen, or
+    # mark creation complete. No progress save is written here.
+    var editor: Node = get_parent().get_node_or_null("AppearanceEditor")
+    if editor != null and editor.has_method("resume_creation"):
+        editor.call("resume_creation")
+    else:
+        push_error("Skyval: could not reopen appearance after cancelling name entry.")
+        _creation_in_progress = false
+        _set_open(true)
 
 
 func _on_appearance_cancelled() -> void:
