@@ -1,6 +1,6 @@
 extends CanvasLayer
-## Global game menu for Godot 4.7 / PortMaster, opened with Start.
-## Select is reserved for the character editor (future inventory).
+## Global game menu for Godot 4.7 / PortMaster, opened with Start or R3.
+## Select or L3 is reserved for the character editor (future inventory).
 ## All captions come from localization/strings.json.
 
 const LocaleScript = preload("res://localization/localization.gd")
@@ -75,15 +75,15 @@ func _handle_button(event: InputEventJoypadButton) -> void:
     _held_buttons[button_id] = true
 
     if not _opened:
-        if event.button_index == JOY_BUTTON_START:
+        if event.button_index == JOY_BUTTON_START or event.button_index == JOY_BUTTON_RIGHT_STICK:
             _set_open(true)
             get_viewport().set_input_as_handled()
         return
 
-    # This menu owns all joypad input while visible. In particular Select
+    # This menu owns all joypad input while visible. Select or L3
     # must not open the character creator behind the menu.
     match event.button_index:
-        JOY_BUTTON_START:
+        JOY_BUTTON_START, JOY_BUTTON_RIGHT_STICK:
             _set_open(false)
         JOY_BUTTON_B, JOY_BUTTON_X:
             if _settings_open:
