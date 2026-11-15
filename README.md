@@ -89,13 +89,22 @@ During gameplay **Start / R3** opens a separate **in-game menu**:
 - **Settings / Налаштування**, **Title Screen / Головний екран**,
   and **Quit Game / Вийти з гри**. Both actions require A/B confirmation.
   Returning to the title screen keeps the game running in the main menu;
-  Quit Game checkpoints the current character, then closes Skyval.
-  If checkpointing fails, Quit Game leaves the game open.
+  Both actions warn that **unsaved progress will be lost**. Returning
+  to the title screen or quitting does **not** create a save.
 
-Quick saves and named manual saves are never overwritten by automatic
-checkpoints, which occur on menu opening, equipment changes, loot and
-returning to main menu. The last opened character is updated on every
-successful load and after new-character creation, not when viewing lists.
+**There is no gameplay autosave.** The only automatic progress write is
+the initial `profile.json` created once after the player confirms a
+new character's name. From then on, progress is saved **only** by
+choosing Quick Save or Save in the in-game menu. Opening menus,
+equipping items, looting chests, loading snapshots, returning to the
+title screen and quitting never write game progress. In particular,
+Quick Save and named Save take the current position, look, inventory and
+chest contents directly from the running session; they do **not**
+overwrite `profile.json` first.
+
+The last opened character is updated on every successful load and after
+new-character creation in `last_opened.json`. This stores only the
+character ID and launch-order timestamps, not any game progress.
 
 ### Illustrated character creator (320×240)
 
@@ -142,9 +151,11 @@ saves/
     quick.json
 ```
 
-`profile.json` stores the live checkpoint and metadata.
-`quick.json` stores one quick snapshot. Named saves are independent
-timestamped files. The profile ID and human-readable character name
+`profile.json` stores the **initial creation save** and character identity.
+Existing profiles migrated from older versions retain their saved state,
+but are no longer overwritten by ordinary gameplay. `quick.json`
+stores one explicit quick-save snapshot. Named manual saves are
+independent timestamped files. The character ID and human-readable name
 remain in the JSON data.
 
 Existing v2 flat files (`<id>-<character>.json`,
@@ -226,7 +237,7 @@ The LPC appearance change is temporary: selecting another field/tab or
 closing the backpack restores the actual worn outfit. Press **A** to
 commit the previewed item (or unequip when the candidate is None).
 Only a successfully confirmed equipment change updates inventory
-ownership, the actual avatar and the save checkpoint. Each row retains
+ownership and the actual avatar; it does not save progress. Each row retains
 a `current/total` counter that follows the previewed item. The **single
 value selector** shows only the currently selected field and uses
 14px-wide arrow controls and a clipped, horizontally scrolling item name
@@ -272,12 +283,14 @@ at both ends when multiple options exist. Invalid or missing LPC
 alternatives are skipped without modifying the current appearance.
 Unobtainable clothes or armor are not silently added.
 
-The game checkpoints after taking items and after equipment changes.
-The backpack, equipped slots and **both chests'** remaining contents
-are stored in each character's v2 profile. The inventory subsystem still
-supports missing legacy inventory fields if a profile was converted
-externally; automatic migration from the single v1 save is not enabled.
-Saved outfits and armor still depend on available LPC art.
+Taking items and equipping gear only change the live session. Those
+changes are written when the player explicitly chooses Save or Quick
+Save. The backpack, equipped slots and **both chests'** remaining contents
+are included in each explicit save; the original creation profile remains
+untouched. The inventory subsystem still supports missing legacy fields
+if a profile was converted externally; automatic migration from the
+single v1 save is not enabled. Saved outfits and armor still depend on
+available LPC art.
 
 ## Armor classes and portrait information
 
