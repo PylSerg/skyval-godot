@@ -81,6 +81,7 @@ var _compact_choice_window: Control
 var _compact_choice_value: Label
 var _compact_prev: Button
 var _compact_next: Button
+var _equip_hint: Label
 var _title_label: Label
 var _rows: VBoxContainer
 var _preview: Control
@@ -756,6 +757,13 @@ func _build_interface() -> void:
     _compact_next.pressed.connect(_adjust_selected.bind(1))
     choice_row.add_child(_compact_next)
 
+    if not appearance_window:
+        _equip_hint = _label(MIN_UI_FONT_SIZE)
+        _equip_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        _equip_hint.custom_minimum_size.y = 17
+        _equip_hint.add_theme_color_override("font_color", Color("#d6b77c"))
+        stack.add_child(_equip_hint)
+
     # Use the full right column; the portrait itself is drawn at 3×.
     _preview = PreviewScript.new() as Control
     _preview.position = Vector2(210, 8)
@@ -993,6 +1001,7 @@ func _refresh_text() -> void:
         _confirmation_message.text = _tr("ui.confirm_create_question") if _creation_mode else _tr("ui.confirm_edit_question")
         _confirmation_hint.text = _tr("ui.confirm_joy_hint")
     if not appearance_window:
+        _equip_hint.text = _tr("inventory.equip_hint")
         for index in range(_tab_buttons.size()):
             _tab_buttons[index].text = _tr(str(BACKPACK_TABS[index]))
         _update_tab_styles()
@@ -1018,6 +1027,8 @@ func _rebuild_rows() -> void:
 
     var fields: Array = _current_fields()
     _compact_choice_panel.visible = not fields.is_empty()
+    if not appearance_window:
+        _equip_hint.visible = not fields.is_empty()
     if fields.is_empty():
         # Weapons currently have no equipment fields. Keep their tab and
         # empty-state text without an inert selector.
