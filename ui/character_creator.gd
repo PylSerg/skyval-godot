@@ -69,6 +69,8 @@ var _armor_class_label: Label
 var _armor_value_label: Label
 var _missing_label: Label
 var _value_labels: Dictionary = {}
+var _value_windows: Dictionary = {}
+var _value_marquees: Dictionary = {}
 var _field_arrows: Dictionary = {}
 var _inventory: Node
 var _locale: Node
@@ -745,6 +747,11 @@ func _refresh_text() -> void:
     _rebuild_rows()
 
 func _rebuild_rows() -> void:
+    for running_tween in _value_marquees.values():
+        if running_tween is Tween and running_tween.is_valid():
+            running_tween.kill()
+    _value_marquees.clear()
+    _value_windows.clear()
     _value_labels.clear()
     _field_arrows.clear()
     _row_counters.clear()
@@ -822,14 +829,25 @@ func _rebuild_rows() -> void:
         choice_row.add_child(previous)
         previous.pressed.connect(_adjust.bind(key, -1, index))
 
-        var value_label := _label(14)
-        value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        # Clipped area between arrows. Long localized names are never
+        # shortened: their full text scrolls left and back continuously.
+        var value_window := Control.new()
+        value_window.custom_minimum_size.y = 21
+        value_window.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        value_window.clip_contents = true
+        value_window.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        choice_row.add_child(value_window)
+
+        var value_label := _label(MIN_UI_FONT_SIZE)
+        value_label.clip_text = false
         value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
         value_label.text = _localized_value(key)
-        choice_row.add_child(value_label)
+        value_window.add_child(value_label)
+        _value_windows[key] = value_window
         _value_labels[key] = value_label
         _row_values.append(value_label)
+        value_window.resized.connect(_update_value_marquee.bind(key))
 
         var following := _button()
         following.text = _tr("ui.next")
@@ -840,6 +858,7 @@ func _rebuild_rows() -> void:
         _field_arrows[key] = [previous, following]
 
     _update_row_highlight()
+    call_deferred("_refresh_all_value_marquees")
     _reveal_selected_row()
 
 func _reveal_selected_row() -> void:
@@ -897,6 +916,53 @@ func _refresh_options() -> void:
                     button.disabled = not _can_adjust_field(key, -1 if index == 0 else 1)
     _preview.queue_redraw()
     _refresh_armor_status()
+    call_deferred("_refresh_all_value_marquees")
+
+
+func _refresh_all_value_marquees() -> void:
+    for field_key in _value_windows.keys():
+        _update_value_marquee(str(field_key))
+
+
+func _update_value_marquee(key: String) -> void:
+    if not _value_windows.has(key) or not _value_labels.has(key):
+        return
+    var viewport: Control = _value_windows[key] as Control
+    var label: Label = _value_labels[key] as Label
+    if not is_instance_valid(viewport) or not is_instance_valid(label):
+        return
+    if viewport.size.x <= 0.0:
+        return
+
+    if _value_marquees.has(key):
+        var old_tween: Tween = _value_marquees[key] as Tween
+        if old_tween != null and old_tween.is_valid():
+            old_tween.kill()
+        _value_marquees.erase(key)
+
+    # Use real text width at the logical 14px minimum, not character count.
+    var font: Font = label.get_theme_font("font")
+    var text_width: float = ceilf(font.get_string_size(
+        label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, MIN_UI_FONT_SIZE
+    ).x) + 3.0
+    var window_width: float = viewport.size.x
+    label.position = Vector2.ZERO
+    label.size = Vector2(maxf(text_width, window_width), viewport.size.y)
+
+    if text_width <= window_width:
+        label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        return
+
+    label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+    var overflow: float = text_width - window_width
+    var tween: Tween = create_tween()
+    tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+    tween.set_loops()
+    tween.tween_interval(0.8)
+    tween.tween_property(label, "position:x", -overflow, maxf(1.0, overflow / 16.0))
+    tween.tween_interval(0.8)
+    tween.tween_property(label, "position:x", 0.0, maxf(1.0, overflow / 16.0))
+    _value_marquees[key] = tween
 
 
 func _on_inventory_changed() -> void:
