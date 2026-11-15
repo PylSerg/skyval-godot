@@ -35,7 +35,7 @@ motions do nothing in the creator.
 
 The menu has a 3× character portrait and two tabs. The left panel uses a
 **single-column field layout**: each label is above a full-width selector.
-Appearance and clothing fields have larger (13px) headings and
+Appearance and clothing fields have larger (16px) headings and
 subtle 1px horizontal separators. Overflowing lists still scroll using
 D-pad / left stick or mouse wheel, and automatically reveal the selected
 field, but the scrollbar itself stays hidden to keep the choice arrows
