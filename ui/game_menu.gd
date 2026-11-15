@@ -6,6 +6,7 @@ extends CanvasLayer
 const LocaleScript = preload("res://localization/localization.gd")
 const SaveStoreScript = preload("res://game/save_store.gd")
 const NameEntryScript = preload("res://ui/name_entry.gd")
+const UiTheme = preload("res://ui/skyval_theme.gd")
 const FONT_PATH := "res://assets/fonts/CascadiaMono-Regular.ttf"
 const TITLE_IMAGE_PATH := "res://assets/images/title_bg.jpg"
 const TITLE_MENU_WIDTH := 184.0
@@ -492,16 +493,8 @@ func _draw_profiles() -> void:
             button.text = "%s  %s" % [label.substr(0, 13), _time_label(int(data.get("saved_at", 0)))]
         button.pressed.connect(_pick_profile.bind(i))
         var selected: bool = i == _selected_list
-        var style := StyleBoxFlat.new()
-        style.bg_color = Color("#597a9b") if selected else Color("#354960")
-        style.border_color = ACTIVE_HIGHLIGHT if selected else Color("#667f9a")
-        style.set_border_width_all(1)
-        style.set_content_margin_all(3)
-        button.add_theme_stylebox_override("normal", style)
-        button.add_theme_stylebox_override("hover", style)
-        var ink: Color = ACTIVE_HIGHLIGHT if selected else Color("#edf1f5")
-        button.add_theme_color_override("font_color", ink)
-        button.add_theme_color_override("font_hover_color", ink)
+        # Same gold selection and translucent navy as the other windows.
+        UiTheme.apply_button(button, selected, false, 3.0)
         _profile_list.add_child(button)
     var hint_key: String = "save.list_hint" if _list_mode == "characters" else "save.load_hint"
     _profile_hint.text = "%d/%d  %s" % [_selected_list + 1, _listed_items.size(), _tr(hint_key)]
@@ -771,12 +764,7 @@ func _build_interface() -> void:
     _panel.custom_minimum_size = Vector2(252, 224)
     _panel.size = Vector2(252, 224)
     _root.add_child(_panel)
-    _panel_style = StyleBoxFlat.new()
-    _panel_style.bg_color = Color("#202c3c")
-    _panel_style.border_color = Color("#7e95ae")
-    _panel_style.set_border_width_all(1)
-    _panel_style.set_corner_radius_all(3)
-    _panel_style.set_content_margin_all(7)
+    _panel_style = UiTheme.panel_style(0.92, 7.0)
     _panel.add_theme_stylebox_override("panel", _panel_style)
 
     _title_panel_style = StyleBoxFlat.new()
@@ -789,11 +777,12 @@ func _build_interface() -> void:
     _panel.add_child(stack)
 
     _heading = _label(17)
+    _heading.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
     _heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     stack.add_child(_heading)
 
     _divider = ColorRect.new()
-    _divider.color = Color("#52657a")
+    _divider.color = Color(0.84, 0.71, 0.49, 0.80)
     _divider.custom_minimum_size.y = 1
     _divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
     stack.add_child(_divider)
@@ -815,6 +804,7 @@ func _build_interface() -> void:
     stack.add_child(_settings_panel)
 
     _language_caption = _label(15)
+    _language_caption.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
     _settings_panel.add_child(_language_caption)
 
     var language_row := HBoxContainer.new()
@@ -847,6 +837,7 @@ func _build_interface() -> void:
     _profile_list.add_theme_constant_override("separation", 3)
     _continue_panel.add_child(_profile_list)
     _profile_hint = _label(MIN_UI_FONT_SIZE)
+    _profile_hint.add_theme_color_override("font_color", UiTheme.MUTED)
     _profile_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _profile_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _continue_panel.add_child(_profile_hint)
@@ -857,11 +848,13 @@ func _build_interface() -> void:
     stack.add_child(_confirm_panel)
 
     _confirm_message = _label(15)
+    _confirm_message.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
     _confirm_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _confirm_message.custom_minimum_size.y = 65
     _confirm_panel.add_child(_confirm_message)
 
     _confirm_hint = _label(MIN_UI_FONT_SIZE)
+    _confirm_hint.add_theme_color_override("font_color", UiTheme.MUTED)
     _confirm_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _confirm_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _confirm_panel.add_child(_confirm_hint)
@@ -883,21 +876,7 @@ func _button() -> Button:
     button.add_theme_font_size_override("font_size", 16)
     if _font != null:
         button.add_theme_font_override("font", _font)
-    button.add_theme_color_override("font_color", Color("#edf1f5"))
-    button.add_theme_color_override("font_hover_color", Color.WHITE)
-    button.add_theme_color_override("font_pressed_color", Color.WHITE)
-    var normal := StyleBoxFlat.new()
-    normal.bg_color = Color("#354960")
-    normal.border_color = Color("#667f9a")
-    normal.set_border_width_all(1)
-    normal.set_content_margin_all(3)
-    button.add_theme_stylebox_override("normal", normal)
-    var hover := normal.duplicate() as StyleBoxFlat
-    hover.bg_color = Color("#4c6986")
-    button.add_theme_stylebox_override("hover", hover)
-    var pressed := normal.duplicate() as StyleBoxFlat
-    pressed.bg_color = Color("#6683a1")
-    button.add_theme_stylebox_override("pressed", pressed)
+    UiTheme.apply_button(button)
     return button
 
 
@@ -908,7 +887,12 @@ func _is_title_menu() -> bool:
 func _style_menu_layout() -> void:
     var title: bool = _is_title_menu()
     _title_image.visible = _main_mode and _title_image.texture != null
-    _shade.color = Color(0.03, 0.04, 0.08, 0.07) if title and _title_image.texture != null else Color(0.03, 0.08, 0.10, 0.76)
+    # Title keeps its bright artwork. Subpages and the in-game menu
+    # shade the underlying scene slightly instead of hiding it.
+    if title and _title_image.texture != null:
+        _shade.color = Color(0.03, 0.04, 0.08, 0.07)
+    else:
+        _shade.color = Color(0.02, 0.03, 0.07, 0.38 if _main_mode else 0.24)
     _heading.visible = not title
     _divider.visible = not title
     _panel.add_theme_stylebox_override("panel", _title_panel_style if title else _panel_style)
@@ -931,34 +915,35 @@ func _style_menu_layout() -> void:
 
 
 func _update_highlight() -> void:
+    var is_title: bool = _is_title_menu()
     for index in range(_menu_buttons.size()):
         var button: Button = _menu_buttons[index]
         var unavailable: bool = button.disabled
         var selected: bool = index == _selected_option and not unavailable
+        if not is_title:
+            # Settings, in-game menu, lists and confirmations share the
+            # same palette; the illustrated title buttons retain their
+            # original specially translucent backdrop.
+            UiTheme.apply_button(button, selected, unavailable, 1.0)
+            continue
         var style := StyleBoxFlat.new()
-        if _is_title_menu():
-            style.bg_color = Color(0.06, 0.10, 0.18, 0.86) if selected else Color(0.05, 0.08, 0.13, 0.45)
-            style.border_color = ACTIVE_HIGHLIGHT if selected else Color(0, 0, 0, 0)
-        else:
-            style.bg_color = Color("#293748") if unavailable else (Color("#597a9b") if selected else Color("#354960"))
-            style.border_color = Color("#52657a") if unavailable else (ACTIVE_HIGHLIGHT if selected else Color("#667f9a"))
+        style.bg_color = Color(0.06, 0.10, 0.18, 0.86) if selected else Color(0.05, 0.08, 0.13, 0.45)
+        style.border_color = ACTIVE_HIGHLIGHT if selected else Color(0, 0, 0, 0)
         style.set_border_width_all(1)
         style.set_content_margin_all(1)
         button.add_theme_stylebox_override("normal", style)
         button.add_theme_stylebox_override("disabled", style)
-        button.add_theme_color_override("font_disabled_color", Color("#8493a5"))
         var hover := style.duplicate() as StyleBoxFlat
-        hover.bg_color = Color("#6a8cac") if selected else Color("#4c6986")
+        hover.bg_color = Color(0.17, 0.25, 0.34, 0.85)
         button.add_theme_stylebox_override("hover", hover)
         var pressed := style.duplicate() as StyleBoxFlat
-        pressed.bg_color = Color("#7397b4") if selected else Color("#6683a1")
+        pressed.bg_color = Color(0.20, 0.30, 0.41, 0.95)
         button.add_theme_stylebox_override("pressed", pressed)
-        # Selected menu text uses EXACTLY the same gold as its border.
-        # Apply the same color on hover/pressed for mouse and gamepad parity.
-        var menu_text: Color = ACTIVE_HIGHLIGHT if selected else Color("#edf1f5")
-        button.add_theme_color_override("font_color", menu_text)
-        button.add_theme_color_override("font_hover_color", menu_text)
-        button.add_theme_color_override("font_pressed_color", menu_text)
+        var ink: Color = ACTIVE_HIGHLIGHT if selected else UiTheme.INK
+        button.add_theme_color_override("font_color", ink)
+        button.add_theme_color_override("font_hover_color", ink)
+        button.add_theme_color_override("font_pressed_color", ink)
+        button.add_theme_color_override("font_disabled_color", UiTheme.DISABLED)
 
 
 func _refresh_text() -> void:
