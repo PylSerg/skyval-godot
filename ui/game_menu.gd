@@ -229,13 +229,14 @@ func _show_settings(show: bool) -> void:
 
 
 func _move_selection(direction: int) -> void:
-    var next_index: int = _selected_option
-    for step in range(_menu_buttons.size()):
-        next_index = posmod(next_index + direction, _menu_buttons.size())
+    # Respect first and last options; skip disabled entries without wrapping.
+    var next_index: int = _selected_option + direction
+    while next_index >= 0 and next_index < _menu_buttons.size():
         if not _menu_buttons[next_index].disabled:
             _selected_option = next_index
-            break
-    _update_highlight()
+            _update_highlight()
+            return
+        next_index += direction
 
 
 func _activate_option(index: int) -> void:
