@@ -18,7 +18,7 @@ is used for both targets.
 | D-pad ↓ | Reserved for future quick actions | Next item |
 | D-pad ↑/←/→ | Reserved for future equipment/items | Select item / change value |
 | Right stick | Smooth camera look | Horizontal flick rotates portrait ±90° |
-| Select / Back or L3 | Open character creator (future inventory) | Reserved while open |
+| Select / Back or L3 | Open character creator (future inventory) | Close creator |
 | Start or R3 | Open main menu | Open main menu (closes creator) |
 | B | Reserved | Close creator |
 | X | Reserved | Reserved |
@@ -26,10 +26,10 @@ is used for both targets.
 | L1 / R1 | Reserved | Appearance / Clothing tab |
 
 Press **Select / Back** or **L3** in the world to open the character creator.
-Close it with **B** only. **Select/L3** does not close it, and **X** is not
-a Back shortcut. Press **Start** or **R3** from the world or while editing
-the character to open the global game menu. The world pauses while either
-interface is open.
+Press **Select/L3** again to close it, or use **B** to return to the world.
+**X** is not a Back shortcut. Press **Start** or **R3** from the world or
+while editing the character to open the global game menu. The world pauses
+while either interface is open.
 
 The main menu initially has two actions: **Settings** and **Quit**.
 Settings currently contains only language (Ukrainian / English). Use
@@ -58,7 +58,8 @@ controller navigation, and call
 The future inventory should follow the same contract; it is **not yet
 implemented**. **B** moves one level back: Settings → Main Menu → World,
 or CharacterCreator → World. No on-screen Back button is required.
-**Start/R3** separately toggles the global menu.
+**Select/L3** also toggles CharacterCreator (and will toggle the future
+inventory); **Start/R3** separately toggles the global menu.
 
 The creator pauses world movement. Its right-stick rotation cycles through
 **front → right → back → left → front**, one 90° step per horizontal tilt.
