@@ -115,11 +115,8 @@ func has_started_session() -> bool:
     return _session_started and not _creation_in_progress
 
 
-func save_checkpoint() -> bool:
-    if not has_started_session():
-        return false
-    return _save_current_game()
-
+# Progress is saved only after creating a character, or by the player's
+# explicit Quick Save / Save command. No periodic/menu/loot checkpoints.
 
 func _tr(key: String) -> String:
     return str(_locale.call("t", key))
@@ -254,8 +251,6 @@ func _set_open(next_open: bool) -> void:
         var appearance: Node = get_parent().get_node_or_null("AppearanceEditor")
         if appearance != null and not _creation_in_progress and bool(appearance.call("is_open")):
             appearance.call("close_for_menu")
-        if _session_started and not _creation_in_progress:
-            _save_current_game()
         _main_mode = not _session_started
         _status_message = ""
     print("Skyval GameMenu: OPEN=", _opened)
@@ -424,10 +419,8 @@ func _accept_confirmation() -> void:
         "main":
             _return_to_main()
         "quit":
-            if _save_current_game():
-                get_tree().quit()
-            else:
-                _status_message = _tr("save.write_failed")
+            # Exiting never writes progress. Unsaved changes are discarded.
+            get_tree().quit()
     _refresh_text()
 
 
@@ -459,10 +452,8 @@ func _delete_selected_profile() -> void:
 
 
 func _return_to_main() -> void:
-    # Never discard the live character if writing its checkpoint fails.
-    if not _save_current_game():
-        _status_message = _tr("save.write_failed")
-        return
+    # Explicitly leave the session without saving. The confirmation
+    # warns that progress since the last save will be lost.
     _session_started = false
     _active_save_path = ""
     _profile_data.clear()
@@ -471,7 +462,6 @@ func _return_to_main() -> void:
     _list_mode = ""
     _selected_option = 0
     _status_message = ""
-
 
 func _draw_profiles() -> void:
     if _profile_list == null:
@@ -541,20 +531,17 @@ func _has_valid_save() -> bool:
     return not recent.is_empty()
 
 
-func _save_current_game() -> bool:
-    if _active_save_path.is_empty():
-        return false
-    # An older flat profile can be moved to a folder by a listing call.
-    # Refresh the canonical file path before writing another checkpoint.
-    var canonical: Dictionary = _save_store.call("profile_by_id", str(_profile_data.get("profile_id", "")))
-    if not canonical.is_empty():
-        _active_save_path = str(canonical.get("path", _active_save_path))
+func _capture_current_game() -> Dictionary:
+    # Snapshot the *live* world without writing or mutating the profile.
+    # A loaded manual/quick save must not be replaced by an old profile.
+    if _active_save_path.is_empty() or _profile_data.is_empty():
+        return {}
     var player: CharacterBody2D = _get_player()
     if player == null:
-        return false
+        return {}
+
     var data: Dictionary = _profile_data.duplicate(true)
     data["version"] = 2
-    data["save_kind"] = "profile"
     data["path"] = _active_save_path
     data["player_position"] = [player.global_position.x, player.global_position.y]
     data["appearance"] = {}
@@ -564,6 +551,15 @@ func _save_current_game() -> bool:
     var inventory: Node = get_node_or_null("/root/SkyvalInventory")
     if inventory != null:
         data["inventory"] = inventory.call("get_save_state")
+    return data
+
+
+func _save_initial_profile() -> bool:
+    # Exactly one automatic progress save, after character creation.
+    var data: Dictionary = _capture_current_game()
+    if data.is_empty():
+        return false
+    data["save_kind"] = "profile"
     if not bool(_save_store.call("write_profile", _active_save_path, data)):
         return false
     _profile_data = data
@@ -571,14 +567,17 @@ func _save_current_game() -> bool:
 
 
 func _write_snapshot(kind: String, save_name: String = "") -> void:
-    if not _session_started or not _save_current_game():
+    if not _session_started:
+        _status_message = _tr("save.write_failed")
+        return
+    var data: Dictionary = _capture_current_game()
+    if data.is_empty():
         _status_message = _tr("save.write_failed")
         return
     var path: String = str(_save_store.call("slot_path", _profile_data, kind, save_name))
     if path.is_empty():
         _status_message = _tr("save.write_failed")
         return
-    var data: Dictionary = _profile_data.duplicate(true)
     data["path"] = path
     data["save_kind"] = kind
     data["save_name"] = save_name.strip_edges() if kind == "manual" else ""
@@ -590,7 +589,6 @@ func _write_snapshot(kind: String, save_name: String = "") -> void:
             _set_open(false)
     else:
         _status_message = _tr("save.write_failed")
-
 
 func _load_profile(path: String, touch_launch: bool = true) -> bool:
     var data: Dictionary = _save_store.call("read_profile", path)
@@ -617,16 +615,14 @@ func _load_profile(path: String, touch_launch: bool = true) -> bool:
     var inventory: Node = get_node_or_null("/root/SkyvalInventory")
     if inventory != null:
         inventory.call("load_save_state", data.get("inventory", null), avatar)
-    # A loaded manual/quick snapshot becomes the live state, but its own
-    # file stays untouched: future checkpoints write to the root profile.
+    # Loading restores world state only. It NEVER writes game progress.
+    # The root profile stays as the initial save (or the player's
+    # pre-upgrade checkpoint) until the user explicitly saves elsewhere.
     _active_save_path = str(root_data["path"])
     _profile_data = root_data
     _session_started = true
     if touch_launch:
-        _profile_data["last_played"] = int(Time.get_unix_time_from_system() * 1000.0)
-    if not _save_current_game():
-        push_warning("Skyval: could not checkpoint loaded character.")
-    if touch_launch:
+        # Separate UI metadata, NOT a progress save or profile overwrite.
         if not bool(_save_store.call("remember_opened", id)):
             push_warning("Skyval: could not remember last opened character.")
     return true
@@ -695,7 +691,7 @@ func _on_name_confirmed(character_name: String) -> void:
     _session_started = true
     _main_mode = false
     _creation_in_progress = false
-    if not _save_current_game():
+    if not _save_initial_profile():
         push_warning("Skyval: first character save failed.")
         _active_save_path = old_path
         if not old_path.is_empty():
