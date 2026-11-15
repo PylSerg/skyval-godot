@@ -33,7 +33,7 @@ The main menu initially has two actions: **Settings** and **Quit**.
 Settings currently contains only language (Ukrainian / English). Use
 D-pad up/down or left-stick vertical to pick a menu item and **A** to
 activate it. Inside Settings, use D-pad left/right, left-stick horizontal,
-or **A** to switch languages, **B/X** to go back, and **Start/R3** to close
+or **A** to switch languages, **B** to go back, and **Start/R3** to close
 the menu. The selected language is stored in
 `user://skyval_settings.cfg` via the existing localization service.
 **Quit** exits Godot, returning to PortMaster on the handheld.
