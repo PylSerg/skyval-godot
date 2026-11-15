@@ -32,85 +32,97 @@ reusable window which is opened during New Game, not a backpack tab.
 Press **Start** or **R3** during gameplay to open the global menu.
 The world pauses while a blocking interface is open.
 
-## Main menu, in-game menu and save slots
+## Main menu, in-game menu and character save folders
 
-Skyval starts paused in the **main menu**. The initial viewport is 320×240.
-The main menu contains, in order:
+Skyval starts paused at 320×240 in the **main menu**.
 
-- **Continue / Продовжити**: immediately loads the most recently saved
-  snapshot across all characters (the newest manual save or quick save,
-  including an initial character profile when no other saves exist).
-  Snapshot creation timestamps (`saved_at`), not menu-opening checkpoints
-  or last character launch times, determine which save wins.
-- **Select Character / Вибрати персонажа**: opens the character list ordered
-  by last launch; select **A** to confirm loading that character's newest
-  snapshot; **X** to delete the character and all its snapshots with
-  confirmation; **B** to go back.
+- **Continue / Продовжити** resumes the **last opened character**.
+  `saves/last_opened.json` keeps its ID between launches; if the marker
+  has not been created yet, the most recently opened valid profile is used.
+  The most recently created manual or quick save **for that character**
+  is loaded, using `saved_at` (with the root checkpoint as a fallback).
+  Characters with newer saves do **not** steal Continue from the last
+  character you played.
+- **Select Character / Вибрати персонажа** appears when profiles exist.
+  The list is ordered by last launch. **A** opens the **selected
+  character's complete save list**; **B** returns to the main menu,
+  **X** deletes that character and its saves with confirmation.
+  Choose a save with **A**, confirm the load with **A** or cancel with
+  **B**. From the save list **B** returns to the character list.
 - **New Game / Нова гра**, **Settings / Налаштування**, **Quit / Вихід**.
 
-Continue and Select Character are **hidden**, rather than disabled, until
-at least one valid profile exists. There are no blank rows in that case.
+Continue and Select Character are entirely **hidden** if no valid
+characters exist, so the menu begins with New Game.
 
-During gameplay, **Start / R3** opens a separate **in-game menu** with:
+During gameplay **Start / R3** opens a separate **in-game menu**:
 
-- **Quick Save / Швидке збереження**: overwrite only the current
-  character's dedicated quick-save snapshot.
-- **Quick Load / Швидке завантаження**: load the current character's
-  quick-save snapshot, with an A/B confirmation. Unavailable until a
-  quick save exists.
-- **Save / Зберегти**: create a new, timestamped manual save slot for
-  the current character without overwriting prior manual slots.
-- **Load / Завантажити**: browse this character's current profile
-  checkpoint, manual snapshots and quick snapshot, newest first.
-  Selecting a save requires A/B confirmation.
+- **Quick Save / Швидке збереження** overwrites just this character's
+  `quick.json`.
+- **Quick Load / Швидке завантаження** loads that snapshot immediately,
+  **without a confirmation dialog**, and is disabled until a quick save
+  exists for the current character.
+- **Save / Зберегти** opens the same 14px controller keyboard as character
+  creation. Enter a **save name** (A: letter, Y: random suggestion,
+  X: accept, B: cancel), then confirm it with A/B. Each confirmed name
+  creates a separate manual save with a unique filename; the human-readable
+  title is stored in `save_name` and shown in the save list.
+- **Load / Завантажити** displays saves for the current character, sorted
+  by creation time, newest first. Loading a selected save requires A/B
+  confirmation.
 - **Settings / Налаштування** and **Main Menu / Головне меню**.
-  Returning to the main menu requires A/B confirmation and retains
-  the latest live checkpoint. B/Start closes the in-game menu.
+  Returning to the main menu requires A/B confirmation and writes
+  the current checkpoint before leaving the game session.
 
-The same confirmation behavior is used for selected character loads.
-Selecting Continue automatically loads the most recent snapshot,
-without an extra prompt.
+Quick saves and named manual saves are never overwritten by automatic
+checkpoints, which occur on menu opening, equipment changes, loot and
+returning to main menu. The last opened character is updated on every
+successful load and after new-character creation, not when viewing lists.
 
-### Creating characters
+### Character creation
 
-**New Game** starts a draft at the spawn point and opens the separate
-**Appearance / Зовнішність** editor. Configure body type, skin, eyes and
-hair. Press **X**, then **A**, to confirm appearance. This only moves to
-the name screen, not to a saved profile.
+New Game opens the appearance editor. Choose the body, eyes and hair,
+then confirm with **X** followed by **A**. The name-entry keyboard then
+appears. Its Ukrainian/English characters and space/backspace fit 320×240.
+**A** picks characters, **Y** suggests a random gender-appropriate name,
+**X** confirms with a dialog, and **B** cancels with a dialog. Only a
+confirmed name allocates a new profile. Default LPC outfits depend on
+body type (male: formal trousers; female: trousers and T-shirt; both
+start without shoes).
 
-The **character-name** screen shows a row of 14px Cascadia name slots,
-followed by an eight-column grid of Ukrainian or English letters, space
-and backspace. Maximum length is computed from the available width;
-both sticks and D-pad navigate. **A** picks a letter, **Y** suggests a
-gender-appropriate random name, **X** confirms the name with a modal,
-and **B** returns to the main menu with a modal. Empty names cannot be
-confirmed. Cancelling does not create a profile or save.
+### Save layout and legacy migration
 
-New characters get gender-specific starting LPC outfits: male starts
-with formal trousers, female with formal trousers and a T-shirt.
-Both begin without shoes. The draft inventory is discarded on cancel.
+Every character now has a **separate folder** created on first save.
+For example:
 
-### Where saves go
+```text
+saves/
+  last_opened.json
+  176320012312345-Софія/
+    profile.json
+    quick.json
+    save-1763200900123-12345-Пригода.json
+    save-1763201900456-67890-Нова_глава.json
+  176320078956789-Данило/
+    profile.json
+    quick.json
+```
 
-Each character keeps a persistent `<identifier>-<name>.json` root
-checkpoint in `saves/`. Quick saves use `<identifier>-<name>~quick.json`
-and manual slots use `<identifier>-<name>~save-<timestamp>-<nonce>.json`.
-The files contain version-2 JSON with identity, position, appearance,
-equipped items, inventory and chest state. Snapshots track `saved_at`;
-the profile itself tracks `last_played` for character-list sorting.
-Checkpoint writes (menu openings, chest/inventory changes and returning
-to the main menu) do not overwrite manual or quick snapshots.
+`profile.json` stores the live checkpoint and metadata.
+`quick.json` stores one quick snapshot. Named saves are independent
+timestamped files. The profile ID and human-readable character name
+remain in the JSON data.
 
-The folder is created on the first save and ignored by Git. On R36H,
-the PortMaster launcher sets `SKYVAL_SAVES_DIR` to
-`/roms/ports/skyval/saves`; on desktop it defaults to `user://saves`.
-Existing v2 character files are recognized as profile checkpoints,
-with no migration needed. Legacy `user://skyval_save_v1.json` remains
-untouched and is not automatically converted.
+Existing v2 flat files (`<id>-<character>.json`,
+`<id>-<character>~quick.json` and
+`<id>-<character>~save-*.json`) are **moved into character folders**.
+The migration never knowingly overwrites an existing file and can be
+retried if interrupted. Flat files that could not be moved remain
+readable. The original v1 `user://skyval_save_v1.json` is unchanged.
 
-The selected UI language is stored separately in
-`user://skyval_settings.cfg`. The backpack is available only in
-gameplay; the game remains paused in any main/game menu or confirmation.
+On R36H the PortMaster launcher uses
+`/roms/ports/skyval/saves`; desktop Godot uses `user://saves`.
+The `saves/` folder is ignored by Git and is created automatically.
+The UI language stays in `user://skyval_settings.cfg`.
 
 ## Test chest, backpack and equipped clothing
 
