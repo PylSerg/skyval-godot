@@ -138,6 +138,16 @@ func change_lpc_option(option_key: String, direction: int) -> bool:
         return false
     return bool(_external_body.call("change_option", option_key, direction))
 
+# World and backpack share the same LPC armor slot. The armor stat
+# remains usable even if the optional sprite sheet is not installed.
+func apply_armor_visual(style: String) -> bool:
+    if not has_lpc_character():
+        return true
+    if not _external_body.has_method("set_armor_style"):
+        return true
+    return bool(_external_body.call("set_armor_style", style))
+
+
 # Outfit granted only when creating a new character. Do not call during
 # Continue or later appearance edits: existing wardrobe choices must survive.
 func apply_starter_outfit() -> bool:
