@@ -31,14 +31,33 @@ Press **Select/L3** again to close it, or use **B** to return to the world.
 while editing the character to open the global game menu. The world pauses
 while either interface is open.
 
-The main menu initially has two actions: **Settings** and **Quit**.
+## Main menu and prototype saves
+
+The game **starts paused in its main menu**, with four vertically stacked
+options: **Continue / Продовжити**, **New Game / Нова гра**,
+**Settings / Налаштування**, and **Quit / Вийти**.
+On a fresh install, Continue is disabled and New Game starts the
+prototype world at the scene-defined spawn. When a v1 save exists,
+Continue loads its saved position and appearance before unpausing.
+Starting a New Game with an existing save requires **A** to confirm;
+**B** cancels. Continue in the in-game menu simply resumes the world.
+
+The provisional save file is `user://skyval_save_v1.json`. It stores the
+player position and appearance (including LPC wardrobe variants, if
+available). The game writes an initial save after New Game and a checkpoint
+when opening the in-game menu or choosing Quit. This is **not yet**
+a complete RPG save system: future inventory, NPCs, quests and world changes
+will need their own serialization. Continue stays disabled if the v1 save
+is absent or invalid.
+
 Settings currently contains only language (Ukrainian / English). Use
 D-pad up/down or left-stick vertical to pick a menu item and **A** to
 activate it. Inside Settings, use D-pad left/right, left-stick horizontal,
-or **A** to switch languages, **B** to go back, and **Start/R3** to close
-the menu. The selected language is stored in
-`user://skyval_settings.cfg` via the existing localization service.
-**Quit** exits Godot, returning to PortMaster on the handheld.
+or **A** to switch languages. **B** goes back; **Start/R3** closes the
+menu only after a game has begun, preventing startup-menu bypass.
+The selected language is stored in `user://skyval_settings.cfg` via
+the existing localization service. **Quit** exits Godot, returning to
+PortMaster on the handheld.
 
 ## Pause and Back navigation
 
@@ -59,7 +78,9 @@ The future inventory should follow the same contract; it is **not yet
 implemented**. **B** moves one level back: Settings → Main Menu → World,
 or CharacterCreator → World. No on-screen Back button is required.
 **Select/L3** also toggles CharacterCreator (and will toggle the future
-inventory); **Start/R3** separately toggles the global menu.
+inventory); **Start/R3** separately toggles the global menu while
+playing. At launch, the main menu cannot be dismissed until New Game
+or a valid Continue is selected.
 
 The creator pauses world movement. Its right-stick rotation cycles through
 **front → right → back → left → front**, one 90° step per horizontal tilt.
@@ -146,7 +167,7 @@ See [portmaster/README.md](portmaster/README.md) for details.
 - `prototype/player.gd`: left-stick-only analog movement; D-pad reserved
 - `prototype/smart_camera.gd`: native right-stick look
 - `ui/character_creator.gd`: native controller-driven creator UI
-- `ui/game_menu.gd`: Start menu, language settings and Quit
+- `ui/game_menu.gd`: launch/pause menu, prototype save/load, language and Quit
 - `ui/pause_manager.gd`: shared pause ownership for menus and future inventory
 - `ui/character_preview.gd`: cyclic 90° preview rotation
 - `characters/lpc_body_visual.gd`: LPC rendering and appearance slots
