@@ -9,6 +9,7 @@ const FONT_PATH := "res://assets/fonts/CascadiaMono-Regular.ttf"
 const CREATION_BACKGROUND := "res://assets/images/create_hero_bg.jpg"
 const UiTheme = preload("res://ui/skyval_theme.gd")
 const ControllerChoiceScript = preload("res://ui/nintendo_choice.gd")
+const ControllerHintsScript = preload("res://ui/nintendo_hints.gd")
 const FONT_SIZE := 14
 const GRID_COLUMNS := 8
 const NAME_WIDTH := 264.0
@@ -25,7 +26,7 @@ var _background: TextureRect
 var _shade: ColorRect
 var _entry_panel_style: StyleBoxFlat
 var _title: Label
-var _hint: Label
+var _hint: Control
 var _name_row: HBoxContainer
 var _keys: Array[String] = []
 var _key_buttons: Array[Button] = []
@@ -201,7 +202,7 @@ func _input(event: InputEvent) -> void:
                     if not _name.strip_edges().is_empty():
                         _show_confirmation("accept")
                     else:
-                        _hint.text = _tr("save.name_empty" if _purpose == "save" else "name.empty")
+                        _hint.call("set_hint", _tr("save.name_empty" if _purpose == "save" else "name.empty"))
                 JOY_BUTTON_Y:
                     _randomize_name()
         get_viewport().set_input_as_handled()
@@ -271,7 +272,7 @@ func _rebuild_keyboard() -> void:
         grid.add_child(button)
         _key_buttons.append(button)
     _title.text = _tr("save.name_title" if _purpose == "save" else "name.title")
-    _hint.text = _tr(_hint_key())
+    _hint.call("set_hint", _tr(_hint_key()))
     _update_key_highlight()
 
 
@@ -295,7 +296,7 @@ func _select_key(index: int) -> void:
     elif _name.length() < _max_length:
         _name += symbol.to_upper() if _name.is_empty() or _name.ends_with(" ") else symbol.to_lower()
     _refresh_slots()
-    _hint.text = _tr(_hint_key())
+    _hint.call("set_hint", _tr(_hint_key()))
 
 
 func _randomize_name() -> void:
@@ -306,7 +307,7 @@ func _randomize_name() -> void:
             titles = ["Adventure", "New chapter", "Journey", "Rest", "Before quest"]
         _name = titles.pick_random().substr(0, _max_length)
         _refresh_slots()
-        _hint.text = _tr(_hint_key())
+        _hint.call("set_hint", _tr(_hint_key()))
         return
     var male_names: Array[String] = ["Олександр", "Андрій", "Максим", "Богдан", "Тарас", "Данило", "Сергій", "Ярослав"]
     var female_names: Array[String] = ["Олена", "Марія", "Софія", "Дарина", "Соломія", "Катерина", "Аліна", "Оксана"]
@@ -316,7 +317,7 @@ func _randomize_name() -> void:
     var options: Array[String] = female_names if _body_type == "female" else male_names
     _name = options.pick_random().substr(0, _max_length)
     _refresh_slots()
-    _hint.text = _tr(_hint_key())
+    _hint.call("set_hint", _tr(_hint_key()))
 
 
 func _refresh_slots() -> void:
@@ -433,11 +434,9 @@ func _build_interface() -> void:
     grid.add_theme_constant_override("v_separation", 3)
     keyboard_center.add_child(grid)
 
-    _hint = _new_label(FONT_SIZE)
-    _hint.add_theme_color_override("font_color", UiTheme.MUTED)
-    _hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    _hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    _hint.custom_minimum_size.y = 33
+    _hint = ControllerHintsScript.new() as Control
+    _hint.call("configure", _tr(_hint_key()), _font, true)
+    _hint.custom_minimum_size.y = 36
     stack.add_child(_hint)
 
     _confirm_overlay = Control.new()
