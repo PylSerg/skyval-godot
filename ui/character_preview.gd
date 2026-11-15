@@ -9,6 +9,16 @@ const PREVIEW_SCALE := 3.0
 var character: Node2D = null
 var facing: int = 0
 
+# Keep actual 64x64 RGBA frame textures alive until the outfit changes.
+# This avoids GPU atlas-UV issues in the paused CanvasItem preview.
+var _frame_cache: Dictionary = {}
+
+
+func clear_frame_cache() -> void:
+    _frame_cache.clear()
+    queue_redraw()
+
+
 func _ready() -> void:
     mouse_filter = Control.MOUSE_FILTER_IGNORE
     texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -51,25 +61,38 @@ func _draw() -> void:
         if texture == null:
             continue
 
-        # LPC frames are AtlasTextures. Draw their explicit atlas region
-        # instead of handing a nested AtlasTexture to draw_texture(), which
-        # can show a solid white area during repeated rapid equipment swaps.
+        # Crop the source image to the actual 64x64 LPC frame ONCE and
+        # draw a standalone ImageTexture. Atlas UV rendering caused the
+        # solid-white portrait regression after repeated armor changes.
+        var display: Texture2D = texture
         if texture is AtlasTexture:
-            var atlas_frame: AtlasTexture = texture as AtlasTexture
-            if atlas_frame.atlas == null:
-                continue
-            var frame_region: Rect2 = atlas_frame.region
-            if frame_region.size.x <= 0 or frame_region.size.y <= 0:
-                continue
-            draw_texture_rect_region(
-                atlas_frame.atlas,
-                Rect2(sprite.offset, frame_region.size),
-                frame_region,
-                Color.WHITE,
-                false,
-                true
-            )
-        else:
-            draw_texture(texture, sprite.offset)
+            var key: int = texture.get_instance_id()
+            if _frame_cache.has(key):
+                display = _frame_cache[key] as Texture2D
+            else:
+                var atlas_frame: AtlasTexture = texture as AtlasTexture
+                if atlas_frame.atlas == null:
+                    continue
+                var atlas_image: Image = atlas_frame.atlas.get_image()
+                if atlas_image == null or atlas_image.is_empty():
+                    continue
+                var region: Rect2 = atlas_frame.region
+                var area: Rect2i = Rect2i(
+                    Vector2i(int(region.position.x), int(region.position.y)),
+                    Vector2i(int(region.size.x), int(region.size.y))
+                )
+                if area.size.x != 64 or area.size.y != 64:
+                    continue
+                if area.position.x < 0 or area.position.y < 0:
+                    continue
+                if area.end.x > atlas_image.get_width() or area.end.y > atlas_image.get_height():
+                    continue
+                var image: Image = atlas_image.get_region(area)
+                if image == null or image.is_empty():
+                    continue
+                display = ImageTexture.create_from_image(image)
+                _frame_cache[key] = display
+        if display != null:
+            draw_texture(display, sprite.offset)
 
     draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
