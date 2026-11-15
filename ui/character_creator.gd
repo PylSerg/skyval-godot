@@ -65,6 +65,7 @@ var _root: Control
 var _title_label: Label
 var _rows: VBoxContainer
 var _preview: Control
+var _preview_refresh_pending: bool = false
 var _armor_class_label: Label
 var _armor_value_label: Label
 var _missing_label: Label
@@ -915,8 +916,22 @@ func _refresh_options() -> void:
                 if is_instance_valid(button):
                     button.disabled = not _can_adjust_field(key, -1 if index == 0 else 1)
     _preview.queue_redraw()
+    _refresh_preview_after_frame()
     _refresh_armor_status()
     call_deferred("_refresh_all_value_marquees")
+
+
+func _refresh_preview_after_frame() -> void:
+    # _load_appearance() retires old AnimatedSprite2D layers using
+    # queue_free(). Repaint after the next scene-tree frame so a paused
+    # portrait cannot cache a stale/invalid atlas between rapid gear swaps.
+    if _preview_refresh_pending:
+        return
+    _preview_refresh_pending = true
+    await get_tree().process_frame
+    _preview_refresh_pending = false
+    if _opened and is_instance_valid(_preview):
+        _preview.queue_redraw()
 
 
 func _stop_value_marquees() -> void:
