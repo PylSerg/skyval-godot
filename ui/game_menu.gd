@@ -13,21 +13,26 @@ const NAV_DEBOUNCE_MS := 100
 const STICK_PRESS := 0.65
 const STICK_RELEASE := 0.42
 const VISIBLE_PROFILES := 4
-const MAIN_OPTIONS := ["menu.continue", "menu.new_game", "menu.settings", "menu.quit"]
+const MAIN_OPTIONS := ["menu.continue", "menu.select_character", "menu.new_game", "menu.settings", "menu.quit"]
+const GAME_OPTIONS := ["game.quick_save", "game.quick_load", "game.save", "game.load", "menu.settings", "game.main_menu"]
 
 @onready var _creator: CanvasLayer = get_parent().get_node("CharacterCreator") as CanvasLayer
 
 var _locale: Node
 var _font: FontFile
 var _opened: bool = false
+var _main_mode: bool = true
 var _settings_open: bool = false
-var _confirm_delete: bool = false
-var _continue_open: bool = false
+var _list_mode: String = "" # characters or load
+var _confirm_action: String = "" # load, delete, main
+var _pending_save_path: String = ""
 var _session_started: bool = false
 var _creation_in_progress: bool = false
 var _selected_option: int = 0
-var _selected_profile: int = 0
-var _profiles: Array[Dictionary] = []
+var _selected_list: int = 0
+var _listed_items: Array[Dictionary] = []
+var _visible_options: Array[String] = []
+var _status_message: String = ""
 var _profile_data: Dictionary = {}
 var _active_save_path: String = ""
 var _save_store: RefCounted
@@ -118,41 +123,41 @@ func _input(event: InputEvent) -> void:
 
 
 func _handle_button(event: InputEventJoypadButton) -> void:
-    var button_id: String = "%s:%s" % [event.device, event.button_index]
+    var key: String = "%s:%s" % [event.device, event.button_index]
     if not event.pressed:
-        _held_buttons.erase(button_id)
+        _held_buttons.erase(key)
         return
-    if _held_buttons.has(button_id):
+    if _held_buttons.has(key):
         return
-    _held_buttons[button_id] = true
+    _held_buttons[key] = true
     if _opened and Time.get_ticks_msec() < _ignore_presses_before_ms:
+        get_viewport().set_input_as_handled()
         return
     if not _opened:
-        if not _creation_in_progress and event.button_index in [JOY_BUTTON_START, JOY_BUTTON_RIGHT_STICK]:
+        if _session_started and not _creation_in_progress and event.button_index in [JOY_BUTTON_START, JOY_BUTTON_RIGHT_STICK]:
             _set_open(true)
             get_viewport().set_input_as_handled()
         return
-    if _confirm_delete:
+
+    if not _confirm_action.is_empty():
         if event.button_index == JOY_BUTTON_A:
-            _delete_selected_profile()
+            _accept_confirmation()
         elif event.button_index == JOY_BUTTON_B:
-            _confirm_delete = false
-            _refresh_text()
-    elif _continue_open:
+            _dismiss_confirmation()
+    elif not _list_mode.is_empty():
         match event.button_index:
             JOY_BUTTON_B:
-                _continue_open = false
+                _list_mode = ""
                 _refresh_text()
             JOY_BUTTON_DPAD_UP:
-                _move_profile(-1)
+                _move_list(-1)
             JOY_BUTTON_DPAD_DOWN:
-                _move_profile(1)
+                _move_list(1)
             JOY_BUTTON_A:
-                _select_profile()
+                _choose_list_item()
             JOY_BUTTON_X:
-                if not _profiles.is_empty():
-                    _confirm_delete = true
-                    _refresh_text()
+                if _list_mode == "characters" and not _listed_items.is_empty():
+                    _ask_confirmation("delete")
     else:
         match event.button_index:
             JOY_BUTTON_START, JOY_BUTTON_RIGHT_STICK:
@@ -182,14 +187,15 @@ func _handle_button(event: InputEventJoypadButton) -> void:
                     _activate_option(_selected_option)
     get_viewport().set_input_as_handled()
 
+
 func _handle_axis(event: InputEventJoypadMotion) -> void:
     if not _opened:
         return
     if event.axis not in [JOY_AXIS_LEFT_X, JOY_AXIS_LEFT_Y]:
         get_viewport().set_input_as_handled()
         return
-    var axis_key: String = "%s:%s" % [event.device, event.axis]
-    var previous: int = int(_stick_direction.get(axis_key, 0))
+    var key: String = "%s:%s" % [event.device, event.axis]
+    var previous: int = int(_stick_direction.get(key, 0))
     var direction: int = 0
     if event.axis_value >= STICK_PRESS:
         direction = 1
@@ -198,13 +204,13 @@ func _handle_axis(event: InputEventJoypadMotion) -> void:
     elif absf(event.axis_value) > STICK_RELEASE:
         direction = previous
     if direction != previous:
-        _stick_direction[axis_key] = direction
-        if direction != 0 and _can_navigate() and not _confirm_delete:
-            if _continue_open and event.axis == JOY_AXIS_LEFT_Y:
-                _move_profile(direction)
+        _stick_direction[key] = direction
+        if direction != 0 and _can_navigate() and _confirm_action.is_empty():
+            if not _list_mode.is_empty() and event.axis == JOY_AXIS_LEFT_Y:
+                _move_list(direction)
             elif _settings_open and event.axis == JOY_AXIS_LEFT_X:
                 _change_language(direction)
-            elif not _settings_open and event.axis == JOY_AXIS_LEFT_Y:
+            elif _list_mode.is_empty() and not _settings_open and event.axis == JOY_AXIS_LEFT_Y:
                 _move_selection(direction)
     get_viewport().set_input_as_handled()
 
@@ -221,32 +227,27 @@ func _set_open(next_open: bool) -> void:
         return
     _opened = next_open
     if next_open:
-        # Do not treat the B/A press used to exit a modal as a menu action.
         _ignore_presses_before_ms = Time.get_ticks_msec() + 150
-        # Take pause ownership before closing another UI layer.
         _set_ui_pause(true)
         if _creator != null and _creator.has_method("close_for_menu"):
             _creator.call("close_for_menu")
-        # Both loot chests share this UI contract and must hand pause
-        # ownership to GameMenu before being dismissed.
         for chest_name in ["TestChest", "ArmorChest"]:
             var chest: Node = get_parent().get_node_or_null(chest_name)
             if chest != null and bool(chest.call("is_open")):
                 chest.call("close_for_menu")
         var appearance: Node = get_parent().get_node_or_null("AppearanceEditor")
-        # During New Game cancellation, the editor already owns its close
-        # sequence; re-entering it here would emit cancelled twice.
         if appearance != null and not _creation_in_progress and bool(appearance.call("is_open")):
             appearance.call("close_for_menu")
         if _session_started and not _creation_in_progress:
-            # Discard unfinished appearance edits before checkpointing.
             _save_current_game()
-
+        _main_mode = not _session_started
+        _status_message = ""
     print("Skyval GameMenu: OPEN=", _opened)
     _settings_open = false
-    _confirm_delete = false
-    _continue_open = false
-    _selected_option = 0 if _session_started or _has_valid_save() else 1
+    _list_mode = ""
+    _confirm_action = ""
+    _pending_save_path = ""
+    _selected_option = 0
     _last_navigation_ms = -10000
     _stick_direction.clear()
     _root.visible = next_open
@@ -255,7 +256,6 @@ func _set_open(next_open: bool) -> void:
     else:
         _set_ui_pause(false)
         get_viewport().gui_release_focus()
-
 
 func _set_ui_pause(is_open: bool) -> void:
     var pause_manager: Node = get_node_or_null("/root/SkyvalUiPause")
