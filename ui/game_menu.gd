@@ -8,6 +8,8 @@ const FONT_PATH := "res://assets/fonts/CascadiaMono-Regular.ttf"
 const NAV_DEBOUNCE_MS := 100
 const STICK_PRESS := 0.65
 const STICK_RELEASE := 0.42
+const SAVE_FILE := "user://skyval_save_v1.json"
+const MAIN_OPTIONS := ["menu.continue", "menu.new_game", "menu.settings", "menu.quit"]
 
 @onready var _creator: CanvasLayer = get_parent().get_node("CharacterCreator") as CanvasLayer
 
@@ -15,11 +17,16 @@ var _locale: Node
 var _font: FontFile
 var _opened: bool = false
 var _settings_open: bool = false
+var _confirm_new_game: bool = false
+var _session_started: bool = false
 var _selected_option: int = 0
 var _root: Control
 var _heading: Label
 var _main_panel: VBoxContainer
 var _settings_panel: VBoxContainer
+var _confirm_panel: VBoxContainer
+var _confirm_message: Label
+var _confirm_hint: Label
 var _menu_buttons: Array[Button] = []
 var _language_caption: Label
 var _language_value: Label
@@ -48,6 +55,8 @@ func _ready() -> void:
     _locale.connect("language_changed", Callable(self, "_refresh_text"))
     _root.hide()
     print("Skyval GameMenu: READY (Start=", JOY_BUTTON_START, ", R3=", JOY_BUTTON_RIGHT_STICK, ")")
+    # A fresh launch always shows a paused main menu before gameplay.
+    _set_open(true)
 
 
 func is_open() -> bool:
@@ -87,17 +96,21 @@ func _handle_button(event: InputEventJoypadButton) -> void:
     # must not open the character creator behind the menu.
     match event.button_index:
         JOY_BUTTON_START, JOY_BUTTON_RIGHT_STICK:
-            _set_open(false)
+            if _session_started:
+                _set_open(false)
         JOY_BUTTON_B:
-            if _settings_open:
+            if _confirm_new_game:
+                _confirm_new_game = false
+                _refresh_text()
+            elif _settings_open:
                 _show_settings(false)
-            else:
+            elif _session_started:
                 _set_open(false)
         JOY_BUTTON_DPAD_UP:
-            if not _settings_open:
+            if not _settings_open and not _confirm_new_game:
                 _move_selection(-1)
         JOY_BUTTON_DPAD_DOWN:
-            if not _settings_open:
+            if not _settings_open and not _confirm_new_game:
                 _move_selection(1)
         JOY_BUTTON_DPAD_LEFT:
             if _settings_open:
@@ -106,7 +119,9 @@ func _handle_button(event: InputEventJoypadButton) -> void:
             if _settings_open:
                 _change_language(1)
         JOY_BUTTON_A:
-            if _settings_open:
+            if _confirm_new_game:
+                _start_new_game()
+            elif _settings_open:
                 _change_language(1)
             else:
                 _activate_option(_selected_option)
@@ -148,8 +163,10 @@ func _can_navigate() -> bool:
 
 
 func _set_open(next_open: bool) -> void:
-    if _opened == next_open:
+    if _opened == next_open or (not next_open and not _session_started):
         return
+    if next_open and _session_started:
+        _save_current_game() # Checkpoint when opening the in-game menu.
     _opened = next_open
     if next_open:
         # Take pause ownership before closing another UI layer.
@@ -159,7 +176,8 @@ func _set_open(next_open: bool) -> void:
 
     print("Skyval GameMenu: OPEN=", _opened)
     _settings_open = false
-    _selected_option = 0
+    _confirm_new_game = false
+    _selected_option = 0 if _session_started or _has_valid_save() else 1
     _last_navigation_ms = -10000
     _stick_direction.clear()
     _root.visible = next_open
@@ -185,18 +203,126 @@ func _show_settings(show: bool) -> void:
 
 
 func _move_selection(direction: int) -> void:
-    _selected_option = posmod(_selected_option + direction, _menu_buttons.size())
+    var next_index: int = _selected_option
+    for step in range(_menu_buttons.size()):
+        next_index = posmod(next_index + direction, _menu_buttons.size())
+        if not _menu_buttons[next_index].disabled:
+            _selected_option = next_index
+            break
     _update_highlight()
 
 
 func _activate_option(index: int) -> void:
-    if not _opened:
+    if not _opened or index < 0 or index >= _menu_buttons.size():
+        return
+    if _menu_buttons[index].disabled:
         return
     match index:
-        0:
+        0: # Continue: load on launch, resume when already in the game.
+            _continue_game()
+        1: # New game: ask before replacing an existing save.
+            if _has_valid_save():
+                _confirm_new_game = true
+                _refresh_text()
+            else:
+                _start_new_game()
+        2:
             _show_settings(true)
-        1:
+        3:
+            if _session_started:
+                _save_current_game()
             get_tree().quit()
+
+
+func _get_player() -> CharacterBody2D:
+    var world: Node = get_tree().current_scene
+    if world == null:
+        return null
+    return world.get_node_or_null("Player") as CharacterBody2D
+
+
+func _read_save() -> Dictionary:
+    if not FileAccess.file_exists(SAVE_FILE):
+        return {}
+    var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(SAVE_FILE))
+    if not parsed is Dictionary:
+        return {}
+    var data: Dictionary = parsed
+    if data.get("version", -1) != 1:
+        return {}
+    var position_data: Variant = data.get("player_position")
+    if not position_data is Array or position_data.size() != 2:
+        return {}
+    for coord in position_data:
+        if typeof(coord) != TYPE_FLOAT and typeof(coord) != TYPE_INT:
+            return {}
+    return data
+
+
+func _has_valid_save() -> bool:
+    return not _read_save().is_empty()
+
+
+func _save_current_game() -> bool:
+    var player: CharacterBody2D = _get_player()
+    if player == null:
+        return false
+    var data: Dictionary = {
+        "version": 1,
+        "player_position": [player.global_position.x, player.global_position.y],
+        "appearance": {},
+    }
+    var avatar: Node = player.get_node_or_null("CharacterVisual")
+    if avatar != null and avatar.has_method("get_save_state"):
+        data["appearance"] = avatar.call("get_save_state")
+    var file: FileAccess = FileAccess.open(SAVE_FILE, FileAccess.WRITE)
+    if file == null:
+        push_warning("Skyval: could not write save file: %s" % error_string(FileAccess.get_open_error()))
+        return false
+    file.store_string(JSON.stringify(data))
+    file.flush()
+    file.close()
+    return true
+
+
+func _load_saved_game() -> bool:
+    var data: Dictionary = _read_save()
+    var player: CharacterBody2D = _get_player()
+    if data.is_empty() or player == null:
+        return false
+    var pos: Array = data["player_position"]
+    var bounds: Rect2 = player.get("world_bounds")
+    var restored: Vector2 = Vector2(float(pos[0]), float(pos[1]))
+    player.global_position = restored.clamp(bounds.position + Vector2(8.0, 14.0), bounds.end - Vector2(8.0, 14.0))
+    player.velocity = Vector2.ZERO
+    var avatar: Node = player.get_node_or_null("CharacterVisual")
+    var appearance_data: Variant = data.get("appearance", {})
+    if avatar != null and avatar.has_method("apply_save_state") and appearance_data is Dictionary:
+        avatar.call("apply_save_state", appearance_data)
+    return true
+
+
+func _continue_game() -> void:
+    if not _session_started:
+        if not _load_saved_game():
+            push_warning("Skyval: saved game is missing or invalid.")
+            _refresh_text()
+            return
+        _session_started = true
+    _set_open(false)
+
+
+func _start_new_game() -> void:
+    var player: CharacterBody2D = _get_player()
+    if player == null:
+        push_error("Skyval: Player missing; cannot start a new game.")
+        return
+    if player.has_method("reset_for_new_game"):
+        player.call("reset_for_new_game")
+    _session_started = true
+    _confirm_new_game = false
+    _save_current_game()
+    _set_open(false)
 
 
 func _change_language(direction: int) -> void:
@@ -220,23 +346,23 @@ func _build_interface() -> void:
     _root.add_child(shade)
 
     var panel := PanelContainer.new()
-    panel.position = Vector2(40, 33)
-    panel.custom_minimum_size = Vector2(240, 174)
-    panel.size = Vector2(240, 174)
+    panel.position = Vector2(34, 15)
+    panel.custom_minimum_size = Vector2(252, 210)
+    panel.size = Vector2(252, 210)
     _root.add_child(panel)
     var panel_style := StyleBoxFlat.new()
     panel_style.bg_color = Color("#202c3c")
     panel_style.border_color = Color("#7e95ae")
     panel_style.set_border_width_all(1)
     panel_style.set_corner_radius_all(3)
-    panel_style.set_content_margin_all(10)
+    panel_style.set_content_margin_all(7)
     panel.add_theme_stylebox_override("panel", panel_style)
 
     var stack := VBoxContainer.new()
-    stack.add_theme_constant_override("separation", 10)
+    stack.add_theme_constant_override("separation", 6)
     panel.add_child(stack)
 
-    _heading = _label(19)
+    _heading = _label(17)
     _heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     stack.add_child(_heading)
 
@@ -247,11 +373,11 @@ func _build_interface() -> void:
     stack.add_child(divider)
 
     _main_panel = VBoxContainer.new()
-    _main_panel.add_theme_constant_override("separation", 10)
+    _main_panel.add_theme_constant_override("separation", 6)
     stack.add_child(_main_panel)
-    for i in range(2):
+    for i in range(MAIN_OPTIONS.size()):
         var option := _button()
-        option.custom_minimum_size.y = 32
+        option.custom_minimum_size.y = 30
         option.pressed.connect(_activate_option.bind(i))
         _main_panel.add_child(option)
         _menu_buttons.append(option)
@@ -285,6 +411,21 @@ func _build_interface() -> void:
     next_button.custom_minimum_size = Vector2(25, 29)
     next_button.pressed.connect(_change_language.bind(1))
     language_row.add_child(next_button)
+
+    # Confirmation is kept inside the same panel, with no Back buttons.
+    _confirm_panel = VBoxContainer.new()
+    _confirm_panel.add_theme_constant_override("separation", 12)
+    stack.add_child(_confirm_panel)
+
+    _confirm_message = _label(15)
+    _confirm_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _confirm_message.custom_minimum_size.y = 65
+    _confirm_panel.add_child(_confirm_message)
+
+    _confirm_hint = _label(12)
+    _confirm_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    _confirm_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _confirm_panel.add_child(_confirm_hint)
 
     _refresh_text()
 
@@ -344,11 +485,17 @@ func _update_highlight() -> void:
 func _refresh_text() -> void:
     if _heading == null:
         return
-    _heading.text = _tr("settings.title") if _settings_open else _tr("menu.title")
-    _menu_buttons[0].text = _tr("menu.settings")
-    _menu_buttons[1].text = _tr("menu.quit")
+    _heading.text = _tr("menu.new_game") if _confirm_new_game else (_tr("settings.title") if _settings_open else _tr("menu.title"))
+    for index in range(MAIN_OPTIONS.size()):
+        _menu_buttons[index].text = _tr(str(MAIN_OPTIONS[index]))
+    _menu_buttons[0].disabled = not _session_started and not _has_valid_save()
+    if _menu_buttons[_selected_option].disabled:
+        _selected_option = 1
     _language_caption.text = _tr("settings.language")
     _language_value.text = _tr("settings.language.en") if str(_locale.get("language")) == "en" else _tr("settings.language.uk")
-    _main_panel.visible = not _settings_open
+    _confirm_message.text = _tr("menu.replace_save")
+    _confirm_hint.text = _tr("menu.confirm_hint")
+    _main_panel.visible = not _settings_open and not _confirm_new_game
     _settings_panel.visible = _settings_open
+    _confirm_panel.visible = _confirm_new_game
     _update_highlight()
