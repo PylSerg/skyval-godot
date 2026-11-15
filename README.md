@@ -249,10 +249,19 @@ for the *same facing*. If a walking frame has substantially more visible
 armor, the portrait displays the clearest matching walking frame instead.
 Other LPC layers (body, face, hair, pants, shoes) continue to show their
 ordinary idle frames. The selected armor frame is static, not animated,
-and cached until the outfit changes. This is preview-only: no changes
-were made to the in-world animation or item stats. If the source sheet
-has no suitable art in either action, there is nothing to recover, and
-the underlying LPC asset needs inspection or replacement.
+and cached until the outfit changes.
+
+**In-world standing uses the same fallback:** when building an Armor or
+ArmorVestFront SpriteFrames layer, the LPC renderer checks torso coverage
+for all idle poses in each of the four directions against the eight walk
+frames in that same direction. If an idle pose is materially incomplete
+and a walk pose is visibly better, it reuses that single real walk frame
+for the *entire idle cycle* of that direction, preventing flicker while
+standing. This selection is performed once when the armor layer is
+built. Walking animations, the player's other body/clothing layers,
+equipment behavior and armor stats remain unchanged. No new artwork
+is generated. If neither action contains an appropriate frame,
+the corresponding source LPC sheet still needs correction.
 
 **Torso exclusivity:** Equipping torso armor sets shirt style to
 `none` and returns the previously equipped shirt to the backpack.
