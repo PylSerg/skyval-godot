@@ -162,8 +162,9 @@ without increasing the world-render resolution. The code also checks
 Ukrainian glyphs and uses a built-in fallback only when needed. The previous Latin-only
 `assets/fonts/Cascadia.ttf` is no longer used by the UI.
 
-Clothing styles include **None / Немає**, so each item can be removed
-individually. No quick-undress button or language switch is present.
+Empty equipment slots display **None / Немає**; equipped garments can
+be unequipped into the backpack individually. No quick-undress shortcut
+or in-world language switch is present.
 
 ## Appearance and localization
 
