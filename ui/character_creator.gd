@@ -17,6 +17,13 @@ const LEFT_STICK_RELEASE := 0.42
 const RIGHT_STICK_PRESS := 0.65
 const RIGHT_STICK_RELEASE := 0.35
 
+# Shared across Appearance and Clothing, so switching tabs does not
+# change panel insets or the vertical rhythm of the controls.
+const PANEL_INSET := 7
+const FIELD_GROUP_SPACING := 12
+const FIELD_INNER_SPACING := 5
+const TAB_SLIDE_SECONDS := 0.18
+
 @onready var avatar: SkyvalCharacterVisual = get_parent().get_node("Player/CharacterVisual") as SkyvalCharacterVisual
 
 var _opened: bool = false
@@ -25,6 +32,8 @@ var _selected_index: int = 0
 var _row_labels: Array[Label] = []
 var _row_values: Array[Label] = []
 var _row_scroll: ScrollContainer
+var _page_clip: Control
+var _page_tween: Tween
 var _ui_font: FontFile
 var _held_joy_buttons: Dictionary = {}
 var _joy_axis_direction: Dictionary = {}
@@ -280,7 +289,7 @@ func _build_interface() -> void:
     panel_style.set_border_width_all(1)
     panel_style.set_corner_radius_all(3)
     # Keep text and choice arrows away from the panel frame.
-    panel_style.set_content_margin_all(7)
+    panel_style.set_content_margin_all(PANEL_INSET)
     panel.add_theme_stylebox_override("panel", panel_style)
 
     var stack := VBoxContainer.new()
@@ -304,22 +313,18 @@ func _build_interface() -> void:
     tabs.add_child(_tab_clothes)
     _tab_clothes.pressed.connect(_set_page.bind(1))
 
-    # Six clothing fields do not fit at a readable size. Only the left
-    # field list scrolls, while the right-side portrait stays fixed.
-    _row_scroll = ScrollContainer.new()
-    _row_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    _row_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-    _row_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-    # Allow scrolling with D-pad, left stick, or mouse wheel, while hiding
-    # the scrollbar so the right-hand choice arrow keeps the full row width.
-    _row_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-    stack.add_child(_row_scroll)
+    # Clip both tab pages within one fixed-size region. Only L1 / R1
+    # (and the clickable tab buttons) switch pages. Their contents slide
+    # horizontally, while each page retains vertical list scrolling.
+    _page_clip = Control.new()
+    _page_clip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    _page_clip.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    _page_clip.clip_contents = true
+    stack.add_child(_page_clip)
 
-    _rows = VBoxContainer.new()
-    _rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    # Dividers provide the main separation between groups.
-    _rows.add_theme_constant_override("separation", 12)
-    _row_scroll.add_child(_rows)
+    _row_scroll = _create_page_scroll()
+    _page_clip.add_child(_row_scroll)
+    _row_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
     # Use the full right column; the portrait itself is drawn at 3×.
     _preview = PreviewScript.new() as Control
@@ -335,6 +340,41 @@ func _build_interface() -> void:
     _root.add_child(_missing_label)
 
     _refresh_text()
+
+func _create_page_scroll() -> ScrollContainer:
+    var scroll := ScrollContainer.new()
+    scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    # Scrolling remains available, but the vertical bar is hidden.
+    scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+
+    _rows = VBoxContainer.new()
+    _rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    _rows.add_theme_constant_override("separation", FIELD_GROUP_SPACING)
+    scroll.add_child(_rows)
+    return scroll
+
+
+func _update_tab_styles() -> void:
+    for tab_index in range(2):
+        var button: Button = _tab_appearance if tab_index == 0 else _tab_clothes
+        var selected: bool = tab_index == _page
+        var style := StyleBoxFlat.new()
+        style.bg_color = Color("#597a9b") if selected else Color("#354960")
+        style.border_color = Color("#e7ca86") if selected else Color("#667f9a")
+        style.set_border_width_all(1)
+        style.set_content_margin_all(2)
+        button.add_theme_stylebox_override("normal", style)
+        var hover := style.duplicate() as StyleBoxFlat
+        hover.bg_color = Color("#6a8cac") if selected else Color("#4c6986")
+        button.add_theme_stylebox_override("hover", hover)
+        var pressed := style.duplicate() as StyleBoxFlat
+        pressed.bg_color = Color("#7397b4") if selected else Color("#6683a1")
+        button.add_theme_stylebox_override("pressed", pressed)
+        var color: Color = Color("#fff0c8") if selected else Color("#edf1f5")
+        button.add_theme_color_override("font_color", color)
+
 
 func _button() -> Button:
     var button := Button.new()
@@ -372,16 +412,43 @@ func _label(font_size: int) -> Label:
     return label
 
 func _set_page(next_page: int) -> void:
+    if next_page < 0 or next_page > 1 or next_page == _page:
+        return
+    # Avoid overlapping page animations and duplicate input.
+    if _page_tween != null and _page_tween.is_running():
+        return
+
+    var outgoing: ScrollContainer = _row_scroll
+    var travel: float = -1.0 if next_page > _page else 1.0
+    var width: float = _page_clip.size.x
+
     _page = next_page
     _selected_index = 0
-    _row_scroll.scroll_vertical = 0
+    _row_scroll = _create_page_scroll()
+    _page_clip.add_child(_row_scroll)
+    _row_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     _refresh_text()
+
+    # Slide the two lists together, but never allow them to cross the
+    # portrait or panel border. A paused world must not pause menu tweens.
+    if width <= 0.0:
+        outgoing.queue_free()
+        return
+    _row_scroll.position.x = -travel * width
+    _page_tween = create_tween()
+    _page_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+    _page_tween.set_trans(Tween.TRANS_CUBIC)
+    _page_tween.set_ease(Tween.EASE_OUT)
+    _page_tween.tween_property(outgoing, "position:x", travel * width, TAB_SLIDE_SECONDS)
+    _page_tween.parallel().tween_property(_row_scroll, "position:x", 0.0, TAB_SLIDE_SECONDS)
+    _page_tween.finished.connect(outgoing.queue_free)
 
 func _refresh_text() -> void:
     if _tab_appearance == null:
         return
     _tab_appearance.text = _tr("ui.appearance")
     _tab_clothes.text = _tr("ui.clothes")
+    _update_tab_styles()
     _missing_label.text = _tr("ui.missing_lpc")
     _missing_label.visible = not avatar.has_lpc_character()
     _preview.set("character", avatar.get_lpc_character())
@@ -404,7 +471,7 @@ func _rebuild_rows() -> void:
         # Each property gets its own full-width label and selector row.
         var field_box := VBoxContainer.new()
         # One heading, one full-width selector, then a subtle 1px divider.
-        field_box.add_theme_constant_override("separation", 5)
+        field_box.add_theme_constant_override("separation", FIELD_INNER_SPACING)
         _rows.add_child(field_box)
 
         var name_label := _label(16)
