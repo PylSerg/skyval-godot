@@ -8,6 +8,9 @@ const PREVIEW_SCALE := 3.0
 
 var character: Node2D = null
 var facing: int = 0
+# Only the full-screen creation view uses an illustrated portrait frame.
+# The backpack retains its existing preview appearance.
+var scenic_mode: bool = false
 
 # Keep actual 64x64 RGBA frame textures alive until the outfit changes.
 # This avoids GPU atlas-UV issues in the paused CanvasItem preview.
@@ -35,9 +38,17 @@ func rotate_step(direction: int) -> void:
     queue_redraw()
 
 func _draw() -> void:
-    draw_rect(Rect2(Vector2.ZERO, size), Color(0.10, 0.16, 0.22, 0.92))
-    # Leave the bottom 50+ pixels free for class/defense labels.
-    draw_rect(Rect2(4, size.y - 58, size.x - 8, 1), Color(0.30, 0.43, 0.47, 0.50))
+    if scenic_mode:
+        # Semi-transparent portrait plate makes the creation artwork visible,
+        # while keeping the player's LPC silhouette legible.
+        draw_rect(Rect2(Vector2.ZERO, size), Color(0.04, 0.07, 0.12, 0.64))
+        draw_rect(Rect2(0.5, 0.5, size.x - 1, size.y - 1), Color("#d6b77c"), false, 1.0)
+        draw_rect(Rect2(4, 4, size.x - 8, 2), Color(0.95, 0.78, 0.43, 0.50))
+        draw_rect(Rect2(4, size.y - 6, size.x - 8, 2), Color(0.95, 0.78, 0.43, 0.50))
+    else:
+        draw_rect(Rect2(Vector2.ZERO, size), Color(0.10, 0.16, 0.22, 0.92))
+        # Leave room for equipment/defense labels in the backpack.
+        draw_rect(Rect2(4, size.y - 58, size.x - 8, 1), Color(0.30, 0.43, 0.47, 0.50))
     if character == null or not is_instance_valid(character):
         return
 
