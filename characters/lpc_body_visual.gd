@@ -47,7 +47,8 @@ const FOOTWEAR_STYLES := [
 @export var shirt_style: String = "shortsleeve/shortsleeve"
 @export var pants_style: String = "pants"
 @export var footwear_style: String = "boots/basic"
-# Optional armor overlay: the equipment still works when LPC art is absent.
+# Armor is drawn exclusively using authentic Universal LPC sheets.
+# Missing assets reject the equipment change instead of drawing fake armor.
 @export var armor_style: String = "none"
 @export var body_directory_override: String = ""
 
@@ -154,13 +155,12 @@ func _load_appearance(skin: String) -> bool:
         layers.append({"name": "Footwear", "path": root.path_join("feet/%s/%s/%s.png" % [footwear_style, clothing_shape, boots_variant]), "z": footwear_z, "required": true})
     if shirt_style != "none":
         layers.append({"name": "Shirt", "path": root.path_join("torso/clothes/%s/%s/%s.png" % [shirt_style, shirt_shape, shirt_variant]), "z": 35, "required": true})
-    # Verified heavy-armor layers from the user's LPC directory. Light
-    # armor has no confirmed matching overlay, so only stats are applied.
-    if armor_style == "plate_cuirass":
-        var armor_file: String = "torso/armour/plate/female/brass.png" if body_type == "female" else "torso/armour/legion/male/ceramic.png"
-        var armor_path: String = root.path_join(armor_file)
-        if _texture_exists(armor_path):
-            layers.append({"name": "Armor", "path": armor_path, "z": 45, "required": false})
+    if armor_style != "none":
+        var armor_path: String = _find_armor_sheet(root, armor_style)
+        if armor_path.is_empty():
+            push_warning("Skyval LPC: no compatible Universal LPC armor sheet for %s (%s)" % [armor_style, body_type])
+            return false
+        layers.append({"name": "Armor", "path": armor_path, "z": 45, "required": true})
     # First validate all required files before creating Node2D instances.
     # A failed outfit change must never remove the working character.
     var validated: Array[Dictionary] = []
@@ -190,13 +190,6 @@ func _load_appearance(skin: String) -> bool:
         for candidate in replacements:
             candidate.free()
         return false
-
-    # A guaranteed opaque armor base, matching the body frame layout,
-    # sits below any available authentic LPC torso layer. This prevents
-    # invisible armor even when the original sprite is partly transparent
-    # or uses different action cells.
-    if armor_style != "none":
-        replacements.append(_build_fallback_armor_layer(armor_style))
 
     for old in _sprites:
         remove_child(old)
@@ -243,115 +236,71 @@ func _add_action(frames: SpriteFrames, atlas: Texture2D, action: String, start_y
             cell.region = Rect2(int(frame_number) * CELL, row_y, CELL, CELL)
             frames.add_frame(animation, cell)
 
-# Small pixel-art stand-in until complete Universal LPC armor sheets are
-# available. Animation frames use the exact same 64x64 cells and direction
-# names as the body/head layers, so the vest follows character movement.
-func _build_fallback_armor_layer(style: String) -> AnimatedSprite2D:
-    var sprite := AnimatedSprite2D.new()
-    sprite.name = "ArmorBase"
-    sprite.centered = false
-    sprite.offset = Vector2(-32, -54)
-    sprite.z_index = 44  # Original LPC layer, when present, draws above us.
-    sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-    var frames := SpriteFrames.new()
-    if frames.has_animation("default"):
-        frames.remove_animation("default")
-
-    for action in ["idle", "walk"]:
-        var steps: Array = IDLE_FRAMES if action == "idle" else WALK_FRAMES
-        for direction in DIRECTIONS:
-            var name: String = "%s-%s" % [action, direction]
-            frames.add_animation(name)
-            frames.set_animation_loop(name, true)
-            frames.set_animation_speed(name, 3.0 if action == "idle" else 9.0)
-            for frame_number in steps:
-                var cell: Image = _generate_armor_cell(
-                    style, direction, int(frame_number), action == "walk"
-                )
-                frames.add_frame(name, ImageTexture.create_from_image(cell))
-    sprite.sprite_frames = frames
-    return sprite
+# Read the actual armors in the user's Universal LPC library. The
+# project sometimes loads its body from the small assets/lpc_sprites set,
+# so armor discovery searches the full addon separately from body root.
+# Only files that exist AND have the needed LPC animation atlas are used.
+func _armor_roots(body_root: String) -> PackedStringArray:
+    var roots := PackedStringArray()
+    var home: String = OS.get_environment("HOME")
+    if not home.is_empty():
+        var local_res: String = home.path_join("Godot").path_join("res")
+        roots.append(local_res.path_join("addons/Universal_LPC/resources/spritesheets"))
+        roots.append(local_res.path_join("addons/universal_lpc/resources/spritesheets"))
+        roots.append(local_res.path_join("assets/lpc_sprites"))
+    roots.append("res://addons/Universal_LPC/resources/spritesheets")
+    roots.append("res://addons/universal_lpc/resources/spritesheets")
+    roots.append(body_root)
+    roots.append("res://assets/characters/lpc")
+    return roots
 
 
-func _generate_armor_cell(
-    style: String, direction: String, frame_index: int, walking: bool
-) -> Image:
-    var image: Image = Image.create(CELL, CELL, false, Image.FORMAT_RGBA8)
-    image.fill(Color.TRANSPARENT)
+func _find_armor_sheet(body_root: String, style: String) -> String:
+    var shape: String = "female" if body_type == "female" else "male"
+    var types: Array[String] = []
+    var preferences: Array[String] = []
+    match style:
+        "leather_vest":
+            types = ["leather"]
+            preferences = ["brown", "leather", "tan", "chestnut", "chocolate"]
+        "reinforced_vest":
+            types = ["legion", "leather"]
+            preferences = ["iron", "steel", "gray", "black", "slate", "ceramic"]
+        "plate_cuirass":
+            types = ["plate", "legion"]
+            preferences = ["iron", "steel", "silver", "brass", "ceramic"]
+        _:
+            return ""
 
-    # Fit over the LPC tunic torso (source cell coords). Keep hands and
-    # head visible; the opaque chest panel hides the shirt underneath.
-    var bob: int = -1 if walking and frame_index % 3 == 1 else 0
-    var left: int = 24 if body_type == "male" else 25
-    var width: int = 16 if body_type == "male" else 14
-    # Universal LPC idle torsos begin around row 35 of the 64px cell.
-    # At row 29 the vest would overlap the face rather than the shirt.
-    var top: int = 35 + bob
+    for sprite_root in _armor_roots(body_root):
+        for armor_type in types:
+            var directory: String = sprite_root.path_join("torso/armour").path_join(armor_type).path_join(shape)
+            if not DirAccess.dir_exists_absolute(directory):
+                continue
+            var entries: PackedStringArray = DirAccess.get_files_at(directory)
+            var filenames: Array[String] = []
+            for filename in entries:
+                if filename.ends_with(".png"):
+                    filenames.append(filename)
+            filenames.sort()
+            # Preferred material/color before other existing choices.
+            var ordered: Array[String] = []
+            for color in preferences:
+                var preferred: String = color + ".png"
+                if filenames.has(preferred):
+                    ordered.append(preferred)
+            for filename in filenames:
+                if not ordered.has(filename):
+                    ordered.append(filename)
 
-    var dark: Color = Color("#35291f")
-    var base: Color = Color("#815034")
-    var light: Color = Color("#b47e51")
-    var trim: Color = Color("#ccac76")
-    if style == "reinforced_vest":
-        dark = Color("#292c33")
-        base = Color("#535960")
-        light = Color("#87939a")
-        trim = Color("#c0a16b")
-    elif style == "plate_cuirass":
-        dark = Color("#202b36")
-        base = Color("#8797a5")
-        light = Color("#d1dce3")
-        trim = Color("#ba9556")
-
-    # Contour, torso and tapered lower edge. Side/back views remain
-    # visually distinct while preserving the same sprite alignment.
-    image.fill_rect(Rect2i(left - 1, top, width + 2, 17), dark)
-    image.fill_rect(Rect2i(left, top + 1, width, 14), base)
-    image.fill_rect(Rect2i(left + 2, top + 15, width - 4, 2), dark)
-
-    if direction == "s":
-        # Front: left and right shoulder panels, V neckline and seam.
-        image.fill_rect(Rect2i(left - 3, top + 1, 5, 6), dark)
-        image.fill_rect(Rect2i(left - 2, top + 2, 4, 4), base)
-        image.fill_rect(Rect2i(left + width - 1, top + 1, 5, 6), dark)
-        image.fill_rect(Rect2i(left + width, top + 2, 4, 4), base)
-        image.fill_rect(Rect2i(30, top, 4, 3), Color("#332824"))
-        image.fill_rect(Rect2i(31, top + 4, 2, 9), light)
-        image.fill_rect(Rect2i(left + 3, top + 3, 2, 10), light)
-    elif direction == "n":
-        # Back: broad rigid yoke / crossed leather harness.
-        image.fill_rect(Rect2i(left - 2, top + 1, width + 4, 5), dark)
-        image.fill_rect(Rect2i(left - 1, top + 2, width + 2, 3), light)
-        image.fill_rect(Rect2i(31, top + 6, 2, 9), trim)
-    else:
-        var facing_left: bool = direction == "w"
-        var shoulder_x: int = left - 3 if facing_left else left + width - 2
-        image.fill_rect(Rect2i(shoulder_x, top + 1, 5, 7), dark)
-        image.fill_rect(Rect2i(shoulder_x + 1, top + 2, 3, 5), light)
-        image.fill_rect(Rect2i(left + 4, top + 7, width - 8, 7), light)
-
-    if style == "leather_vest":
-        # Contrast stitching and a soft, warm waist belt.
-        image.fill_rect(Rect2i(left + 1, top + 12, width - 2, 2), trim)
-        image.fill_rect(Rect2i(left + 2, top + 4, 1, 7), trim)
-    elif style == "reinforced_vest":
-        # Metal plates and brass fasteners over dark leather.
-        image.fill_rect(Rect2i(left + 1, top + 7, width - 2, 2), dark)
-        image.fill_rect(Rect2i(left + 2, top + 8, width - 4, 1), light)
-        image.fill_rect(Rect2i(left + 3, top + 3, 2, 2), trim)
-        image.fill_rect(Rect2i(left + width - 5, top + 3, 2, 2), trim)
-        image.fill_rect(Rect2i(left + 1, top + 14, width - 2, 2), dark)
-    else:
-        # Heavy polished chestplate, reinforced pauldrons and metal belt.
-        image.fill_rect(Rect2i(left - 4, top + 1, 6, 7), dark)
-        image.fill_rect(Rect2i(left - 3, top + 2, 5, 4), light)
-        image.fill_rect(Rect2i(left + width - 2, top + 1, 6, 7), dark)
-        image.fill_rect(Rect2i(left + width - 1, top + 2, 5, 4), light)
-        image.fill_rect(Rect2i(left + 2, top + 4, width - 4, 2), light)
-        image.fill_rect(Rect2i(left + 2, top + 10, width - 4, 2), trim)
-        image.fill_rect(Rect2i(31, top + 6, 2, 5), dark)
-
-    return image
+            for filename in ordered:
+                var candidate: String = directory.path_join(filename)
+                if not _texture_exists(candidate):
+                    continue
+                var atlas: Texture2D = _load_texture(candidate)
+                if atlas != null and atlas.get_width() >= 9 * CELL and atlas.get_height() >= IDLE_Y + 4 * CELL:
+                    return candidate
+    return ""
 
 
 func set_armor_style(new_style: String) -> bool:
