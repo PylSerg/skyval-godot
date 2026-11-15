@@ -5,6 +5,7 @@ extends CanvasLayer
 
 const LocaleScript = preload("res://localization/localization.gd")
 const FONT_PATH := "res://assets/fonts/CascadiaMono-Regular.ttf"
+const MIN_UI_FONT_SIZE := 14
 const NAV_DEBOUNCE_MS := 100
 const STICK_PRESS := 0.65
 const STICK_RELEASE := 0.42
@@ -498,7 +499,7 @@ func _build_interface() -> void:
     _confirm_message.custom_minimum_size.y = 65
     _confirm_panel.add_child(_confirm_message)
 
-    _confirm_hint = _label(12)
+    _confirm_hint = _label(MIN_UI_FONT_SIZE)
     _confirm_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _confirm_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _confirm_panel.add_child(_confirm_hint)
@@ -508,7 +509,7 @@ func _build_interface() -> void:
 
 func _label(font_size: int) -> Label:
     var label := Label.new()
-    label.add_theme_font_size_override("font_size", font_size)
+    label.add_theme_font_size_override("font_size", maxi(font_size, MIN_UI_FONT_SIZE))
     if _font != null:
         label.add_theme_font_override("font", _font)
     label.add_theme_color_override("font_color", Color("#f0f1ed"))
