@@ -1,40 +1,32 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene format=3 uid="uid://dwmuii1tfna0x"]
 
-[ext_resource type="Script" path="res://prototype/camera_test.gd" id="1_world"]
-[ext_resource type="Script" path="res://prototype/player.gd" id="2_player"]
-[ext_resource type="Script" path="res://prototype/smart_camera.gd" id="3_smart_camera"]
-[ext_resource type="Script" path="res://characters/character_visual.gd" id="4_visual"]
-[ext_resource type="Script" path="res://ui/character_creator.gd" id="5_creator"]
-[ext_resource type="Script" path="res://ui/game_menu.gd" id="6_menu"]
+[ext_resource type="Script" uid="uid://nkykwb6bobx5" path="res://prototype/camera_test.gd" id="1_world"]
+[ext_resource type="Script" uid="uid://5mesqar3cpbt" path="res://prototype/player.gd" id="2_player"]
+[ext_resource type="Script" uid="uid://deo6h48v1ephm" path="res://prototype/smart_camera.gd" id="3_smart_camera"]
+[ext_resource type="Script" uid="uid://dhniueootu4gc" path="res://characters/character_visual.gd" id="4_visual"]
+[ext_resource type="Script" uid="uid://t8fkixca3fgm" path="res://ui/character_creator.gd" id="5_creator"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(10, 8)
 
-[node name="CameraTest" type="Node2D"]
+[node name="CameraTest" type="Node2D" unique_id=1251518698]
 script = ExtResource("1_world")
 
-[node name="Player" type="CharacterBody2D" parent="."]
+[node name="Player" type="CharacterBody2D" parent="." unique_id=1021540038]
 position = Vector2(640, 480)
 script = ExtResource("2_player")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Player"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Player" unique_id=102955011]
 position = Vector2(0, 10)
 shape = SubResource("RectangleShape2D_player")
 
-[node name="CharacterVisual" type="Node2D" parent="Player"]
+[node name="CharacterVisual" type="Node2D" parent="Player" unique_id=176739657]
 script = ExtResource("4_visual")
 
-[node name="Camera2D" type="Camera2D" parent="Player"]
+[node name="Camera2D" type="Camera2D" parent="Player" unique_id=92767382]
 top_level = true
-enabled = true
-zoom = Vector2(1, 1)
-position_smoothing_enabled = false
 script = ExtResource("3_smart_camera")
 
-[node name="CharacterCreator" type="CanvasLayer" parent="."]
+[node name="CharacterCreator" type="CanvasLayer" parent="." unique_id=2137317086]
 layer = 2
 script = ExtResource("5_creator")
-
-[node name="GameMenu" type="CanvasLayer" parent="."]
-layer = 3
-script = ExtResource("6_menu")
