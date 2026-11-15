@@ -23,7 +23,6 @@ var _settings_panel: VBoxContainer
 var _menu_buttons: Array[Button] = []
 var _language_caption: Label
 var _language_value: Label
-var _back_button: Button
 var _held_buttons: Dictionary = {}
 var _stick_direction: Dictionary = {}
 var _last_navigation_ms: int = -10000
@@ -89,7 +88,7 @@ func _handle_button(event: InputEventJoypadButton) -> void:
     match event.button_index:
         JOY_BUTTON_START, JOY_BUTTON_RIGHT_STICK:
             _set_open(false)
-        JOY_BUTTON_B, JOY_BUTTON_X:
+        JOY_BUTTON_B:
             if _settings_open:
                 _show_settings(false)
             else:
@@ -275,10 +274,6 @@ func _build_interface() -> void:
     next_button.pressed.connect(_change_language.bind(1))
     language_row.add_child(next_button)
 
-    _back_button = _button()
-    _back_button.custom_minimum_size.y = 28
-    _back_button.pressed.connect(_show_settings.bind(false))
-    _settings_panel.add_child(_back_button)
     _refresh_text()
 
 
@@ -342,7 +337,6 @@ func _refresh_text() -> void:
     _menu_buttons[1].text = _tr("menu.quit")
     _language_caption.text = _tr("settings.language")
     _language_value.text = _tr("settings.language.en") if str(_locale.get("language")) == "en" else _tr("settings.language.uk")
-    _back_button.text = _tr("settings.back")
     _main_panel.visible = not _settings_open
     _settings_panel.visible = _settings_open
     _update_highlight()
