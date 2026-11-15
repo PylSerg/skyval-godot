@@ -162,14 +162,13 @@ func _load_appearance(skin: String) -> bool:
             return false
 
         if armor_style == "leather_vest":
-            # Some original leather armor sheets contain a rear harness but
-            # leave the chest almost bare. A second AUTHENTIC LPC sleeveless
-            # torso layer gives the vest a proper front, not generated art.
+            # The sleeveless layer is an OPTIONAL visual lining, not a
+            # prerequisite for equipping actual LPC leather armor.
+            # Strictly requiring every facing previously made the inventory
+            # unusable on installations without a matching color variant.
             var vest_lining: String = _find_leather_vest_lining(root)
-            if vest_lining.is_empty():
-                push_warning("Skyval LPC: leather vest has no verified front layer; preserving worn outfit.")
-                return false
-            layers.append({"name": "ArmorVestFront", "path": vest_lining, "z": 40, "required": true})
+            if not vest_lining.is_empty():
+                layers.append({"name": "ArmorVestFront", "path": vest_lining, "z": 40, "required": false})
 
         layers.append({"name": "Armor", "path": armor_path, "z": 45, "required": true})
     # First validate all required files before creating Node2D instances.
@@ -359,8 +358,10 @@ func _find_leather_vest_lining(body_root: String) -> String:
             var atlas: Texture2D = _load_texture(path)
             if atlas == null or atlas.get_width() < 9 * CELL or atlas.get_height() < IDLE_Y + 4 * CELL:
                 continue
-            if _has_visible_torso_in_all_directions(atlas):
-                return path
+            # The vest lining is optional. A correctly sized real LPC
+            # sleeveless sprite is preferable to failing a valid armor swap;
+            # these sheets can intentionally have narrow side/back coverage.
+            return path
     return ""
 
 
@@ -396,8 +397,10 @@ func set_armor_style(new_style: String) -> bool:
     armor_style = new_style
     if _load_appearance(skin_variant):
         return true
+    # _load_appearance() validates all layers before replacing _sprites,
+    # so a failed change leaves the old render intact. Reloading it here
+    # doubles costly PNG decodes and can stall the handheld.
     armor_style = previous
-    _load_appearance(skin_variant)
     return false
 
 
@@ -621,10 +624,10 @@ func apply_appearance_state(saved: Dictionary) -> bool:
             set(key, str(saved[key]))
     if _load_appearance(skin_variant):
         return true
-    # Missing/incompatible assets must never destroy the existing character.
+    # Validation happens before old layers are replaced. Restore only
+    # properties; leave the existing sprite nodes and textures untouched.
     for key in previous:
         set(key, previous[key])
-    _load_appearance(skin_variant)
     return false
 
 
