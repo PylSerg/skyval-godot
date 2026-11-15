@@ -174,6 +174,48 @@ func compare_item_armor(item_id: String) -> Dictionary:
     }
 
 
+# Show the protection resulting from selecting an item BEFORE equipping it.
+# This is read-only: no bag, worn gear, LPC sprite or save file changes.
+# The shirt/torso-armor exclusion must be included in the hypothetical
+# loadout, otherwise a preview can wrongly add both protection values.
+func preview_equipment(field: String, item_id: String) -> Dictionary:
+    var slot: String = get_equipment_slot(field)
+    if slot.is_empty() or not _equipped.has(slot):
+        return {}
+    var choices: Array[String] = get_equipment_choices(field)
+    if not choices.has(item_id):
+        return {}
+
+    var hypothetical: Dictionary = _equipped.duplicate()
+    hypothetical[slot] = item_id
+    if not item_id.is_empty():
+        if slot == "shirt":
+            hypothetical["armor"] = ""
+        elif slot == "armor":
+            hypothetical["shirt"] = ""
+
+    var current: int = get_total_armor()
+    var projected: int = 0
+    var strongest: String = "cloth"
+    var strongest_rank: int = 0
+    for equipment_slot in hypothetical.keys():
+        var equipped_id: String = str(hypothetical[equipment_slot])
+        projected += get_item_armor_value(equipped_id)
+        var tier: String = get_item_armor_class(equipped_id)
+        var rank: int = int(ARMOR_CLASSES[tier]["rank"])
+        if rank > strongest_rank:
+            strongest = tier
+            strongest_rank = rank
+
+    return {
+        "current_total": current,
+        "projected_total": projected,
+        "delta": projected - current,
+        "class": strongest,
+        "would_change": get_equipped(slot) != item_id,
+    }
+
+
 func get_save_state() -> Dictionary:
     return {
         "bag": _bag.duplicate(),
