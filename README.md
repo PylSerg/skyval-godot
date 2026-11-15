@@ -119,11 +119,14 @@ submenus to a single fixed height. The title menu retains its original
 bottom-centered layout.
 
 The gameplay menu, character/save lists, loot chests and confirmation
-choices use vertically arranged options. Confirmation choices are **plain
-left-aligned text**, without button backgrounds: **A: Підтвердити** and
-**B: Скасувати** appear on separate lines. Gamepad A/B still perform
-the actions; clicking the text also works. Hints and choices start with
-capital letters in Ukrainian and English.
+choices use vertically arranged options. Confirmation choices have
+**no selected-row highlighting or button backgrounds**. Instead, they
+are left-aligned text rows with small colored circular Nintendo/Super
+Famicom glyphs: red **A** beside “Підтвердити”, yellow **B** beside
+“Скасувати” (the reusable component also supports blue X and green Y).
+Both captions use the same readable white color. Gamepad A/B still
+perform the actions, and each row accepts mouse/touch clicks. Hints and
+choices start with capital letters in Ukrainian and English.
 
 The language selector is unchanged from its original layout:
 **‹ Українська ›** / **‹ Англійська ›**, with D-pad or left-stick
