@@ -975,11 +975,13 @@ func _build_compact_field_list(fields: Array) -> void:
         _row_panels.append(field_panel)
 
         var line := HBoxContainer.new()
+        line.mouse_filter = Control.MOUSE_FILTER_IGNORE
         line.add_theme_constant_override("separation", 3)
         field_panel.add_child(line)
 
         var caption: Label = _label(MIN_UI_FONT_SIZE)
         caption.text = _tr("field." + key)
+        caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
         caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         caption.clip_text = true
         line.add_child(caption)
@@ -987,6 +989,7 @@ func _build_compact_field_list(fields: Array) -> void:
 
         var counter: Label = _label(MIN_UI_FONT_SIZE)
         counter.text = _field_counter(key)
+        counter.mouse_filter = Control.MOUSE_FILTER_IGNORE
         counter.custom_minimum_size.x = 36
         counter.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
         counter.add_theme_color_override("font_color", Color("#cfbf99"))
@@ -1079,8 +1082,8 @@ func _refresh_options() -> void:
         _preview.queue_redraw()
     _refresh_preview_after_frame()
     _refresh_armor_status()
+    # _update_compact_choice() schedules exactly one marquee refresh.
     _update_compact_choice()
-    call_deferred("_refresh_all_value_marquees")
 
 
 func _refresh_preview_after_frame() -> void:
