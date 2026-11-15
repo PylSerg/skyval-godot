@@ -25,7 +25,7 @@ const RIGHT_STICK_RELEASE := 0.35
 const MIN_UI_FONT_SIZE := 14
 const PANEL_INSET := 7
 const FIELD_GROUP_SPACING := 12
-const FIELD_HORIZONTAL_INSET := FIELD_GROUP_SPACING
+const FIELD_CONTENT_PADDING := FIELD_GROUP_SPACING
 const FIELD_INNER_SPACING := 5
 # This script is instantiated twice: the tabbed backpack in the scene,
 # and appearance as an independent, reusable window.
@@ -332,10 +332,9 @@ func _update_row_highlight() -> void:
         style.border_color = Color("#d9bb82") if selected else Color(0, 0, 0, 0)
         style.set_border_width_all(1)
         style.set_corner_radius_all(2)
-        style.set_content_margin_all(2)
-        # Keep the background/border full-width while insetting its content.
-        style.set_content_margin(SIDE_LEFT, FIELD_HORIZONTAL_INSET)
-        style.set_content_margin(SIDE_RIGHT, FIELD_HORIZONTAL_INSET)
+        # Equal 12px content padding on all four sides. The highlighted
+        # background and border still span the complete available row.
+        style.set_content_margin_all(FIELD_CONTENT_PADDING)
         field_panel.add_theme_stylebox_override("panel", style)
 
 
@@ -789,8 +788,8 @@ func _rebuild_rows() -> void:
         heading_row.add_theme_constant_override("separation", 2)
         field_box.add_child(heading_row)
 
-        # Smaller 14px field headings preserve complete Ukrainian labels
-        # alongside the counter inside the symmetric 12px side insets.
+        # Readable 14px headings fit alongside their counters inside
+        # the symmetric 12px field padding.
         var name_label := _label(MIN_UI_FONT_SIZE)
         name_label.text = _tr("field." + key)
         name_label.custom_minimum_size.y = 17
@@ -834,17 +833,6 @@ func _rebuild_rows() -> void:
         choice_row.add_child(following)
         following.pressed.connect(_adjust.bind(key, 1, index))
         _field_arrows[key] = [previous, following]
-
-        # Draw a full-width divider between properties, but not after the
-        # last one. Its muted color matches the frame without competing
-        # with selection highlighting.
-        if index < fields.size() - 1:
-            var separator := ColorRect.new()
-            separator.color = Color("#52657a")
-            separator.custom_minimum_size.y = 1
-            separator.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-            separator.mouse_filter = Control.MOUSE_FILTER_IGNORE
-            field_box.add_child(separator)
 
     _update_row_highlight()
     _reveal_selected_row()
