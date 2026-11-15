@@ -61,6 +61,8 @@ var _root: Control
 var _title_label: Label
 var _rows: VBoxContainer
 var _preview: Control
+var _armor_class_label: Label
+var _armor_value_label: Label
 var _missing_label: Label
 var _value_labels: Dictionary = {}
 var _field_arrows: Dictionary = {}
@@ -80,6 +82,8 @@ func _ready() -> void:
 
     _locale.connect("language_changed", Callable(self, "_refresh_text"))
     _inventory = get_node_or_null("/root/SkyvalInventory")
+    if _inventory != null:
+        _inventory.connect("changed", Callable(self, "_on_inventory_changed"))
     _build_interface()
     _root.hide()
 
@@ -498,6 +502,20 @@ func _build_interface() -> void:
     _preview.size = Vector2(103, 224)
     _root.add_child(_preview)
 
+    if not appearance_window:
+        # Two status lines in the space below the raised portrait divider.
+        _armor_class_label = _label(11)
+        _armor_class_label.position = Vector2(5, 173)
+        _armor_class_label.size = Vector2(93, 17)
+        _armor_class_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        _preview.add_child(_armor_class_label)
+
+        _armor_value_label = _label(11)
+        _armor_value_label.position = Vector2(5, 192)
+        _armor_value_label.size = Vector2(93, 17)
+        _armor_value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        _preview.add_child(_armor_value_label)
+
     _missing_label = _label(9)
     _missing_label.position = Vector2(214, 94)
     _missing_label.size = Vector2(99, 46)
@@ -700,6 +718,7 @@ func _refresh_text() -> void:
     _missing_label.visible = not avatar.has_lpc_character()
     _preview.set("character", avatar.get_lpc_character())
     _preview.queue_redraw()
+    _refresh_armor_status()
     _rebuild_rows()
 
 func _rebuild_rows() -> void:
@@ -829,6 +848,23 @@ func _refresh_options() -> void:
                 if is_instance_valid(button):
                     button.disabled = not allow_change
     _preview.queue_redraw()
+    _refresh_armor_status()
+
+
+func _on_inventory_changed() -> void:
+    if _opened and not appearance_window:
+        _refresh_options()
+
+
+func _refresh_armor_status() -> void:
+    if appearance_window or _inventory == null:
+        return
+    if _armor_class_label == null or _armor_value_label == null:
+        return
+    var armor_class: String = str(_inventory.call("get_equipped_armor_class"))
+    _armor_class_label.text = _tr("armor.class." + armor_class)
+    _armor_value_label.text = _tr("armor.value") % int(_inventory.call("get_total_armor"))
+
 
 func _adjust(key: String, direction: int, index: int = -1) -> void:
     if index >= 0:
