@@ -101,6 +101,9 @@ func _input(event: InputEvent) -> void:
             return
         _pressed[key] = true
         if _opened:
+            # Let GameMenu own Start/R3, even while chest loot is visible.
+            if joy.button_index == JOY_BUTTON_START or joy.button_index == JOY_BUTTON_RIGHT_STICK:
+                return
             if Time.get_ticks_msec() < _ignore_until:
                 return
             match joy.button_index:
