@@ -160,6 +160,17 @@ func _load_appearance(skin: String) -> bool:
         if armor_path.is_empty():
             push_warning("Skyval LPC: no compatible Universal LPC armor sheet for %s (%s)" % [armor_style, body_type])
             return false
+
+        if armor_style == "leather_vest":
+            # Some original leather armor sheets contain a rear harness but
+            # leave the chest almost bare. A second AUTHENTIC LPC sleeveless
+            # torso layer gives the vest a proper front, not generated art.
+            var vest_lining: String = _find_leather_vest_lining(root)
+            if vest_lining.is_empty():
+                push_warning("Skyval LPC: leather vest has no verified front layer; preserving worn outfit.")
+                return false
+            layers.append({"name": "ArmorVestFront", "path": vest_lining, "z": 40, "required": true})
+
         layers.append({"name": "Armor", "path": armor_path, "z": 45, "required": true})
     # First validate all required files before creating Node2D instances.
     # A failed outfit change must never remove the working character.
@@ -301,6 +312,65 @@ func _find_armor_sheet(body_root: String, style: String) -> String:
                 if atlas != null and atlas.get_width() >= 9 * CELL and atlas.get_height() >= IDLE_Y + 4 * CELL:
                     return candidate
     return ""
+
+
+# The original LPC leather harness may be largely transparent from
+# the front (as seen in the captured gameplay video). A sleeveless vest
+# from the SAME Universal LPC artwork set fills that gap while retaining
+# the leather armor details above it. Never synthesize replacement pixels.
+func _find_leather_vest_lining(body_root: String) -> String:
+    var shape: String = "female" if body_type == "female" else "male"
+    var preferred_colors: Array[String] = [
+        "leather.png", "brown.png", "tan.png", "chestnut.png", "dark_brown.png"
+    ]
+    for sprite_root in _armor_roots(body_root):
+        var folder: String = sprite_root.path_join(
+            "torso/clothes/sleeveless/sleeveless"
+        ).path_join(shape)
+        if not DirAccess.dir_exists_absolute(folder):
+            continue
+
+        var filenames: PackedStringArray = DirAccess.get_files_at(folder)
+        var choices: Array[String] = []
+        for filename in preferred_colors:
+            if filenames.has(filename):
+                choices.append(filename)
+        # If the preferred brown leather variant is missing, retain
+        # an authentic LPC asset rather than a blank outfit.
+        for filename in filenames:
+            if filename.ends_with(".png") and not choices.has(filename):
+                choices.append(filename)
+
+        for filename in choices:
+            var path: String = folder.path_join(filename)
+            if not _texture_exists(path):
+                continue
+            var atlas: Texture2D = _load_texture(path)
+            if atlas == null or atlas.get_width() < 9 * CELL or atlas.get_height() < IDLE_Y + 4 * CELL:
+                continue
+            if _has_front_torso_pixels(atlas):
+                return path
+    return ""
+
+
+func _has_front_torso_pixels(atlas: Texture2D) -> bool:
+    var image: Image = atlas.get_image()
+    if image == null or image.is_empty():
+        return false
+    # LPC faces south on the third directional row. Check both standing
+    # and walking, so preview and gameplay cannot disagree. Scan only
+    # the central chest: transparent/empty sheets must not pass.
+    var front_row: int = ROW_INDEX[0] * CELL
+    for region_y in [IDLE_Y + front_row, WALK_Y + front_row]:
+        var x_offset: int = 0 if region_y >= IDLE_Y else CELL
+        var pixels: int = 0
+        for cy in range(23, 51, 2):
+            for cx in range(20, 45, 2):
+                if image.get_pixel(x_offset + cx, region_y + cy).a > 0.20:
+                    pixels += 1
+        if pixels < 6:
+            return false
+    return true
 
 
 func set_armor_style(new_style: String) -> bool:
