@@ -29,6 +29,7 @@ var _selected: int = 0
 var _max_length: int = 0
 var _slot_width: float = 0.0
 var _body_type: String = "male"
+var _purpose: String = "character"
 var _opened: bool = false
 var _confirmation: String = ""
 var _confirm_overlay: Control
@@ -82,12 +83,22 @@ func is_open() -> bool:
 
 
 func open_entry(body_type: String = "male") -> void:
-    # This must be a live CanvasLayer, not an orphan after a failed add_child.
+    _purpose = "character"
+    _body_type = body_type
+    _begin_entry()
+
+
+func open_save_entry() -> void:
+    # Manual saves reuse the same 14px controller keyboard.
+    _purpose = "save"
+    _begin_entry()
+
+
+func _begin_entry() -> void:
     if not is_inside_tree():
         push_error("Skyval NameEntry: cannot open a detached UI layer.")
         return
     ensure_initialized()
-    _body_type = body_type
     _name = ""
     _selected = 0
     _confirmation = ""
@@ -99,6 +110,10 @@ func open_entry(body_type: String = "male") -> void:
     _refresh_slots()
     _confirm_overlay.hide()
     _set_open(true)
+
+
+func _hint_key() -> String:
+    return "save.name_hint" if _purpose == "save" else "name.hint"
 
 
 func _tr(key: String) -> String:
@@ -158,7 +173,7 @@ func _input(event: InputEvent) -> void:
                     if not _name.strip_edges().is_empty():
                         _show_confirmation("accept")
                     else:
-                        _hint.text = _tr("name.empty")
+                        _hint.text = _tr("save.name_empty" if _purpose == "save" else "name.empty")
                 JOY_BUTTON_Y:
                     _randomize_name()
         get_viewport().set_input_as_handled()
@@ -226,8 +241,8 @@ func _rebuild_keyboard() -> void:
         button.pressed.connect(_select_key.bind(i))
         grid.add_child(button)
         _key_buttons.append(button)
-    _title.text = _tr("name.title")
-    _hint.text = _tr("name.hint")
+    _title.text = _tr("save.name_title" if _purpose == "save" else "name.title")
+    _hint.text = _tr(_hint_key())
     _update_key_highlight()
 
 
@@ -261,11 +276,19 @@ func _select_key(index: int) -> void:
     elif _name.length() < _max_length:
         _name += symbol.to_upper() if _name.is_empty() or _name.ends_with(" ") else symbol.to_lower()
     _refresh_slots()
-    _hint.text = _tr("name.hint")
+    _hint.text = _tr(_hint_key())
 
 
 func _randomize_name() -> void:
     var ukrainian: bool = str(_locale.get("language")) == "uk"
+    if _purpose == "save":
+        var titles: Array[String] = ["Пригода", "Подорож", "Нова глава", "На роздоріжжі", "Відпочинок"]
+        if not ukrainian:
+            titles = ["Adventure", "New chapter", "Journey", "Rest", "Before quest"]
+        _name = titles.pick_random().substr(0, _max_length)
+        _refresh_slots()
+        _hint.text = _tr(_hint_key())
+        return
     var male_names: Array[String] = ["Олександр", "Андрій", "Максим", "Богдан", "Тарас", "Данило", "Сергій", "Ярослав"]
     var female_names: Array[String] = ["Олена", "Марія", "Софія", "Дарина", "Соломія", "Катерина", "Аліна", "Оксана"]
     if not ukrainian:
@@ -274,7 +297,7 @@ func _randomize_name() -> void:
     var options: Array[String] = female_names if _body_type == "female" else male_names
     _name = options.pick_random().substr(0, _max_length)
     _refresh_slots()
-    _hint.text = _tr("name.hint")
+    _hint.text = _tr(_hint_key())
 
 
 func _refresh_slots() -> void:
@@ -286,7 +309,10 @@ func _refresh_slots() -> void:
 
 func _show_confirmation(action: String) -> void:
     _confirmation = action
-    _confirm_message.text = _tr("name.confirm_exit") if action == "exit" else _tr("name.confirm_accept") % _name.strip_edges()
+    if _purpose == "save":
+        _confirm_message.text = _tr("save.name_exit") if action == "exit" else _tr("save.name_confirm") % _name.strip_edges()
+    else:
+        _confirm_message.text = _tr("name.confirm_exit") if action == "exit" else _tr("name.confirm_accept") % _name.strip_edges()
     _confirm_hint.text = _tr("menu.confirm_hint")
     _confirm_overlay.show()
 
