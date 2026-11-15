@@ -35,11 +35,11 @@ motions do nothing in the creator.
 
 The menu has a 3× character portrait and two tabs. The left panel uses a
 **single-column field layout**: each label is above a full-width selector.
-The appearance and clothing lists use generous inner spacing; the
-left-side panel scrolls whenever its fields exceed the visible area.
-A scrollbar appears for overflowing lists, while D-pad / left-stick
-navigation automatically reveals the selected field. The right-side
-portrait stays fixed.
+Appearance and clothing fields have larger (13px) headings and
+subtle 1px horizontal separators. Overflowing lists still scroll using
+D-pad / left stick or mouse wheel, and automatically reveal the selected
+field, but the scrollbar itself stays hidden to keep the choice arrows
+unobstructed. The right-side portrait stays fixed.
 
 The UI prefers the static **Cascadia Mono Regular** at
 `assets/fonts/CascadiaMono-Regular.ttf`. This is the correct font discovered
