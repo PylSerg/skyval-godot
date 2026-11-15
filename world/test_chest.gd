@@ -227,10 +227,7 @@ func _take_items(items: Array[String]) -> void:
     if taken <= 0:
         return
 
-    # Persist the transfer before closing the chest.
-    var menu: Node = get_parent().get_node_or_null("GameMenu")
-    if menu != null:
-        menu.call("save_checkpoint")
+    # Loot stays in memory until the player chooses Save or Quick Save.
 
     _selection.clear()
     _selected_index = 0
