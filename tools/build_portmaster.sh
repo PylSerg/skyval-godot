@@ -48,6 +48,16 @@ for subdir in prototype characters ui localization inventory world game; do
     cp -R "$ROOT/$subdir" "$STAGE/$subdir"
 done
 
+# Include the dedicated title illustration. Keep it bundled with the PCK
+# even in --no-assets smoke tests (that option only skips LPC sheets).
+TITLE_ART="$ROOT/assets/ui/title_background.webp"
+if [ -f "$TITLE_ART" ]; then
+    mkdir -p "$STAGE/assets/ui"
+    cp "$TITLE_ART" "$STAGE/assets/ui/title_background.webp"
+else
+    echo "NOTE: title art missing from assets/ui; title falls back to dark menu."
+fi
+
 # Prefer the static Cascadia Mono Regular from the connected asset library.
 # Copy only the font actually used by the creator, not the old Cascadia.ttf.
 FONT_SOURCE="${SKYVAL_FONT_PATH:-}"
