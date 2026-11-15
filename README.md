@@ -103,11 +103,18 @@ by cycling arbitrary LPC clothing variants.
 Open the backpack with Select/L3. The horizontally scrollable tabs are
 **Clothing / Одяг**, **Armor / Броня**, and **Weapons / Зброя**.
 Switch with L1/R1 or select the tabs by mouse/touch; page contents slide
-horizontally while the 3× portrait stays fixed. Armor and Weapons are
-currently empty placeholders (no items or equipment mechanics yet).
+horizontally while the 3× portrait stays fixed. Tab navigation is **bounded**:
+L1 on the first tab or R1 on the last tab does nothing. Armor and Weapons
+are currently empty placeholders (no items or equipment mechanics yet).
 The Clothing tab retains the **original six selector rows**: Top,
 Top color, Pants, Pants color, Shoes and Shoes color, with their
-left/right arrows.
+left/right arrows. On the right edge of each field name, a 14px
+`current/total` counter (e.g. `2/10`) shows the active choice among
+**owned selectable choices**. The `None` option counts as a valid
+style choice; color selectors show `0/0` when the slot is empty.
+Character appearance fields also show these counters, using the ordered
+LPC appearance options. Counters update after selecting an item and
+after opening the menu.
 The selectable values now come only from clothes the character already
 wears or has taken from the chest. **No separate Equipped / In backpack
 sections** are displayed. The player's unused owned garments remain in
@@ -115,8 +122,12 @@ the backpack state and become available through the original selectors.
 Changing the style equips an owned garment (returning the previous one
 to the backpack); changing its color cycles only through *owned*
 variants of that style. Selecting **None / Немає** in a style row
-unequips the garment. If no alternatives are owned, the relevant arrows
-are disabled. The LPC sprite validation still applies: failed changes
+unequips the garment. Clothes, and future weapon/armor item alternatives,
+remain **cyclic** (last choice returns to first), while navigation between
+parameter rows, between backpack tabs, in the main menu and in the chest
+is **non-cyclic**. Character appearance choices are also bounded
+(first/last value does not wrap). If no clothing alternatives are owned,
+the relevant arrows are disabled. The LPC sprite validation still applies: failed changes
 leave items and appearance untouched.
 
 The game checkpoints after taking items and after equipment changes.
