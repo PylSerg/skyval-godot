@@ -116,8 +116,8 @@ ordinary animations and Timer nodes. For future gameplay timers created via
 `get_tree().create_timer()`, pass `process_always=false` so they also pause.
 Nodes explicitly set to always-process remain active. The last closing
 interface restores the pause state from before the first UI was opened.
-Transitions between the wardrobe, main menu and the standalone appearance
-creation window transfer pause ownership **before** closing the previous
+Transitions between the backpack, test chest, main menu and standalone
+appearance window transfer pause ownership **before** closing the previous
 layer, preventing an unpaused frame during the transition.
 
 Blocking interfaces must use `Node.PROCESS_MODE_ALWAYS` for their own
