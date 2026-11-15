@@ -701,11 +701,12 @@ func _build_interface() -> void:
     stack.add_child(divider)
 
     _main_panel = VBoxContainer.new()
-    _main_panel.add_theme_constant_override("separation", 6)
+    _main_panel.add_theme_constant_override("separation", 3)
     stack.add_child(_main_panel)
-    for i in range(MAIN_OPTIONS.size()):
+    # Reuse six buttons; hidden options occupy no space.
+    for i in range(GAME_OPTIONS.size()):
         var option := _button()
-        option.custom_minimum_size.y = 30
+        option.custom_minimum_size.y = 25
         option.pressed.connect(_activate_option.bind(i))
         _main_panel.add_child(option)
         _menu_buttons.append(option)
@@ -832,28 +833,57 @@ func _update_highlight() -> void:
 func _refresh_text() -> void:
     if _heading == null:
         return
-    if _confirm_delete:
-        _heading.text = _tr("save.delete_title")
-    elif _continue_open:
-        _heading.text = _tr("save.list_title")
-    elif _settings_open:
-        _heading.text = _tr("settings.title")
+    _visible_options.clear()
+    if _main_mode:
+        var profiles: Array[Dictionary] = _save_store.call("list_profiles")
+        if _has_valid_save():
+            _visible_options.append("menu.continue")
+        if not profiles.is_empty():
+            _visible_options.append("menu.select_character")
+        _visible_options.append_array(["menu.new_game", "menu.settings", "menu.quit"])
     else:
-        _heading.text = _tr("menu.title")
-    for index in range(MAIN_OPTIONS.size()):
-        _menu_buttons[index].text = _tr(str(MAIN_OPTIONS[index]))
-    _menu_buttons[0].disabled = not _has_valid_save()
-    if _menu_buttons[_selected_option].disabled:
-        _selected_option = 1
+        _visible_options.append_array(GAME_OPTIONS)
+    if _selected_option < 0 or _selected_option >= _visible_options.size():
+        _selected_option = 0
+    for i in range(_menu_buttons.size()):
+        var button: Button = _menu_buttons[i]
+        button.visible = i < _visible_options.size()
+        if i < _visible_options.size():
+            button.text = _tr(_visible_options[i])
+            button.disabled = false
+            if _visible_options[i] == "game.quick_load":
+                var quick: Dictionary = _save_store.call("quick_save_for", str(_profile_data.get("profile_id", "")))
+                button.disabled = quick.is_empty()
+    if not _visible_options.is_empty() and _menu_buttons[_selected_option].disabled:
+        _selected_option = 0
+
+    _heading.text = _tr("menu.title") if _main_mode else _tr("game.title")
+    if not _status_message.is_empty() and _confirm_action.is_empty() and _list_mode.is_empty():
+        _heading.text = _status_message
+    if _settings_open:
+        _heading.text = _tr("settings.title")
+    elif not _list_mode.is_empty():
+        _heading.text = _tr("save.list_title") if _list_mode == "characters" else _tr("save.load_title")
+    if not _confirm_action.is_empty():
+        match _confirm_action:
+            "delete":
+                _heading.text = _tr("save.delete_title")
+                if _selected_list >= 0 and _selected_list < _listed_items.size():
+                    _confirm_message.text = _tr("save.delete_confirm") % str(_listed_items[_selected_list].get("character_name", ""))
+            "load":
+                _heading.text = _tr("save.load_title")
+                _confirm_message.text = _tr("save.load_confirm")
+            "main":
+                _heading.text = _tr("game.main_menu")
+                _confirm_message.text = _tr("game.main_confirm")
+
     _language_caption.text = _tr("settings.language")
     _language_value.text = _tr("settings.language.en") if str(_locale.get("language")) == "en" else _tr("settings.language.uk")
-    if _confirm_delete and _selected_profile >= 0 and _selected_profile < _profiles.size():
-        _confirm_message.text = _tr("save.delete_confirm") % str(_profiles[_selected_profile].get("character_name", ""))
     _confirm_hint.text = _tr("menu.confirm_hint")
-    _main_panel.visible = not _settings_open and not _continue_open and not _confirm_delete
-    _settings_panel.visible = _settings_open and not _confirm_delete
-    _continue_panel.visible = _continue_open and not _confirm_delete
-    _confirm_panel.visible = _confirm_delete
-    if _continue_open:
+    _main_panel.visible = not _settings_open and _list_mode.is_empty() and _confirm_action.is_empty()
+    _settings_panel.visible = _settings_open and _confirm_action.is_empty()
+    _continue_panel.visible = not _list_mode.is_empty() and _confirm_action.is_empty()
+    _confirm_panel.visible = not _confirm_action.is_empty()
+    if not _list_mode.is_empty():
         _draw_profiles()
     _update_highlight()
