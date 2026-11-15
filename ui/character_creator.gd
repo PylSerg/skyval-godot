@@ -4,6 +4,7 @@ extends CanvasLayer
 
 const PreviewScript = preload("res://ui/character_preview.gd")
 const LocaleScript = preload("res://localization/localization.gd")
+const UiTheme = preload("res://ui/skyval_theme.gd")
 const APPEARANCE_BG_PATH := "res://assets/images/create_hero_bg.jpg"
 const APPEARANCE_FIELDS := ["body_type", "skin_variant", "eye_variant", "hair_style", "hair_variant"]
 # Both equipment categories share the same five body areas. Empty
@@ -818,13 +819,8 @@ func _build_interface() -> void:
     panel.custom_minimum_size = Vector2(202, 228)
     panel.size = panel.custom_minimum_size
     _root.add_child(panel)
-    var panel_style := StyleBoxFlat.new()
-    panel_style.bg_color = Color(0.055, 0.085, 0.14, 0.86)
-    panel_style.border_color = Color("#d6b77c")
-    panel_style.set_border_width_all(1)
-    panel_style.set_corner_radius_all(3)
-    # Keep text and choice arrows away from the panel frame.
-    panel_style.set_content_margin_all(6)
+    # Keep the approved character/inventory proportions unchanged.
+    var panel_style: StyleBoxFlat = UiTheme.panel_style(0.86, 6.0)
     panel.add_theme_stylebox_override("panel", panel_style)
 
     var stack := VBoxContainer.new()
@@ -1055,7 +1051,7 @@ func _build_confirmation_overlay() -> void:
     _root.add_child(_confirmation_overlay)
 
     var backdrop := ColorRect.new()
-    backdrop.color = Color(0.03, 0.06, 0.10, 0.88)
+    backdrop.color = Color(0.02, 0.03, 0.07, 0.49)
     backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
     _confirmation_overlay.add_child(backdrop)
@@ -1066,19 +1062,14 @@ func _build_confirmation_overlay() -> void:
     panel.size = Vector2(266, 110)
     _confirmation_overlay.add_child(panel)
 
-    var style := StyleBoxFlat.new()
-    style.bg_color = Color("#202c3c")
-    style.border_color = Color("#e7ca86")
-    style.set_border_width_all(1)
-    style.set_corner_radius_all(3)
-    style.set_content_margin_all(8)
-    panel.add_theme_stylebox_override("panel", style)
+    panel.add_theme_stylebox_override("panel", UiTheme.panel_style(0.97, 8.0))
 
     var content := VBoxContainer.new()
     content.add_theme_constant_override("separation", 12)
     panel.add_child(content)
 
     _confirmation_message = _label(15)
+    _confirmation_message.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
     _confirmation_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _confirmation_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _confirmation_message.clip_text = false
@@ -1086,6 +1077,7 @@ func _build_confirmation_overlay() -> void:
     content.add_child(_confirmation_message)
 
     _confirmation_hint = _label(MIN_UI_FONT_SIZE)
+    _confirmation_hint.add_theme_color_override("font_color", UiTheme.MUTED)
     _confirmation_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _confirmation_hint.clip_text = false
     content.add_child(_confirmation_hint)
@@ -1109,29 +1101,14 @@ func _create_page_scroll() -> ScrollContainer:
 
 func _button() -> Button:
     var button := Button.new()
-    # Gamepad selection is owned by _input(), not GUI focus traversal.
-    # Mouse/touch button clicks still work normally.
+    # Controller navigation stays inside _input, not GUI focus.
     button.focus_mode = Control.FOCUS_NONE
     button.add_theme_font_size_override("font_size", 18)
     if _ui_font != null:
         button.add_theme_font_override("font", _ui_font)
-    button.add_theme_color_override("font_color", Color("#edf1f5"))
-    button.add_theme_color_override("font_hover_color", Color.WHITE)
-    button.add_theme_color_override("font_pressed_color", Color.WHITE)
-    button.add_theme_color_override("font_focus_color", Color.WHITE)
-    var normal := StyleBoxFlat.new()
-    normal.bg_color = Color("#354960")
-    normal.border_color = Color("#667f9a")
-    normal.set_border_width_all(1)
-    normal.set_content_margin_all(2)
-    button.add_theme_stylebox_override("normal", normal)
-    var hover := normal.duplicate() as StyleBoxFlat
-    hover.bg_color = Color("#4c6986")
-    button.add_theme_stylebox_override("hover", hover)
-    var pressed := normal.duplicate() as StyleBoxFlat
-    pressed.bg_color = Color("#6683a1")
-    button.add_theme_stylebox_override("pressed", pressed)
+    UiTheme.apply_button(button, false, false, 2.0)
     return button
+
 
 func _selector_arrow_button() -> Button:
     # The regular button has 18px text and padded styleboxes. Override
@@ -1143,10 +1120,7 @@ func _selector_arrow_button() -> Button:
         var style: StyleBoxFlat = button.get_theme_stylebox(style_name) as StyleBoxFlat
         if style != null:
             style.set_content_margin_all(0)
-    var disabled_style: StyleBoxFlat = button.get_theme_stylebox("normal").duplicate() as StyleBoxFlat
-    disabled_style.bg_color = Color("#263443")
-    disabled_style.border_color = Color("#415266")
-    button.add_theme_stylebox_override("disabled", disabled_style)
+    button.add_theme_stylebox_override("disabled", UiTheme.item_style(false, true, 0.0))
     return button
 
 
