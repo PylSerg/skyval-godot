@@ -6,6 +6,7 @@ const PreviewScript = preload("res://ui/character_preview.gd")
 const LocaleScript = preload("res://localization/localization.gd")
 const UiTheme = preload("res://ui/skyval_theme.gd")
 const ControllerChoiceScript = preload("res://ui/nintendo_choice.gd")
+const ControllerHintsScript = preload("res://ui/nintendo_hints.gd")
 const APPEARANCE_BG_PATH := "res://assets/images/create_hero_bg.jpg"
 const APPEARANCE_FIELDS := ["body_type", "skin_variant", "eye_variant", "hair_style", "hair_variant"]
 # Both equipment categories share the same five body areas. Empty
@@ -70,7 +71,7 @@ var _try_on_original_lpc: Dictionary = {}
 var _try_on_visual_key: String = ""
 var _row_scroll: ScrollContainer
 var _page_clip: Control
-var _action_hint: Label
+var _action_hint: Control
 var _confirmation_overlay: Control
 var _confirmation_message: Label
 var _confirmation_accept: Control
@@ -88,7 +89,7 @@ var _compact_choice_window: Control
 var _compact_choice_value: Label
 var _compact_prev: Button
 var _compact_next: Button
-var _equip_hint: Label
+var _equip_hint: Control
 var _title_label: Label
 var _rows: VBoxContainer
 var _preview: Control
@@ -842,9 +843,9 @@ func _build_interface() -> void:
 
     if appearance_window:
         # Always-visible instruction, outside the scrollable parameter list.
-        _action_hint = _label(MIN_UI_FONT_SIZE)
-        _action_hint.custom_minimum_size.y = 17
-        _action_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        _action_hint = ControllerHintsScript.new() as Control
+        _action_hint.call("configure", _tr("ui.hint_create_x"), _ui_font, true)
+        _action_hint.custom_minimum_size.y = 18
         stack.add_child(_action_hint)
 
     if not appearance_window:
@@ -921,10 +922,9 @@ func _build_interface() -> void:
     choice_row.add_child(_compact_next)
 
     if not appearance_window:
-        _equip_hint = _label(MIN_UI_FONT_SIZE)
-        _equip_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        _equip_hint.custom_minimum_size.y = 17
-        _equip_hint.add_theme_color_override("font_color", Color("#d6b77c"))
+        _equip_hint = ControllerHintsScript.new() as Control
+        _equip_hint.call("configure", _tr("inventory.equip_hint"), _ui_font, true)
+        _equip_hint.custom_minimum_size.y = 18
         stack.add_child(_equip_hint)
 
     # Use the full right column; the portrait itself is drawn at 3×.
@@ -1150,12 +1150,12 @@ func _refresh_text() -> void:
         return
     _title_label.text = _tr("ui.create_hero") if appearance_window and _creation_mode else (_tr("ui.appearance") if appearance_window else _tr("inventory.title"))
     if appearance_window:
-        _action_hint.text = _tr("ui.hint_create_x") if _creation_mode else _tr("ui.hint_edit_x")
+        _action_hint.call("set_hint", _tr("ui.hint_create_x") if _creation_mode else _tr("ui.hint_edit_x"))
         _confirmation_message.text = _tr("ui.confirm_create_question") if _creation_mode else _tr("ui.confirm_edit_question")
         _confirmation_accept.call("set_caption", _tr("menu.confirm_accept"))
         _confirmation_cancel.call("set_caption", _tr("menu.confirm_cancel"))
     if not appearance_window:
-        _equip_hint.text = _tr("inventory.equip_hint")
+        _equip_hint.call("set_hint", _tr("inventory.equip_hint"))
         for index in range(_tab_buttons.size()):
             _tab_buttons[index].text = _tr(str(BACKPACK_TABS[index]))
         _update_tab_styles()
