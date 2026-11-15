@@ -486,8 +486,8 @@ func _get_player() -> CharacterBody2D:
 
 
 func _has_valid_save() -> bool:
-    var available: Array[Dictionary] = _save_store.call("list_profiles")
-    return not available.is_empty()
+    var latest: Dictionary = _save_store.call("latest_save")
+    return not latest.is_empty()
 
 
 func _save_current_game() -> bool:
@@ -498,6 +498,8 @@ func _save_current_game() -> bool:
         return false
     var data: Dictionary = _profile_data.duplicate(true)
     data["version"] = 2
+    data["save_kind"] = "profile"
+    data["path"] = _active_save_path
     data["player_position"] = [player.global_position.x, player.global_position.y]
     data["appearance"] = {}
     var avatar: Node = player.get_node_or_null("CharacterVisual")
@@ -512,10 +514,36 @@ func _save_current_game() -> bool:
     return true
 
 
+func _write_snapshot(kind: String) -> void:
+    if not _session_started or not _save_current_game():
+        _status_message = _tr("save.write_failed")
+        return
+    var path: String = str(_save_store.call("slot_path", _profile_data, kind))
+    if path.is_empty():
+        _status_message = _tr("save.write_failed")
+        return
+    var data: Dictionary = _profile_data.duplicate(true)
+    data["path"] = path
+    data["save_kind"] = kind
+    data["saved_at"] = int(Time.get_unix_time_from_system() * 1000.0)
+    if bool(_save_store.call("write_profile", path, data)):
+        _status_message = _tr("save.quick_done") if kind == "quick" else _tr("save.manual_done")
+    else:
+        _status_message = _tr("save.write_failed")
+
+
 func _load_profile(path: String, touch_launch: bool = true) -> bool:
     var data: Dictionary = _save_store.call("read_profile", path)
     var player: CharacterBody2D = _get_player()
     if data.is_empty() or player == null:
+        return false
+    var id: String = str(data.get("profile_id", ""))
+    var root_data: Dictionary = {}
+    for profile in _save_store.call("list_profiles"):
+        if str(profile.get("profile_id", "")) == id:
+            root_data = profile
+            break
+    if root_data.is_empty():
         return false
     var pos: Array = data["player_position"]
     var bounds: Rect2 = player.get("world_bounds")
@@ -529,14 +557,15 @@ func _load_profile(path: String, touch_launch: bool = true) -> bool:
     var inventory: Node = get_node_or_null("/root/SkyvalInventory")
     if inventory != null:
         inventory.call("load_save_state", data.get("inventory", null), avatar)
-    _active_save_path = path
-    _profile_data = data
+    # A loaded manual/quick snapshot becomes the live state, but its own
+    # file stays untouched: future checkpoints write to the root profile.
+    _active_save_path = str(root_data["path"])
+    _profile_data = root_data
     _session_started = true
     if touch_launch:
         _profile_data["last_played"] = int(Time.get_unix_time_from_system() * 1000.0)
-        _save_current_game()
+    _save_current_game()
     return true
-
 
 func _start_new_game() -> void:
     if _creation_in_progress:
@@ -594,6 +623,7 @@ func _on_name_confirmed(character_name: String) -> void:
     _active_save_path = str(data["path"])
     _profile_data = data
     _session_started = true
+    _main_mode = false
     _creation_in_progress = false
     if not _save_current_game():
         push_warning("Skyval: first character save failed.")
