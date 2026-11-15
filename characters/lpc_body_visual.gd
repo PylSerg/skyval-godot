@@ -191,6 +191,18 @@ func _load_appearance(skin: String) -> bool:
             candidate.free()
         return false
 
+    # The bridge currently verifies heavy torso sprites only for specific
+    # genders/colors. For light armor and missing/incompatible heavy sheets,
+    # generate pixel armor on the same 64x64 animation grid. This guarantees
+    # the player visibly wears the armor in-world and in the 3x preview.
+    var has_original_armor: bool = false
+    for layer in validated:
+        if str(layer["name"]) == "Armor":
+            has_original_armor = true
+            break
+    if armor_style != "none" and not has_original_armor:
+        replacements.append(_build_fallback_armor_layer(armor_style))
+
     for old in _sprites:
         remove_child(old)
         old.queue_free()
@@ -235,6 +247,115 @@ func _add_action(frames: SpriteFrames, atlas: Texture2D, action: String, start_y
             cell.atlas = atlas
             cell.region = Rect2(int(frame_number) * CELL, row_y, CELL, CELL)
             frames.add_frame(animation, cell)
+
+# Small pixel-art stand-in until complete Universal LPC armor sheets are
+# available. Animation frames use the exact same 64x64 cells and direction
+# names as the body/head layers, so the vest follows character movement.
+func _build_fallback_armor_layer(style: String) -> AnimatedSprite2D:
+    var sprite := AnimatedSprite2D.new()
+    sprite.name = "Armor"
+    sprite.centered = false
+    sprite.offset = Vector2(-32, -54)
+    sprite.z_index = 45  # In front of ordinary clothing, behind face/hair.
+    sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+    var frames := SpriteFrames.new()
+    if frames.has_animation("default"):
+        frames.remove_animation("default")
+
+    for action in ["idle", "walk"]:
+        var steps: Array = IDLE_FRAMES if action == "idle" else WALK_FRAMES
+        for direction in DIRECTIONS:
+            var name: String = "%s-%s" % [action, direction]
+            frames.add_animation(name)
+            frames.set_animation_loop(name, true)
+            frames.set_animation_speed(name, 3.0 if action == "idle" else 9.0)
+            for frame_number in steps:
+                var cell: Image = _generate_armor_cell(
+                    style, direction, int(frame_number), action == "walk"
+                )
+                frames.add_frame(name, ImageTexture.create_from_image(cell))
+    sprite.sprite_frames = frames
+    return sprite
+
+
+func _generate_armor_cell(
+    style: String, direction: String, frame_index: int, walking: bool
+) -> Image:
+    var image: Image = Image.create(CELL, CELL, false, Image.FORMAT_RGBA8)
+    image.fill(Color.TRANSPARENT)
+
+    # Fit over the LPC tunic torso (source cell coords). Keep hands and
+    # head visible; the opaque chest panel hides the shirt underneath.
+    var bob: int = -1 if walking and frame_index % 3 == 1 else 0
+    var left: int = 24 if body_type == "male" else 25
+    var width: int = 16 if body_type == "male" else 14
+    var top: int = 29 + bob
+
+    var dark: Color = Color("#35291f")
+    var base: Color = Color("#815034")
+    var light: Color = Color("#b47e51")
+    var trim: Color = Color("#ccac76")
+    if style == "reinforced_vest":
+        dark = Color("#292c33")
+        base = Color("#535960")
+        light = Color("#87939a")
+        trim = Color("#c0a16b")
+    elif style == "plate_cuirass":
+        dark = Color("#202b36")
+        base = Color("#8797a5")
+        light = Color("#d1dce3")
+        trim = Color("#ba9556")
+
+    # Contour, torso and tapered lower edge. Side/back views remain
+    # visually distinct while preserving the same sprite alignment.
+    image.fill_rect(Rect2i(left - 1, top, width + 2, 17), dark)
+    image.fill_rect(Rect2i(left, top + 1, width, 14), base)
+    image.fill_rect(Rect2i(left + 2, top + 15, width - 4, 2), dark)
+
+    if direction == "s":
+        # Front: left and right shoulder panels, V neckline and seam.
+        image.fill_rect(Rect2i(left - 3, top + 1, 5, 6), dark)
+        image.fill_rect(Rect2i(left - 2, top + 2, 4, 4), base)
+        image.fill_rect(Rect2i(left + width - 1, top + 1, 5, 6), dark)
+        image.fill_rect(Rect2i(left + width, top + 2, 4, 4), base)
+        image.fill_rect(Rect2i(30, top, 4, 3), Color("#332824"))
+        image.fill_rect(Rect2i(31, top + 4, 2, 9), light)
+        image.fill_rect(Rect2i(left + 3, top + 3, 2, 10), light)
+    elif direction == "n":
+        # Back: broad rigid yoke / crossed leather harness.
+        image.fill_rect(Rect2i(left - 2, top + 1, width + 4, 5), dark)
+        image.fill_rect(Rect2i(left - 1, top + 2, width + 2, 3), light)
+        image.fill_rect(Rect2i(31, top + 6, 2, 9), trim)
+    else:
+        var facing_left: bool = direction == "w"
+        var shoulder_x: int = left - 3 if facing_left else left + width - 2
+        image.fill_rect(Rect2i(shoulder_x, top + 1, 5, 7), dark)
+        image.fill_rect(Rect2i(shoulder_x + 1, top + 2, 3, 5), light)
+        image.fill_rect(Rect2i(left + 4, top + 7, width - 8, 7), light)
+
+    if style == "leather_vest":
+        # Contrast stitching and a soft, warm waist belt.
+        image.fill_rect(Rect2i(left + 1, top + 12, width - 2, 2), trim)
+        image.fill_rect(Rect2i(left + 2, top + 4, 1, 7), trim)
+    elif style == "reinforced_vest":
+        # Metal plates and brass fasteners over dark leather.
+        image.fill_rect(Rect2i(left + 1, top + 7, width - 2, 2), dark)
+        image.fill_rect(Rect2i(left + 2, top + 8, width - 4, 1), light)
+        image.fill_rect(Rect2i(left + 3, top + 3, 2, 2), trim)
+        image.fill_rect(Rect2i(left + width - 5, top + 3, 2, 2), trim)
+        image.fill_rect(Rect2i(left + 1, top + 14, width - 2, 2), dark)
+    else:
+        # Heavy polished chestplate, reinforced pauldrons and metal belt.
+        image.fill_rect(Rect2i(left - 4, top + 1, 6, 7), dark)
+        image.fill_rect(Rect2i(left - 3, top + 2, 5, 4), light)
+        image.fill_rect(Rect2i(left + width - 2, top + 1, 6, 7), dark)
+        image.fill_rect(Rect2i(left + width - 1, top + 2, 5, 4), light)
+        image.fill_rect(Rect2i(left + 2, top + 4, width - 4, 2), light)
+        image.fill_rect(Rect2i(left + 2, top + 10, width - 4, 2), trim)
+        image.fill_rect(Rect2i(31, top + 6, 2, 5), dark)
+
+    return image
+
 
 func set_armor_style(new_style: String) -> bool:
     if not ["none", "leather_vest", "reinforced_vest", "plate_cuirass"].has(new_style):
