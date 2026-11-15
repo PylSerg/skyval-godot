@@ -123,11 +123,10 @@ layer, preventing an unpaused frame during the transition.
 Blocking interfaces must use `Node.PROCESS_MODE_ALWAYS` for their own
 controller navigation, and call
 `SkyvalUiPause.set_open(self, true/false)` whenever they open/close.
-The future inventory should follow the same contract; it is **not yet
-implemented**. **B** moves one level back: Settings → Main Menu → World,
-or CharacterCreator → World. No on-screen Back button is required.
+**B** moves one level back: Settings → Main Menu → World,
+or Backpack / TestChest → World. No on-screen Back button is required.
 **Select/L3** toggles the backpack; **Start/R3** toggles
-the global menu while playing. At launch, neither gameplay nor the wardrobe
+the global menu while playing. At launch, neither gameplay nor the backpack
 can be entered until a valid Continue or a *completed* character creation.
 The appearance editor also exposes `open_for_edit()` for future NPC or
 other world interactions, with `confirmed` and `cancelled` signals.
