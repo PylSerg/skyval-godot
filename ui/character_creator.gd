@@ -185,9 +185,10 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
                 return
             if appearance_editor != null and bool(appearance_editor.call("is_open")):
                 return
-            var chest: Node = get_parent().get_node_or_null("TestChest")
-            if chest != null and bool(chest.call("is_open")):
-                return
+            for chest_name in ["TestChest", "ArmorChest"]:
+                var chest: Node = get_parent().get_node_or_null(chest_name)
+                if chest != null and bool(chest.call("is_open")):
+                    return
             _set_open(true)
             get_viewport().set_input_as_handled()
         return
