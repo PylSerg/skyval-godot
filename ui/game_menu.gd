@@ -188,9 +188,12 @@ func _set_open(next_open: bool) -> void:
         _set_ui_pause(true)
         if _creator != null and _creator.has_method("close_for_menu"):
             _creator.call("close_for_menu")
-        var test_chest: Node = get_parent().get_node_or_null("TestChest")
-        if test_chest != null and bool(test_chest.call("is_open")):
-            test_chest.call("close_for_menu")
+        # Both loot chests share this UI contract and must hand pause
+        # ownership to GameMenu before being dismissed.
+        for chest_name in ["TestChest", "ArmorChest"]:
+            var chest: Node = get_parent().get_node_or_null(chest_name)
+            if chest != null and bool(chest.call("is_open")):
+                chest.call("close_for_menu")
         var appearance: Node = get_parent().get_node_or_null("AppearanceEditor")
         # During New Game cancellation, the editor already owns its close
         # sequence; re-entering it here would emit cancelled twice.
