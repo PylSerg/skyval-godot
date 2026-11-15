@@ -134,7 +134,7 @@
     "save.delete_title": "Видалення",
     "save.delete_confirm": "Видалити персонажа «%s»? Цю дію не можна скасувати.",
     "name.title": "Ім'я персонажа",
-    "name.hint": "A: літера  B: меню\nX: випадкове  Y: готово",
+    "name.hint": "A: літера  B: меню\nY: випадкове  X: готово",
     "name.empty": "Спочатку введіть ім'я!",
     "name.confirm_exit": "Повернутися в меню без створення персонажа?",
     "name.confirm_accept": "Створити персонажа «%s»?"
@@ -274,7 +274,7 @@
     "save.delete_title": "Delete character",
     "save.delete_confirm": "Delete «%s»? This cannot be undone.",
     "name.title": "Character name",
-    "name.hint": "A: letter  B: menu\nX: random  Y: confirm",
+    "name.hint": "A: letter  B: menu\nY: random  X: confirm",
     "name.empty": "Enter a name first!",
     "name.confirm_exit": "Return to the menu without creating this character?",
     "name.confirm_accept": "Create character «%s»?"
