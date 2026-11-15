@@ -298,11 +298,15 @@ func _cycle_option(property_name: String, options: Array) -> void:
 
 # Character creator API: use property keys, not translated display strings.
 # Changing the body type also switches head, face, shirt, trousers and shoes.
-func change_body_type() -> bool:
+func change_body_type(direction: int = 1) -> bool:
     if not available:
         return false
+    var genders: Array[String] = ["male", "female"]
+    var next_index: int = genders.find(body_type) + (1 if direction >= 0 else -1)
+    if next_index < 0 or next_index >= genders.size():
+        return false
     var previous: String = body_type
-    body_type = "female" if body_type == "male" else "male"
+    body_type = genders[next_index]
     if _load_appearance(skin_variant):
         return true
     body_type = previous
@@ -313,7 +317,7 @@ func change_option(option_key: String, direction: int) -> bool:
         return false
     match option_key:
         "body_type":
-            return change_body_type()
+            return change_body_type(direction)
         "skin_variant":
             return _change_skin(direction)
         "hair_variant":
@@ -340,7 +344,9 @@ func _change_skin(direction: int) -> bool:
     var start: int = maxi(SKINS.find(skin_variant), 0)
     var step_direction: int = 1 if direction >= 0 else -1
     for step in range(1, SKINS.size()):
-        var index: int = posmod(start + step * step_direction, SKINS.size())
+        var index: int = start + step * step_direction
+        if index < 0 or index >= SKINS.size():
+            break
         if _load_appearance(SKINS[index]):
             return true
     return false
@@ -349,13 +355,55 @@ func _change_variant(property_name: String, options: Array, direction: int) -> b
     var previous: String = str(get(property_name))
     var start: int = maxi(options.find(previous), 0)
     var step_direction: int = 1 if direction >= 0 else -1
+    # Only actual gear choices are circular; appearance choices stop at ends.
+    var wrap: bool = property_name in [
+        "shirt_variant", "pants_variant", "boots_variant",
+        "shirt_style", "pants_style", "footwear_style",
+    ]
     for step in range(1, options.size()):
-        var index: int = posmod(start + step * step_direction, options.size())
+        var index: int = start + step * step_direction
+        if wrap:
+            index = posmod(index, options.size())
+        elif index < 0 or index >= options.size():
+            break
         set(property_name, str(options[index]))
         if _load_appearance(skin_variant):
             return true
     set(property_name, previous)
     return false
+
+# Public ordered options for the creator's current/total counter.
+# The counter follows the same order used by the character editor.
+func get_option_choices(option_key: String) -> Array[String]:
+    var source: Array = []
+    match option_key:
+        "body_type":
+            source = ["male", "female"]
+        "skin_variant":
+            source = SKINS
+        "hair_variant":
+            source = HAIR_COLORS
+        "hair_style":
+            source = HAIR_STYLES
+        "eye_variant":
+            source = EYE_COLORS
+        "shirt_variant":
+            source = SHIRT_COLORS
+        "pants_variant":
+            source = PANTS_COLORS
+        "boots_variant":
+            source = BOOTS_COLORS
+        "shirt_style":
+            source = SHIRT_STYLES
+        "pants_style":
+            source = PANTS_STYLES
+        "footwear_style":
+            source = FOOTWEAR_STYLES
+    var result: Array[String] = []
+    for choice in source:
+        result.append(str(choice))
+    return result
+
 
 # Keep save files independent of sprite paths and translated labels.
 # Import is validated against supported variants before rebuilding layers.
