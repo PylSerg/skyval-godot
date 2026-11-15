@@ -60,6 +60,8 @@ var _row_labels: Array[Label] = []
 var _row_panels: Array[PanelContainer] = []
 var _row_values: Array[Label] = []
 var _row_counters: Dictionary = {}
+# Inventory only: candidate item per field. Browsing does not equip it.
+var _equipment_preview: Dictionary = {}
 var _row_scroll: ScrollContainer
 var _page_clip: Control
 var _action_hint: Label
@@ -239,7 +241,10 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
             else:
                 _set_open(false)
         JOY_BUTTON_A:
-            _adjust_selected(1)
+            if appearance_window:
+                _adjust_selected(1)
+            else:
+                _confirm_equipment_selection()
         JOY_BUTTON_X:
             if appearance_window:
                 _show_confirmation()
@@ -338,8 +343,13 @@ func _adjust_selected(direction: int) -> void:
     if not _can_navigate():
         return
     var fields: Array = _current_fields()
-    if _selected_index >= 0 and _selected_index < fields.size():
+    if _selected_index < 0 or _selected_index >= fields.size():
+        return
+    if appearance_window:
         _adjust(str(fields[_selected_index]), direction, _selected_index)
+    else:
+        # D-pad, left stick and on-screen arrows only browse candidates.
+        _browse_equipment(direction)
 
 func _update_row_highlight() -> void:
     # Highlight the complete field (name, counter and selector) by its
@@ -463,6 +473,7 @@ func _set_open(next_open: bool) -> void:
                     old_page.queue_free()
             _active_tab = 0
             _selected_index = 0
+            _equipment_preview.clear()
             # Avoid showing the stale, wrongly sized first-page content
             # during the two short layout passes used for initialization.
             _page_clip.modulate.a = 0.0
@@ -729,6 +740,7 @@ func _set_tab(next_tab: int) -> void:
     var travel: float = -1.0 if next_tab > _active_tab else 1.0
     _active_tab = next_tab
     _selected_index = 0
+    _equipment_preview.clear()
 
     _row_scroll = _create_page_scroll()
     _page_clip.add_child(_row_scroll)
