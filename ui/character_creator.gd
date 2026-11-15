@@ -221,12 +221,16 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
         return
 
     if appearance_window and _confirmation_open:
-        # Confirmation is modal: no changes to the character until A or B.
-        match event.button_index:
-            JOY_BUTTON_A:
-                _accept_appearance()
-            JOY_BUTTON_B:
-                _dismiss_confirmation()
+        # Appearance edits retain their own optional confirmation.
+        # New-character creation advances directly with X, never A.
+        if not _creation_mode:
+            match event.button_index:
+                JOY_BUTTON_A:
+                    _accept_appearance()
+                JOY_BUTTON_B:
+                    _dismiss_confirmation()
+        else:
+            _dismiss_confirmation()
         get_viewport().set_input_as_handled()
         return
 
@@ -246,13 +250,19 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
             else:
                 _set_open(false)
         JOY_BUTTON_A:
-            if appearance_window:
-                _adjust_selected(1)
-            else:
+            # A deliberately has no function in appearance creation.
+            # In the inventory it still confirms the highlighted gear.
+            if not appearance_window:
                 _confirm_equipment_selection()
         JOY_BUTTON_X:
             if appearance_window:
-                _show_confirmation()
+                if _creation_mode:
+                    _accept_appearance()
+                else:
+                    _show_confirmation()
+        JOY_BUTTON_Y:
+            if appearance_window and _creation_mode:
+                _randomize_appearance()
         JOY_BUTTON_LEFT_SHOULDER:
             if not appearance_window:
                 _set_tab(_active_tab - 1)
@@ -562,8 +572,65 @@ func open_for_edit() -> void:
     _set_open(true)
 
 
+func _randomize_appearance() -> void:
+    # Generate the complete LPC appearance in one validated operation.
+    # Randomization only affects the unsaved creation draft. The inventory
+    # remains untouched unless we successfully apply a valid appearance.
+    if not appearance_window or not _opened or not _creation_mode or not avatar.has_lpc_character():
+        return
+    var lpc: Node2D = avatar.get_lpc_character()
+    if lpc == null or not lpc.has_method("apply_appearance_state"):
+        return
+
+    var original: Dictionary = lpc.call("export_appearance_state")
+    for attempt in range(8):
+        var candidate: Dictionary = original.duplicate(true)
+        var changed: bool = false
+        for field in APPEARANCE_FIELDS:
+            var variants: Array[String] = avatar.get_lpc_option_choices(field)
+            if variants.is_empty():
+                continue
+            var picked: String = variants.pick_random()
+            if str(candidate.get(field, "")) != picked:
+                changed = true
+            candidate[field] = picked
+        if not changed:
+            continue
+
+        # A different body type may need different clothing sprites.
+        # Keep the same gender-based starting outfit as a new character.
+        var candidate_body: String = str(candidate.get("body_type", "male"))
+        candidate["shirt_style"] = "shortsleeve/tshirt" if candidate_body == "female" else "none"
+        candidate["pants_style"] = "formal"
+        candidate["footwear_style"] = "none"
+        if bool(lpc.call("apply_appearance_state", candidate)):
+            if _inventory != null:
+                _inventory.call("set_starter_equipment", candidate_body)
+            _refresh_options()
+            return
+
+    # Some handheld LPC packages contain only a subset of skins or hair
+    # sprites. In that case, randomize a supported single field instead
+    # of leaving Y entirely unresponsive.
+    var fallback_fields: Array = APPEARANCE_FIELDS.duplicate()
+    fallback_fields.shuffle()
+    for field in fallback_fields:
+        var direction: int = 1 if randi_range(0, 1) == 0 else -1
+        if not avatar.change_lpc_option(str(field), direction):
+            continue
+        if field == "body_type":
+            avatar.apply_starter_outfit()
+            if _inventory != null:
+                _inventory.call("set_starter_equipment", avatar.get_lpc_option("body_type"))
+        _refresh_options()
+        return
+    push_warning("Skyval: no usable alternate LPC appearance found.")
+
+
 func _accept_appearance() -> void:
-    if not appearance_window or not _opened or not _confirmation_open:
+    if not appearance_window or not _opened:
+        return
+    if not _creation_mode and not _confirmation_open:
         return
     _confirmation_open = false
     _confirmation_overlay.hide()
@@ -955,7 +1022,7 @@ func _reveal_active_tab() -> void:
 
 
 func _show_confirmation() -> void:
-    if not appearance_window or not _opened or _confirmation_open:
+    if not appearance_window or not _opened or _confirmation_open or _creation_mode:
         return
     _confirmation_open = true
     _confirmation_message.text = _tr("ui.confirm_create_question") if _creation_mode else _tr("ui.confirm_edit_question")
