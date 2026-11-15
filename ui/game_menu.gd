@@ -72,6 +72,9 @@ func _ready() -> void:
     _name_entry.name = "CharacterNameEntry"
     _name_entry.layer = 5
     get_parent().add_child(_name_entry)
+    # The world may still be dispatching ready callbacks for its children.
+    # Initialize the dynamically created sibling before any appearance flow.
+    _name_entry.call("ensure_initialized")
     _name_entry.connect("accepted", Callable(self, "_on_name_confirmed"))
     _name_entry.connect("cancelled", Callable(self, "_on_name_cancelled"))
     _build_interface()
