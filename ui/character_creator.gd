@@ -671,6 +671,3 @@ func _can_change_clothing_field(key: String) -> bool:
         return false
     var choices: Array[String] = _inventory.call("get_field_choices", key)
     return choices.size() > 1
-
-
-
