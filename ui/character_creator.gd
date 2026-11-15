@@ -46,6 +46,7 @@ var _tab_buttons: Array[Button] = []
 var _page_tween: Tween
 var _row_labels: Array[Label] = []
 var _row_values: Array[Label] = []
+var _row_counters: Dictionary = {}
 var _row_scroll: ScrollContainer
 var _page_clip: Control
 var _action_hint: Label
@@ -221,10 +222,10 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
                 _show_confirmation()
         JOY_BUTTON_LEFT_SHOULDER:
             if not appearance_window:
-                _set_tab(posmod(_active_tab - 1, BACKPACK_TABS.size()))
+                _set_tab(_active_tab - 1)
         JOY_BUTTON_RIGHT_SHOULDER:
             if not appearance_window:
-                _set_tab(posmod(_active_tab + 1, BACKPACK_TABS.size()))
+                _set_tab(_active_tab + 1)
         JOY_BUTTON_DPAD_UP:
             _move_selection(-1)
         JOY_BUTTON_DPAD_DOWN:
@@ -300,7 +301,12 @@ func _move_selection(amount: int) -> void:
     var option_count: int = _current_fields().size()
     if option_count == 0:
         return
-    _selected_index = posmod(_selected_index + amount, option_count)
+    # Row navigation is bounded. Cyclic movement belongs only to item
+    # variants inside gear selectors, not to menus or parameter lists.
+    var next_index: int = clampi(_selected_index + amount, 0, option_count - 1)
+    if next_index == _selected_index:
+        return
+    _selected_index = next_index
     _update_row_highlight()
     _reveal_selected_row()
 
@@ -725,6 +731,7 @@ func _refresh_text() -> void:
 func _rebuild_rows() -> void:
     _value_labels.clear()
     _field_arrows.clear()
+    _row_counters.clear()
     _row_labels.clear()
     _row_values.clear()
     for child in _rows.get_children():
@@ -756,11 +763,26 @@ func _rebuild_rows() -> void:
         field_box.add_theme_constant_override("separation", FIELD_INNER_SPACING)
         _rows.add_child(field_box)
 
+        # A right-aligned 1/N indicator shares the heading line with
+        # the field name; both remain at least 14px at 320x240.
+        var heading_row := HBoxContainer.new()
+        heading_row.add_theme_constant_override("separation", 2)
+        field_box.add_child(heading_row)
+
         var name_label := _label(16)
         name_label.text = _tr("field." + key)
         name_label.custom_minimum_size.y = 17
-        field_box.add_child(name_label)
+        name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        heading_row.add_child(name_label)
         _row_labels.append(name_label)
+
+        var counter_label := _label(MIN_UI_FONT_SIZE)
+        counter_label.custom_minimum_size.x = 49
+        counter_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+        counter_label.add_theme_color_override("font_color", Color("#b5c7d9"))
+        counter_label.text = _field_counter(key)
+        heading_row.add_child(counter_label)
+        _row_counters[key] = counter_label
 
         var choice_row := HBoxContainer.new()
         choice_row.custom_minimum_size.y = 21
@@ -770,7 +792,7 @@ func _rebuild_rows() -> void:
         var previous := _button()
         previous.text = _tr("ui.previous")
         previous.custom_minimum_size = Vector2(22, 21)
-        previous.disabled = not avatar.has_lpc_character() or (not appearance_window and not _can_change_clothing_field(key))
+        previous.disabled = not _can_adjust_field(key, -1)
         choice_row.add_child(previous)
         previous.pressed.connect(_adjust.bind(key, -1, index))
 
@@ -786,7 +808,7 @@ func _rebuild_rows() -> void:
         var following := _button()
         following.text = _tr("ui.next")
         following.custom_minimum_size = Vector2(22, 21)
-        following.disabled = not avatar.has_lpc_character() or (not appearance_window and not _can_change_clothing_field(key))
+        following.disabled = not _can_adjust_field(key, 1)
         choice_row.add_child(following)
         following.pressed.connect(_adjust.bind(key, 1, index))
         _field_arrows[key] = [previous, following]
@@ -838,16 +860,20 @@ func _localized_value(key: String) -> String:
 func _refresh_options() -> void:
     # Refresh live labels rather than rebuilding rows, preserving button focus.
     for option_key in _value_labels.keys():
+        var key: String = str(option_key)
         var field_label: Label = _value_labels[option_key] as Label
         if is_instance_valid(field_label):
-            field_label.text = _localized_value(str(option_key))
-        if not appearance_window and _field_arrows.has(option_key):
-            var allow_change: bool = avatar.has_lpc_character() and _can_change_clothing_field(str(option_key))
+            field_label.text = _localized_value(key)
+        if _row_counters.has(option_key):
+            var counter: Label = _row_counters[option_key] as Label
+            if is_instance_valid(counter):
+                counter.text = _field_counter(key)
+        if _field_arrows.has(option_key):
             var arrows: Array = _field_arrows[option_key]
-            for arrow in arrows:
-                var button: Button = arrow as Button
+            for index in range(arrows.size()):
+                var button: Button = arrows[index] as Button
                 if is_instance_valid(button):
-                    button.disabled = not allow_change
+                    button.disabled = not _can_adjust_field(key, -1 if index == 0 else 1)
     _preview.queue_redraw()
     _refresh_armor_status()
 
@@ -889,6 +915,33 @@ func _adjust(key: String, direction: int, index: int = -1) -> void:
             if _inventory != null:
                 _inventory.call("set_starter_equipment", avatar.get_lpc_option("body_type"))
         _refresh_options()
+
+
+func _field_counter(key: String) -> String:
+    if not avatar.has_lpc_character():
+        return "0/0"
+    var choices: Array[String] = []
+    var chosen: String = ""
+    if appearance_window:
+        choices = avatar.get_lpc_option_choices(key)
+        chosen = avatar.get_lpc_option(key)
+    elif _inventory != null:
+        choices = _inventory.call("get_field_choices", key)
+        chosen = str(_inventory.call("get_equipped", _clothing_slot(key)))
+    if choices.is_empty():
+        return "0/0"
+    var index: int = choices.find(chosen)
+    return "%d/%d" % [index + 1 if index >= 0 else 0, choices.size()]
+
+
+func _can_adjust_field(key: String, direction: int) -> bool:
+    if not avatar.has_lpc_character():
+        return false
+    if not appearance_window:
+        return _can_change_clothing_field(key)
+    var choices: Array[String] = avatar.get_lpc_option_choices(key)
+    var index: int = choices.find(avatar.get_lpc_option(key))
+    return index >= 0 and index + direction >= 0 and index + direction < choices.size()
 
 
 func _clothing_slot(key: String) -> String:
