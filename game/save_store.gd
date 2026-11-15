@@ -84,10 +84,15 @@ func list_profiles() -> Array[Dictionary]:
             continue
         seen[id] = true
         profiles.append(data)
+    # Launch history is UI-only metadata in last_opened.json.
+    # Do not overwrite the initial profile save merely to re-sort names.
+    var recent_times: Dictionary = _recent_launch_times()
     profiles.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-        if int(a.get("last_played", 0)) == int(b.get("last_played", 0)):
+        var a_time: int = int(recent_times.get(str(a.get("profile_id", "")), a.get("last_played", 0)))
+        var b_time: int = int(recent_times.get(str(b.get("profile_id", "")), b.get("last_played", 0)))
+        if a_time == b_time:
             return str(a.get("profile_id", "")) > str(b.get("profile_id", ""))
-        return int(a.get("last_played", 0)) > int(b.get("last_played", 0))
+        return a_time > b_time
     )
     return profiles
 
@@ -154,14 +159,11 @@ func last_opened_profile() -> Dictionary:
     var profiles: Array[Dictionary] = list_profiles()
     if profiles.is_empty():
         return {}
-    var marker_path: String = directory_path().path_join(RECENT_FILE)
-    if FileAccess.file_exists(marker_path):
-        var marker: Variant = JSON.parse_string(FileAccess.get_file_as_string(marker_path))
-        if marker is Dictionary:
-            var selected_id: String = str(marker.get("profile_id", ""))
-            for profile in profiles:
-                if str(profile.get("profile_id", "")) == selected_id:
-                    return profile
+    var marker: Dictionary = _read_recent_marker()
+    var selected_id: String = str(marker.get("profile_id", ""))
+    for profile in profiles:
+        if str(profile.get("profile_id", "")) == selected_id:
+            return profile
     # Upgrade from v2: most recently opened profile is a safe fallback.
     return profiles[0]
 
@@ -169,10 +171,39 @@ func last_opened_profile() -> Dictionary:
 func remember_opened(profile_id: String) -> bool:
     if profile_by_id(profile_id).is_empty():
         return false
+    var old: Dictionary = _read_recent_marker()
+    var launch_times: Dictionary = _recent_launch_times()
+    var previous_id: String = str(old.get("profile_id", ""))
+    if not previous_id.is_empty() and not launch_times.has(previous_id):
+        launch_times[previous_id] = int(old.get("updated_at", 0))
+    var now: int = _timestamp_ms()
+    launch_times[profile_id] = now
+    # This small metadata file is *not* a progress save. No game inventory,
+    # position or appearance is written when switching characters.
     return _write_json(directory_path().path_join(RECENT_FILE), {
         "profile_id": profile_id,
-        "updated_at": _timestamp_ms(),
+        "updated_at": now,
+        "launch_times": launch_times,
     })
+
+
+func _read_recent_marker() -> Dictionary:
+    var path: String = directory_path().path_join(RECENT_FILE)
+    if not FileAccess.file_exists(path):
+        return {}
+    var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+    return parsed if parsed is Dictionary else {}
+
+
+func _recent_launch_times() -> Dictionary:
+    var marker: Dictionary = _read_recent_marker()
+    var recorded: Variant = marker.get("launch_times", {})
+    var times: Dictionary = recorded.duplicate() if recorded is Dictionary else {}
+    # Backwards compatibility with a single-character v2 marker.
+    var last_id: String = str(marker.get("profile_id", ""))
+    if not last_id.is_empty() and not times.has(last_id):
+        times[last_id] = int(marker.get("updated_at", 0))
+    return times
 
 
 func delete_profile(path: String) -> bool:
