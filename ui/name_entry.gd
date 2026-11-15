@@ -184,7 +184,14 @@ func _input(event: InputEvent) -> void:
                 JOY_BUTTON_A:
                     _select_key(_selected)
                 JOY_BUTTON_B:
-                    _show_confirmation("exit")
+                    if _purpose == "character":
+                        # Go back to the existing appearance draft, not to
+                        # the title screen. No character save exists yet.
+                        _set_open(false)
+                        cancelled.emit()
+                    else:
+                        # Manual save naming keeps its own exit dialog.
+                        _show_confirmation("exit")
                 JOY_BUTTON_X:
                     if not _name.strip_edges().is_empty():
                         _show_confirmation("accept")
