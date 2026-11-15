@@ -272,76 +272,158 @@ func _show_settings(show: bool) -> void:
 
 
 func _move_selection(direction: int) -> void:
-    # Respect first and last options; skip disabled entries without wrapping.
     var next_index: int = _selected_option + direction
-    while next_index >= 0 and next_index < _menu_buttons.size():
+    while next_index >= 0 and next_index < _visible_options.size():
         if not _menu_buttons[next_index].disabled:
             _selected_option = next_index
+            _status_message = ""
             _update_highlight()
             return
         next_index += direction
 
 
 func _activate_option(index: int) -> void:
-    if not _opened or index < 0 or index >= _menu_buttons.size() or _menu_buttons[index].disabled:
+    if not _opened or index < 0 or index >= _visible_options.size():
         return
-    match index:
-        0:
-            _profiles = _save_store.call("list_profiles")
-            if not _profiles.is_empty():
-                _selected_profile = 0
-                _continue_open = true
-                _refresh_text()
-        1:
+    if _menu_buttons[index].disabled:
+        return
+    _status_message = ""
+    match _visible_options[index]:
+        "menu.continue":
+            var recent: Dictionary = _save_store.call("latest_save")
+            if not recent.is_empty():
+                _load_selected_save(str(recent.get("path", "")))
+        "menu.select_character":
+            _open_list("characters")
+        "menu.new_game":
             _start_new_game()
-        2:
+        "menu.settings":
             _show_settings(true)
-        3:
-            if _session_started:
-                _save_current_game()
+        "menu.quit":
             get_tree().quit()
+        "game.quick_save":
+            _write_snapshot("quick")
+        "game.quick_load":
+            var quick: Dictionary = _save_store.call("quick_save_for", str(_profile_data.get("profile_id", "")))
+            if not quick.is_empty():
+                _pending_save_path = str(quick.get("path", ""))
+                _ask_confirmation("load")
+        "game.save":
+            _write_snapshot("manual")
+        "game.load":
+            _open_list("load")
+        "game.main_menu":
+            _ask_confirmation("main")
+    _refresh_text()
 
 
-func _move_profile(direction: int) -> void:
-    var next_index: int = _selected_profile + direction
-    if next_index >= 0 and next_index < _profiles.size():
-        _selected_profile = next_index
+func _open_list(mode: String) -> void:
+    _list_mode = mode
+    _selected_list = 0
+    _listed_items.clear()
+    if mode == "characters":
+        _listed_items = _save_store.call("list_profiles")
+    elif mode == "load":
+        _listed_items = _save_store.call("list_saves", str(_profile_data.get("profile_id", "")))
+    if _listed_items.is_empty():
+        _list_mode = ""
+        _status_message = _tr("save.none") if mode == "characters" else _tr("save.no_slots")
+    _refresh_text()
+
+
+func _move_list(direction: int) -> void:
+    var next_index: int = _selected_list + direction
+    if next_index >= 0 and next_index < _listed_items.size():
+        _selected_list = next_index
         _draw_profiles()
 
 
-func _select_profile() -> void:
-    if _selected_profile < 0 or _selected_profile >= _profiles.size():
+func _choose_list_item() -> void:
+    if _selected_list < 0 or _selected_list >= _listed_items.size():
         return
-    if _load_profile(str(_profiles[_selected_profile].get("path", "")), true):
-        _continue_open = false
-        _set_open(false)
+    var selected: Dictionary = _listed_items[_selected_list]
+    if _list_mode == "characters":
+        # Character list sorts by launch time; choosing one offers its most
+        # recent save (manual, quick or initial profile) for confirmation.
+        var recent: Dictionary = _save_store.call("latest_save", str(selected.get("profile_id", "")))
+        if recent.is_empty():
+            return
+        _pending_save_path = str(recent.get("path", ""))
     else:
-        _profiles = _save_store.call("list_profiles")
-        _selected_profile = mini(_selected_profile, maxi(0, _profiles.size() - 1))
-        _continue_open = not _profiles.is_empty()
+        _pending_save_path = str(selected.get("path", ""))
+    _ask_confirmation("load")
+
+
+func _pick_profile(index: int) -> void:
+    if index < 0 or index >= _listed_items.size():
+        return
+    _selected_list = index
+    _choose_list_item()
+
+
+func _ask_confirmation(action: String) -> void:
+    _confirm_action = action
+    _refresh_text()
+
+
+func _dismiss_confirmation() -> void:
+    _confirm_action = ""
+    _pending_save_path = ""
+    _refresh_text()
+
+
+func _accept_confirmation() -> void:
+    var action: String = _confirm_action
+    var path: String = _pending_save_path
+    _confirm_action = ""
+    _pending_save_path = ""
+    match action:
+        "delete":
+            _delete_selected_profile()
+        "load":
+            if _load_selected_save(path):
+                return
+        "main":
+            _return_to_main()
+    _refresh_text()
+
+
+func _load_selected_save(path: String) -> bool:
+    if not _load_profile(path, true):
+        _status_message = _tr("save.load_failed")
         _refresh_text()
+        return false
+    _main_mode = false
+    _list_mode = ""
+    _set_open(false)
+    return true
 
 
 func _delete_selected_profile() -> void:
-    _confirm_delete = false
-    if _selected_profile < 0 or _selected_profile >= _profiles.size():
-        _refresh_text()
+    if _list_mode != "characters" or _selected_list < 0 or _selected_list >= _listed_items.size():
         return
-    var path: String = str(_profiles[_selected_profile].get("path", ""))
-    if not bool(_save_store.call("delete_profile", path)):
-        push_warning("Skyval: failed to delete profile: %s" % path)
-        _refresh_text()
+    var selected: Dictionary = _listed_items[_selected_list]
+    if not bool(_save_store.call("delete_profile", str(selected.get("path", "")))):
+        _status_message = _tr("save.delete_failed")
         return
-    if path == _active_save_path:
-        _active_save_path = ""
-        _profile_data.clear()
-        _session_started = false
-    _profiles = _save_store.call("list_profiles")
-    _selected_profile = mini(_selected_profile, maxi(0, _profiles.size() - 1))
-    if _profiles.is_empty():
-        _continue_open = false
-        _selected_option = 1
-    _refresh_text()
+    _listed_items = _save_store.call("list_profiles")
+    _selected_list = mini(_selected_list, maxi(0, _listed_items.size() - 1))
+    if _listed_items.is_empty():
+        _list_mode = ""
+        _selected_option = 0
+
+
+func _return_to_main() -> void:
+    # Stay paused and preserve the current checkpoint before clearing state.
+    _save_current_game()
+    _session_started = false
+    _active_save_path = ""
+    _profile_data.clear()
+    _main_mode = true
+    _settings_open = false
+    _list_mode = ""
+    _selected_option = 0
+    _status_message = ""
 
 
 func _draw_profiles() -> void:
@@ -350,21 +432,28 @@ func _draw_profiles() -> void:
     for child in _profile_list.get_children():
         _profile_list.remove_child(child)
         child.queue_free()
-    if _profiles.is_empty():
+    if _listed_items.is_empty():
         var empty_label := _label(MIN_UI_FONT_SIZE)
         empty_label.text = _tr("save.none")
         _profile_list.add_child(empty_label)
         return
-    var first: int = maxi(0, _selected_profile - VISIBLE_PROFILES + 1)
-    var last: int = mini(_profiles.size(), first + VISIBLE_PROFILES)
+    var first: int = maxi(0, _selected_list - VISIBLE_PROFILES + 1)
+    var last: int = mini(_listed_items.size(), first + VISIBLE_PROFILES)
     for i in range(first, last):
+        var data: Dictionary = _listed_items[i]
         var button := _button()
         button.add_theme_font_size_override("font_size", MIN_UI_FONT_SIZE)
         button.custom_minimum_size.y = 26
         button.clip_text = true
-        button.text = str(_profiles[i].get("character_name", ""))
+        if _list_mode == "characters":
+            button.text = str(data.get("character_name", ""))
+        else:
+            button.text = "%s  %s" % [
+                _tr("save.kind." + str(data.get("save_kind", "profile"))),
+                _time_label(int(data.get("saved_at", 0))),
+            ]
         button.pressed.connect(_pick_profile.bind(i))
-        var selected: bool = i == _selected_profile
+        var selected: bool = i == _selected_list
         var style := StyleBoxFlat.new()
         style.bg_color = Color("#597a9b") if selected else Color("#354960")
         style.border_color = ACTIVE_HIGHLIGHT if selected else Color("#667f9a")
@@ -372,16 +461,22 @@ func _draw_profiles() -> void:
         style.set_content_margin_all(3)
         button.add_theme_stylebox_override("normal", style)
         button.add_theme_stylebox_override("hover", style)
-        var text_color: Color = ACTIVE_HIGHLIGHT if selected else Color("#edf1f5")
-        button.add_theme_color_override("font_color", text_color)
-        button.add_theme_color_override("font_hover_color", text_color)
+        var ink: Color = ACTIVE_HIGHLIGHT if selected else Color("#edf1f5")
+        button.add_theme_color_override("font_color", ink)
+        button.add_theme_color_override("font_hover_color", ink)
         _profile_list.add_child(button)
-    _profile_hint.text = "%d/%d   %s" % [_selected_profile + 1, _profiles.size(), _tr("save.list_hint")]
+    var hint_key: String = "save.list_hint" if _list_mode == "characters" else "save.load_hint"
+    _profile_hint.text = "%d/%d  %s" % [_selected_list + 1, _listed_items.size(), _tr(hint_key)]
 
 
-func _pick_profile(index: int) -> void:
-    _selected_profile = index
-    _select_profile()
+func _time_label(timestamp_ms: int) -> String:
+    if timestamp_ms <= 0:
+        return "--:--"
+    var time: Dictionary = Time.get_datetime_dict_from_unix_time(int(timestamp_ms / 1000))
+    return "%02d.%02d %02d:%02d" % [
+        int(time.get("day", 1)), int(time.get("month", 1)),
+        int(time.get("hour", 0)), int(time.get("minute", 0)),
+    ]
 
 func _get_player() -> CharacterBody2D:
     var world: Node = get_tree().current_scene
