@@ -279,11 +279,12 @@ func _build_interface() -> void:
     panel_style.border_color = Color("#7e95ae")
     panel_style.set_border_width_all(1)
     panel_style.set_corner_radius_all(3)
-    panel_style.set_content_margin_all(5)
+    # Keep text and choice arrows away from the panel frame.
+    panel_style.set_content_margin_all(7)
     panel.add_theme_stylebox_override("panel", panel_style)
 
     var stack := VBoxContainer.new()
-    stack.add_theme_constant_override("separation", 3)
+    stack.add_theme_constant_override("separation", 4)
     panel.add_child(stack)
 
     # The tabs are now the top row. Controller shortcuts replace the
@@ -309,13 +310,15 @@ func _build_interface() -> void:
     _row_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     _row_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
     _row_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    # Allow scrolling with D-pad, left stick, or mouse wheel, while hiding
+    # the scrollbar so the right-hand choice arrow keeps the full row width.
     _row_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
     stack.add_child(_row_scroll)
 
     _rows = VBoxContainer.new()
     _rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    # Comfortable breathing room between field groups. Longer lists scroll.
-    _rows.add_theme_constant_override("separation", 6)
+    # Dividers provide the main separation between groups.
+    _rows.add_theme_constant_override("separation", 12)
     _row_scroll.add_child(_rows)
 
     # Use the full right column; the portrait itself is drawn at 3×.
@@ -338,7 +341,7 @@ func _button() -> Button:
     # Gamepad selection is owned by _input(), not GUI focus traversal.
     # Mouse/touch button clicks still work normally.
     button.focus_mode = Control.FOCUS_NONE
-    button.add_theme_font_size_override("font_size", 11)
+    button.add_theme_font_size_override("font_size", 18)
     if _ui_font != null:
         button.add_theme_font_override("font", _ui_font)
     button.add_theme_color_override("font_color", Color("#edf1f5"))
@@ -400,13 +403,13 @@ func _rebuild_rows() -> void:
 
         # Each property gets its own full-width label and selector row.
         var field_box := VBoxContainer.new()
-        field_box.custom_minimum_size.y = 40
-        field_box.add_theme_constant_override("separation", 4)
+        # One heading, one full-width selector, then a subtle 1px divider.
+        field_box.add_theme_constant_override("separation", 5)
         _rows.add_child(field_box)
 
-        var name_label := _label(11)
+        var name_label := _label(16)
         name_label.text = _tr("field." + key)
-        name_label.custom_minimum_size.y = 14
+        name_label.custom_minimum_size.y = 17
         field_box.add_child(name_label)
         _row_labels.append(name_label)
 
@@ -422,7 +425,7 @@ func _rebuild_rows() -> void:
         choice_row.add_child(previous)
         previous.pressed.connect(_adjust.bind(key, -1, index))
 
-        var value_label := _label(11)
+        var value_label := _label(14)
         value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -437,6 +440,17 @@ func _rebuild_rows() -> void:
         following.disabled = not avatar.has_lpc_character()
         choice_row.add_child(following)
         following.pressed.connect(_adjust.bind(key, 1, index))
+
+        # Draw a full-width divider between properties, but not after the
+        # last one. Its muted color matches the frame without competing
+        # with selection highlighting.
+        if index < fields.size() - 1:
+            var separator := ColorRect.new()
+            separator.color = Color("#52657a")
+            separator.custom_minimum_size.y = 1
+            separator.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+            separator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+            field_box.add_child(separator)
 
     _update_row_highlight()
     _reveal_selected_row()
