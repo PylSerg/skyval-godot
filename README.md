@@ -118,15 +118,16 @@ are now adapted per purpose at 320×240 rather than stretching all
 submenus to a single fixed height. The title menu retains its original
 bottom-centered layout.
 
-Any menu presenting alternatives uses **one vertical column**:
-gameplay actions, character and save lists, loot-chest choices,
-the Ukrainian/English language settings, and confirmation actions.
-Long confirmation messages wrap within their own area, while the
-full-width **A: підтвердити** and **B: скасувати** options each occupy
-a separate row and also support mouse/touch activation.
-Settings navigate with up/down (left/right still moves between
-languages), and A confirms the highlighted language. The in-game
-menu and lists preserve their existing gamepad navigation rules.
+The gameplay menu, character/save lists, loot chests and confirmation
+choices use vertically arranged options. Confirmation choices are **plain
+right-aligned text**, without button backgrounds: **A: Підтвердити** and
+**B: Скасувати** appear on separate lines. Gamepad A/B still perform
+the actions; clicking the text also works. Hints and choices start with
+capital letters in Ukrainian and English.
+
+The language selector is unchanged from its original layout:
+**‹ Українська ›** / **‹ Англійська ›**, with D-pad or left-stick
+left/right to change it (A also advances to the other language).
 The name-entry **keyboard** intentionally remains an eight-column grid,
 and item/appearance variations retain their compact left/right selectors.
 
