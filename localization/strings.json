@@ -157,7 +157,12 @@
     "save.manual_done": "Гру збережено",
     "save.kind.profile": "Поточне",
     "save.kind.quick": "Швидке",
-    "save.kind.manual": "Збереження"
+    "save.kind.manual": "Збереження",
+    "save.name_title": "Назва збереження",
+    "save.name_hint": "A: літера  B: меню\nY: випадкове  X: готово",
+    "save.name_empty": "Введіть назву збереження!",
+    "save.name_exit": "Скасувати створення збереження?",
+    "save.name_confirm": "Зберегти гру як «%s»?"
   },
   "en": {
     "ui.title": "Character",
@@ -317,6 +322,11 @@
     "save.manual_done": "Game saved",
     "save.kind.profile": "Current",
     "save.kind.quick": "Quick",
-    "save.kind.manual": "Manual Save"
+    "save.kind.manual": "Manual Save",
+    "save.name_title": "Save name",
+    "save.name_hint": "A: letter  B: menu\nY: random  X: confirm",
+    "save.name_empty": "Enter a save name!",
+    "save.name_exit": "Cancel creating this save?",
+    "save.name_confirm": "Save game as «%s»?"
   }
 }
