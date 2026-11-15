@@ -133,12 +133,20 @@ and the selected tab label use the **exact gold color of their borders**
 menu's active option uses the same gold border/text accent, including
 when hovered or pressed.
 
-**First-open layout fix:** field headers and selector arrow positions are
-anchored inside the field width rather than allowing long text to expand
-the row. The right-side counter and the right arrow can no longer spill
-past the clipped equipment column during the first inventory opening;
-the middle item value keeps its separate clipped horizontal marquee.
-Marquee text measurements run after the first Godot layout frame.
+**First-open layout stabilization (2026-11-15 recording):**
+The first Clothing page was created while the entire overlay was hidden
+and its column did not yet have a final viewport width. The recording
+showed counters cut off at the right edge and partially invisible right
+arrows on Clothing, while switching to Armor produced a correctly sized
+page. The overlay now rebuilds the initial Clothing scroll page after
+the visible panel completes its first layout pass (using the same
+creation route as tab switching), resets to Head and scroll position
+zero, and only reveals the page after its layout has settled. An opening
+generation guard prevents late asynchronous layout work from modifying
+a subsequently closed/reopened menu. Field names and buttons remain
+anchored inside the page width, and longer item names keep their own
+clipped horizontal marquee. This fix is based on recorded behavior and
+source inspection; it still needs a Godot runtime retest.
 
 Each row has a right-edge
 `current/total` counter such as `2/5`, counting **only equipped or
