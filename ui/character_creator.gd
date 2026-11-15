@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Character creator for the 320x240 logical viewport.
+## Shared single-category window for wardrobe and standalone appearance creation.
 ## Text lives exclusively in localization/strings.json.
 
 const PreviewScript = preload("res://ui/character_preview.gd")
@@ -22,29 +22,31 @@ const RIGHT_STICK_RELEASE := 0.35
 const PANEL_INSET := 7
 const FIELD_GROUP_SPACING := 12
 const FIELD_INNER_SPACING := 5
-const TAB_SLIDE_SECONDS := 0.18
-# Equal left/right padding for each tab; labels determine natural tab width.
-const TAB_HORIZONTAL_PADDING := 10
+# This script is instantiated twice: clothing in the existing scene,
+# and appearance as an independent, reusable window.
+@export var appearance_window: bool = false
+
+signal confirmed
+signal cancelled
 
 @onready var avatar: SkyvalCharacterVisual = get_parent().get_node("Player/CharacterVisual") as SkyvalCharacterVisual
 
 var _opened: bool = false
-var _page: int = 0
+var _creation_mode: bool = false
+var _edit_snapshot: Dictionary = {}
 var _selected_index: int = 0
 var _row_labels: Array[Label] = []
 var _row_values: Array[Label] = []
 var _row_scroll: ScrollContainer
 var _page_clip: Control
-var _page_tween: Tween
+var _confirm_button: Button
 var _ui_font: FontFile
 var _held_joy_buttons: Dictionary = {}
 var _joy_axis_direction: Dictionary = {}
 var _right_stick_latched: Dictionary = {}
 var _last_navigation_ms: int = -10000
 var _root: Control
-var _tab_scroll: ScrollContainer
-var _tab_appearance: Button
-var _tab_clothes: Button
+var _title_label: Label
 var _rows: VBoxContainer
 var _preview: Control
 var _missing_label: Label
@@ -130,6 +132,8 @@ func _load_cascadia_font() -> void:
 # Capture native gamepad input before Godot GUI focus routing.
 # Keyboard events are deliberately ignored by all gameplay menus.
 func _input(event: InputEvent) -> void:
+    if appearance_window and not _opened:
+        return
     if event is InputEventJoypadButton:
         _handle_joy_button(event as InputEventJoypadButton)
     elif event is InputEventJoypadMotion:
@@ -147,31 +151,39 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
     _held_joy_buttons[button_id] = true
 
     if not _opened:
-        # Select/Back or L3 opens the creator. Start or R3 belongs to GameMenu,
-        # and the D-pad is reserved for world-level quick actions.
-        if event.button_index == JOY_BUTTON_BACK or event.button_index == JOY_BUTTON_LEFT_STICK:
+        # Wardrobe is available only during gameplay, never over startup
+        # menus or a standalone appearance creation session.
+        if not appearance_window and (event.button_index == JOY_BUTTON_BACK or event.button_index == JOY_BUTTON_LEFT_STICK):
             var game_menu: Node = get_parent().get_node_or_null("GameMenu")
-            if game_menu != null and bool(game_menu.call("is_open")):
+            var appearance_editor: Node = get_parent().get_node_or_null("AppearanceEditor")
+            if game_menu != null and (bool(game_menu.call("is_open")) or not bool(game_menu.call("has_started_session"))):
+                return
+            if appearance_editor != null and bool(appearance_editor.call("is_open")):
                 return
             _set_open(true)
             get_viewport().set_input_as_handled()
         return
 
-    # Start/R3 is handled by GameMenu even while this editor is open;
-    # it will close the editor before showing the main menu.
+    # Start/R3 belongs to GameMenu, except while creating a new character.
     if event.button_index == JOY_BUTTON_START or event.button_index == JOY_BUTTON_RIGHT_STICK:
         return
 
     match event.button_index:
-        JOY_BUTTON_BACK, JOY_BUTTON_LEFT_STICK, JOY_BUTTON_B:
-            # Select/L3 toggles the panel; B returns to the world.
-            _set_open(false)
+        JOY_BUTTON_BACK, JOY_BUTTON_LEFT_STICK:
+            if not appearance_window:
+                _set_open(false)
+            else:
+                return
+        JOY_BUTTON_B:
+            if appearance_window:
+                _cancel_appearance()
+            else:
+                _set_open(false)
         JOY_BUTTON_A:
-            _adjust_selected(1)
-        JOY_BUTTON_LEFT_SHOULDER:
-            _set_page(0)
-        JOY_BUTTON_RIGHT_SHOULDER:
-            _set_page(1)
+            if appearance_window and _selected_index == APPEARANCE_FIELDS.size():
+                _accept_appearance()
+            else:
+                _adjust_selected(1)
         JOY_BUTTON_DPAD_UP:
             _move_selection(-1)
         JOY_BUTTON_DPAD_DOWN:
@@ -241,17 +253,17 @@ func _can_navigate() -> bool:
 func _move_selection(amount: int) -> void:
     if not _can_navigate():
         return
-    var fields: Array = APPEARANCE_FIELDS if _page == 0 else CLOTHING_FIELDS
-    if fields.is_empty():
+    var option_count: int = _current_fields().size() + (1 if appearance_window else 0)
+    if option_count == 0:
         return
-    _selected_index = posmod(_selected_index + amount, fields.size())
+    _selected_index = posmod(_selected_index + amount, option_count)
     _update_row_highlight()
     _reveal_selected_row()
 
 func _adjust_selected(direction: int) -> void:
     if not _can_navigate():
         return
-    var fields: Array = APPEARANCE_FIELDS if _page == 0 else CLOTHING_FIELDS
+    var fields: Array = _current_fields()
     if _selected_index >= 0 and _selected_index < fields.size():
         _adjust(str(fields[_selected_index]), direction, _selected_index)
 
@@ -263,6 +275,64 @@ func _update_row_highlight() -> void:
             label.add_theme_color_override("font_color", Color("#f8d984") if selected else Color("#f0f1ed"))
         if index < _row_values.size() and is_instance_valid(_row_values[index]):
             _row_values[index].add_theme_color_override("font_color", Color("#f8d984") if selected else Color("#f0f1ed"))
+    if appearance_window and is_instance_valid(_confirm_button):
+        var selected_confirm: bool = _selected_index == APPEARANCE_FIELDS.size()
+        var style := StyleBoxFlat.new()
+        style.bg_color = Color("#597a9b") if selected_confirm else Color("#354960")
+        style.border_color = Color("#e7ca86") if selected_confirm else Color("#667f9a")
+        style.set_border_width_all(1)
+        style.set_content_margin_all(2)
+        _confirm_button.add_theme_stylebox_override("normal", style)
+        _confirm_button.add_theme_color_override("font_color", Color("#fff0c8") if selected_confirm else Color("#edf1f5"))
+
+
+func _current_fields() -> Array:
+    return APPEARANCE_FIELDS if appearance_window else CLOTHING_FIELDS
+
+
+func is_open() -> bool:
+    return _opened
+
+
+func begin_creation() -> void:
+    if not appearance_window:
+        return
+    _creation_mode = true
+    _edit_snapshot.clear()
+    _selected_index = 0
+    _set_open(true)
+
+
+func open_for_edit() -> void:
+    # Public entrypoint for future NPC/dialogue or other character services.
+    if not appearance_window:
+        return
+    _creation_mode = false
+    _edit_snapshot = avatar.get_save_state()
+    _selected_index = 0
+    _set_open(true)
+
+
+func _accept_appearance() -> void:
+    if not appearance_window or not _opened:
+        return
+    confirmed.emit()
+    _creation_mode = false
+    _edit_snapshot.clear()
+    _set_open(false)
+
+
+func _cancel_appearance() -> void:
+    if not appearance_window or not _opened:
+        return
+    if not _creation_mode and not _edit_snapshot.is_empty():
+        avatar.apply_save_state(_edit_snapshot)
+    # Emit while paused so the calling menu can claim pause ownership.
+    cancelled.emit()
+    _creation_mode = false
+    _edit_snapshot.clear()
+    _set_open(false)
+
 
 func close_for_menu() -> void:
     # Central menu owns Start. Never leave two paused UI layers open.
@@ -326,35 +396,13 @@ func _build_interface() -> void:
     stack.add_theme_constant_override("separation", 4)
     panel.add_child(stack)
 
-    # Tabs take their natural text width plus equal side padding. The
-    # horizontal strip scrolls independently; neither tab is compressed to
-    # share the available width. L1 / R1 still select the pages.
-    _tab_scroll = ScrollContainer.new()
-    _tab_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    _tab_scroll.custom_minimum_size.y = 27
-    _tab_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-    _tab_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-    stack.add_child(_tab_scroll)
+    # Each window owns one category, so there are no switching tabs.
+    _title_label = _label(18)
+    _title_label.custom_minimum_size.y = 24
+    _title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    stack.add_child(_title_label)
 
-    var tabs := HBoxContainer.new()
-    tabs.add_theme_constant_override("separation", 2)
-    _tab_scroll.add_child(tabs)
-
-    _tab_appearance = _button()
-    _tab_appearance.size_flags_horizontal = Control.SIZE_FILL
-    _tab_appearance.custom_minimum_size.y = 20
-    tabs.add_child(_tab_appearance)
-    _tab_appearance.pressed.connect(_set_page.bind(0))
-
-    _tab_clothes = _button()
-    _tab_clothes.size_flags_horizontal = Control.SIZE_FILL
-    _tab_clothes.custom_minimum_size.y = 20
-    tabs.add_child(_tab_clothes)
-    _tab_clothes.pressed.connect(_set_page.bind(1))
-
-    # Clip both tab pages within one fixed-size region. Only L1 / R1
-    # (and the clickable tab buttons) switch pages. Their contents slide
-    # horizontally, while each page retains vertical list scrolling.
+    # Keep the scrollable single-column fields inside the left panel.
     _page_clip = Control.new()
     _page_clip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     _page_clip.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -395,40 +443,6 @@ func _create_page_scroll() -> ScrollContainer:
     return scroll
 
 
-func _update_tab_styles() -> void:
-    for tab_index in range(2):
-        var button: Button = _tab_appearance if tab_index == 0 else _tab_clothes
-        var selected: bool = tab_index == _page
-        var style := StyleBoxFlat.new()
-        style.bg_color = Color("#597a9b") if selected else Color("#354960")
-        style.border_color = Color("#e7ca86") if selected else Color("#667f9a")
-        style.set_border_width_all(1)
-        style.set_content_margin_all(2)
-        style.set_content_margin(SIDE_LEFT, TAB_HORIZONTAL_PADDING)
-        style.set_content_margin(SIDE_RIGHT, TAB_HORIZONTAL_PADDING)
-        button.add_theme_stylebox_override("normal", style)
-        var hover := style.duplicate() as StyleBoxFlat
-        hover.bg_color = Color("#6a8cac") if selected else Color("#4c6986")
-        button.add_theme_stylebox_override("hover", hover)
-        var pressed := style.duplicate() as StyleBoxFlat
-        pressed.bg_color = Color("#7397b4") if selected else Color("#6683a1")
-        button.add_theme_stylebox_override("pressed", pressed)
-        var color: Color = Color("#fff0c8") if selected else Color("#edf1f5")
-        button.add_theme_color_override("font_color", color)
-
-
-func _reveal_active_tab() -> void:
-    # Layout must settle after button text or selection changes before
-    # bringing an off-screen tab into view. Scrolling is horizontal only.
-    var target_page: int = _page
-    await get_tree().process_frame
-    if not is_instance_valid(_tab_scroll) or target_page != _page:
-        return
-    var active: Button = _tab_appearance if target_page == 0 else _tab_clothes
-    if is_instance_valid(active):
-        _tab_scroll.ensure_control_visible(active)
-
-
 func _button() -> Button:
     var button := Button.new()
     # Gamepad selection is owned by _input(), not GUI focus traversal.
@@ -464,45 +478,10 @@ func _label(font_size: int) -> Label:
     label.clip_text = true
     return label
 
-func _set_page(next_page: int) -> void:
-    if next_page < 0 or next_page > 1 or next_page == _page:
-        return
-    # Avoid overlapping page animations and duplicate input.
-    if _page_tween != null and _page_tween.is_running():
-        return
-
-    var outgoing: ScrollContainer = _row_scroll
-    var travel: float = -1.0 if next_page > _page else 1.0
-    var width: float = _page_clip.size.x
-
-    _page = next_page
-    _selected_index = 0
-    _row_scroll = _create_page_scroll()
-    _page_clip.add_child(_row_scroll)
-    _row_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    _refresh_text()
-
-    # Slide the two lists together, but never allow them to cross the
-    # portrait or panel border. A paused world must not pause menu tweens.
-    if width <= 0.0:
-        outgoing.queue_free()
-        return
-    _row_scroll.position.x = -travel * width
-    _page_tween = create_tween()
-    _page_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-    _page_tween.set_trans(Tween.TRANS_CUBIC)
-    _page_tween.set_ease(Tween.EASE_OUT)
-    _page_tween.tween_property(outgoing, "position:x", travel * width, TAB_SLIDE_SECONDS)
-    _page_tween.parallel().tween_property(_row_scroll, "position:x", 0.0, TAB_SLIDE_SECONDS)
-    _page_tween.finished.connect(outgoing.queue_free)
-
 func _refresh_text() -> void:
-    if _tab_appearance == null:
+    if _title_label == null:
         return
-    _tab_appearance.text = _tr("ui.appearance")
-    _tab_clothes.text = _tr("ui.clothes")
-    _update_tab_styles()
-    _reveal_active_tab()
+    _title_label.text = _tr("ui.appearance") if appearance_window else _tr("ui.clothes")
     _missing_label.text = _tr("ui.missing_lpc")
     _missing_label.visible = not avatar.has_lpc_character()
     _preview.set("character", avatar.get_lpc_character())
@@ -517,7 +496,8 @@ func _rebuild_rows() -> void:
         _rows.remove_child(child)
         child.queue_free()
 
-    var fields: Array = APPEARANCE_FIELDS if _page == 0 else CLOTHING_FIELDS
+    _confirm_button = null
+    var fields: Array = _current_fields()
     for property_key in fields:
         var index: int = _row_labels.size()
         var key: String = str(property_key)
@@ -572,6 +552,13 @@ func _rebuild_rows() -> void:
             separator.size_flags_horizontal = Control.SIZE_EXPAND_FILL
             separator.mouse_filter = Control.MOUSE_FILTER_IGNORE
             field_box.add_child(separator)
+
+    if appearance_window:
+        _confirm_button = _button()
+        _confirm_button.text = _tr("ui.confirm_character")
+        _confirm_button.custom_minimum_size.y = 26
+        _confirm_button.pressed.connect(_accept_appearance)
+        _rows.add_child(_confirm_button)
 
     _update_row_highlight()
     _reveal_selected_row()
