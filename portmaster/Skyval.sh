@@ -22,6 +22,7 @@ get_controls
 GAMEDIR="/$directory/ports/skyval"
 CONFDIR="$GAMEDIR/conf"
 PCK="$GAMEDIR/skyval.pck"
+LPC_ROOT="$GAMEDIR/resources/lpc"
 GODOT_RUNTIME="godot_4.7.1"
 GODOT_EXEC="godot471.$DEVICE_ARCH"
 WESTON_RUNTIME="weston_pkg_0.2"
@@ -37,6 +38,13 @@ if [ ! -s "$PCK" ]; then
     pm_finish
     exit 1
 fi
+if [ ! -s "$LPC_ROOT/body/bodies/male/light.png" ]; then
+    echo "ERROR: complete LPC resource pack missing: $LPC_ROOT"
+    echo "Copy resources/lpc/ from the FULL Skyval package onto the SD card."
+    pm_finish
+    exit 1
+fi
+echo "Skyval LPC resources: $LPC_ROOT"
 if [ "$DEVICE_ARCH" != "aarch64" ]; then
     echo "ERROR: Godot 4.7.1 runtime needs aarch64"
     pm_finish
@@ -86,6 +94,7 @@ else
     # argument to westonwrap: its shell command assembly splits values
     # containing spaces (for example, "GO-Super Gamepad"), causing exit 127.
     export SDL_GAMECONTROLLERCONFIG="${sdl_controllerconfig:-}"
+    export SKYVAL_LPC_ROOT="$LPC_ROOT"
     # Native Godot joypad input; GPtoKEYB supplies only the PortMaster exit hotkey.
     $GPTOKEYB "$GODOT_EXEC" &
 
@@ -93,6 +102,7 @@ else
     $ESUDO env "$WESTON_DIR/westonwrap.sh" headless noop kiosk crusty_x11egl \
         XDG_DATA_HOME="$CONFDIR" \
         SKYVAL_SAVES_DIR="$GAMEDIR/saves" \
+        SKYVAL_LPC_ROOT="$LPC_ROOT" \
         "$GODOT_DIR/$GODOT_EXEC" \
         --resolution "${DISPLAY_WIDTH:-640}x${DISPLAY_HEIGHT:-480}" -f \
         --disable-cursor \
