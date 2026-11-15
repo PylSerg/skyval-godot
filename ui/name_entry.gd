@@ -202,7 +202,7 @@ func _move(dx: int, dy: int) -> void:
 
 
 func _rebuild_keyboard() -> void:
-    var grid: GridContainer = _root.get_node("Panel/Stack/Grid") as GridContainer
+    var grid: GridContainer = _root.get_node("Panel/Stack/KeyboardCenter/Grid") as GridContainer
     for button in _key_buttons:
         grid.remove_child(button)
         button.queue_free()
@@ -368,12 +368,18 @@ func _build_interface() -> void:
         _name_row.add_child(slot)
         _slots.append(slot)
 
+    # Center the entire keyboard without stretching its eight columns.
+    var keyboard_center := CenterContainer.new()
+    keyboard_center.name = "KeyboardCenter"
+    keyboard_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    stack.add_child(keyboard_center)
+
     var grid := GridContainer.new()
     grid.name = "Grid"
     grid.columns = GRID_COLUMNS
     grid.add_theme_constant_override("h_separation", 4)
     grid.add_theme_constant_override("v_separation", 3)
-    stack.add_child(grid)
+    keyboard_center.add_child(grid)
 
     _hint = _new_label(FONT_SIZE)
     _hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
