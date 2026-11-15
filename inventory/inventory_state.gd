@@ -153,6 +153,73 @@ func take_from_chest(requested: Array[String]) -> int:
     return count
 
 
+# Expose only physically owned clothes to the original six selector rows.
+# Style selectors cycle the distinct styles; color selectors cycle variants
+# within the currently equipped style. Both work with complete item ids.
+func _field_slot(field: String) -> String:
+    match field:
+        "shirt_style", "shirt_variant":
+            return "shirt"
+        "pants_style", "pants_variant":
+            return "pants"
+        "footwear_style", "boots_variant":
+            return "footwear"
+    return ""
+
+
+func get_field_choices(field: String) -> Array[String]:
+    var slot: String = _field_slot(field)
+    var choices: Array[String] = []
+    if slot.is_empty():
+        return choices
+
+    var current_id: String = get_equipped(slot)
+    var current_info: Dictionary = get_item(current_id)
+    var is_color_field: bool = field.ends_with("_variant")
+    if is_color_field and current_id.is_empty():
+        return choices
+
+    if not is_color_field:
+        choices.append("") # No garment in this slot.
+    var seen_styles: Dictionary = {}
+    for id in ITEMS.keys():
+        var item_id: String = str(id)
+        if item_id != current_id and not _bag.has(item_id):
+            continue
+        var info: Dictionary = get_item(item_id)
+        if info.is_empty() or str(info.get("slot", "")) != slot:
+            continue
+        var item_style: String = str(info.get("style", ""))
+        if is_color_field:
+            if item_style == str(current_info.get("style", "")):
+                choices.append(item_id)
+        elif not seen_styles.has(item_style):
+            # Preserve the equipped color when cycling across styles.
+            var representative: String = item_id
+            if not current_info.is_empty() and str(current_info.get("style", "")) == item_style:
+                representative = current_id
+            choices.append(representative)
+            seen_styles[item_style] = true
+    return choices
+
+
+func cycle_field(field: String, direction: int, avatar: Node) -> bool:
+    var slot: String = _field_slot(field)
+    var options: Array[String] = get_field_choices(field)
+    if slot.is_empty() or options.size() <= 1:
+        return false
+    var current_id: String = get_equipped(slot)
+    var old_index: int = options.find(current_id)
+    if old_index < 0:
+        return false
+    var new_id: String = options[posmod(old_index + (1 if direction >= 0 else -1), options.size())]
+    if new_id == current_id:
+        return false
+    if new_id.is_empty():
+        return unequip(slot, avatar)
+    return equip(new_id, avatar)
+
+
 func equip(item_id: String, avatar: Node) -> bool:
     if not _bag.has(item_id):
         return false
