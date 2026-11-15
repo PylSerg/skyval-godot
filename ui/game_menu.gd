@@ -857,7 +857,7 @@ func _build_interface() -> void:
     _profile_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _continue_panel.add_child(_profile_hint)
 
-    # Confirmation options are right-aligned plain text, NOT buttons.
+    # Confirmation options are left-aligned plain text, NOT buttons.
     # Each is a separate line; gamepad A/B remains the primary control.
     _confirm_panel = VBoxContainer.new()
     _confirm_panel.add_theme_constant_override("separation", 5)
@@ -876,7 +876,7 @@ func _build_interface() -> void:
     _confirm_panel.add_child(confirm_options)
 
     _confirm_accept = _label(MIN_UI_FONT_SIZE)
-    _confirm_accept.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    _confirm_accept.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
     _confirm_accept.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     _confirm_accept.custom_minimum_size.y = 22
     _confirm_accept.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
@@ -885,7 +885,7 @@ func _build_interface() -> void:
     confirm_options.add_child(_confirm_accept)
 
     _confirm_cancel = _label(MIN_UI_FONT_SIZE)
-    _confirm_cancel.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    _confirm_cancel.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
     _confirm_cancel.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     _confirm_cancel.custom_minimum_size.y = 22
     _confirm_cancel.add_theme_color_override("font_color", UiTheme.MUTED)
