@@ -6,6 +6,7 @@ signal cancelled
 
 const LocaleScript = preload("res://localization/localization.gd")
 const FONT_PATH := "res://assets/fonts/CascadiaMono-Regular.ttf"
+const CREATION_BACKGROUND := "res://assets/images/create_hero_bg.jpg"
 const FONT_SIZE := 14
 const GRID_COLUMNS := 8
 const NAME_WIDTH := 264.0
@@ -18,6 +19,9 @@ const NAV_DEBOUNCE_MS := 90
 var _locale: Node
 var _font: FontFile
 var _root: Control
+var _background: TextureRect
+var _shade: ColorRect
+var _entry_panel_style: StyleBoxFlat
 var _title: Label
 var _hint: Label
 var _name_row: HBoxContainer
@@ -108,8 +112,20 @@ func _begin_entry() -> void:
     _ignore_buttons_until = Time.get_ticks_msec() + 180
     _rebuild_keyboard()
     _refresh_slots()
+    _apply_purpose_style()
     _confirm_overlay.hide()
     _set_open(true)
+
+
+func _apply_purpose_style() -> void:
+    # Character naming is the next step of the illustrated creation
+    # sequence. Manual save naming stays a neutral utility window.
+    var scenic: bool = _purpose == "character" and _background.texture != null
+    _background.visible = scenic
+    _shade.color = Color(0.02, 0.03, 0.07, 0.17) if scenic else Color(0.02, 0.04, 0.08, 0.90)
+    _entry_panel_style.bg_color = Color(0.055, 0.085, 0.14, 0.83) if scenic else Color("#202c3c")
+    _entry_panel_style.border_color = Color("#d6b77c") if scenic else Color("#7e95ae")
+    _title.add_theme_color_override("font_color", Color("#f9e3af") if scenic else Color("#f0f1ed"))
 
 
 func _hint_key() -> String:
@@ -350,11 +366,21 @@ func _build_interface() -> void:
     _root.mouse_filter = Control.MOUSE_FILTER_STOP
     add_child(_root)
 
-    var shade := ColorRect.new()
-    shade.color = Color(0.02, 0.04, 0.08, 0.90)
-    shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    _root.add_child(shade)
+    _background = TextureRect.new()
+    _background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    _background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    _background.stretch_mode = TextureRect.STRETCH_SCALE
+    _background.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+    _background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    if ResourceLoader.exists(CREATION_BACKGROUND):
+        _background.texture = load(CREATION_BACKGROUND) as Texture2D
+    _root.add_child(_background)
+
+    _shade = ColorRect.new()
+    _shade.color = Color(0.02, 0.04, 0.08, 0.90)
+    _shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    _shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _root.add_child(_shade)
 
     var panel := PanelContainer.new()
     panel.name = "Panel"
@@ -362,13 +388,13 @@ func _build_interface() -> void:
     panel.position = Vector2(10, 4)
     panel.custom_minimum_size = Vector2(300, 232)
     panel.size = Vector2(300, 232)
-    var panel_style := StyleBoxFlat.new()
-    panel_style.bg_color = Color("#202c3c")
-    panel_style.border_color = Color("#7e95ae")
-    panel_style.set_border_width_all(1)
-    panel_style.set_corner_radius_all(3)
-    panel_style.set_content_margin_all(5)
-    panel.add_theme_stylebox_override("panel", panel_style)
+    _entry_panel_style = StyleBoxFlat.new()
+    _entry_panel_style.bg_color = Color("#202c3c")
+    _entry_panel_style.border_color = Color("#7e95ae")
+    _entry_panel_style.set_border_width_all(1)
+    _entry_panel_style.set_corner_radius_all(3)
+    _entry_panel_style.set_content_margin_all(5)
+    panel.add_theme_stylebox_override("panel", _entry_panel_style)
     _root.add_child(panel)
 
     var stack := VBoxContainer.new()
