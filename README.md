@@ -117,7 +117,11 @@ returns the previously equipped piece to the backpack, updates the
 class/defense panel and checkpoints progress.
 The Clothing tab retains the **original six selector rows**: Top,
 Top color, Pants, Pants color, Shoes and Shoes color, with their
-left/right arrows. On the right edge of each field name, a 14px
+left/right arrows. Gear names are stored in full, never abbreviated to
+fit a selector. When the value is wider than the space between arrows,
+a clipped 14px label pans smoothly left and back, with a pause at either
+end. Short values remain centered and stationary. This applies to all
+parameter selectors, including armor and the appearance creator. On the right edge of each field name, a 14px
 `current/total` counter (e.g. `2/10`) shows the active choice among
 **owned selectable choices**. The `None` option counts as a valid
 style choice; color selectors show `0/0` when the slot is empty.
@@ -185,13 +189,18 @@ The connected **Kvoka File Bridge** directory listing for the local
 The connected folder also contains `addons/Universal_LPC/resources/`
 with many spritesheets, but the brief catalog view did not establish
 complete male/female variant coverage or which light armor pieces should
-be imported. The LPC renderer now *optionally* overlays the matching
-heavy torso layer when `plate_cuirass` is equipped: female brass plate
-or male ceramic legion. If the corresponding valid sheet is absent,
-armor still equips and grants defense; its base garment remains visible.
-Light armor likewise works mechanically without a verified sprite overlay.
-Future work should verify both body types and licenses before shipping
-the full armor sets to PortMaster.
+be imported. The LPC renderer now overlays the matching heavy torso
+layer when a compatible sheet exists: female brass plate or male ceramic
+legion. For missing or incompatible heavy sheets, **and for both light
+vests**, it renders a provisional animated pixel-armor layer generated
+in Godot at the same 64x64 frame coordinates as the LPC body. These
+fallbacks cover the ordinary shirt in-world and in the 3× portrait:
+leather vest, reinforced vest and heavy cuirass all look distinct.
+The equipment remains validated separately from the display layer.
+These hand-authored fallback designs are **prototypes**, not claimed
+to be original Universal LPC artwork. Future work should confirm
+matching male/female LPC sheets and licenses before shipping the
+complete armor illustrations to PortMaster.
 
 ## Pause and Back navigation
 
