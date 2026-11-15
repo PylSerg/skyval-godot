@@ -495,11 +495,9 @@ func _confirm_equipment_selection() -> void:
     else:
         changed = bool(_inventory.call("equip", candidate_id, avatar))
     if changed:
-        # Equip/unequip emit 'changed'; that refreshes the preview and
-        # armor status. Checkpoint only real, confirmed equipment changes.
-        var menu: Node = get_parent().get_node_or_null("GameMenu")
-        if menu != null:
-            menu.call("save_checkpoint")
+        # Equip/unequip refresh the live avatar and inventory only.
+        # Progress is saved exclusively by the Save / Quick Save commands.
+        _update_compact_choice()
 
 
 func _update_row_highlight() -> void:
