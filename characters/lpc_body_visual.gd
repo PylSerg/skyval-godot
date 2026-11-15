@@ -1,8 +1,9 @@
 extends Node2D
 ## Skyval LPC renderer: synchronized body, human head, face, eyes, and hair.
 ## All layers use the SAME 64x64 LPC cells and animation timeline.
-## On desktop it discovers the user's local sprite library; for exports, pack
-## only selected, license-compliant sprites into res://assets/characters/lpc/.
+## On desktop it discovers the user's local sprite library; PortMaster can
+## load the full LPC PNG tree from SKYVAL_LPC_ROOT beside skyval.pck.
+## The previous small res://assets/characters/lpc/ fallback remains valid.
 
 const CELL := 64
 const IDLE_Y := 1408
@@ -82,6 +83,13 @@ func _candidate_dirs() -> PackedStringArray:
         if custom_dir.get_file() == "male" or custom_dir.get_file() == "female":
             custom_dir = custom_dir.get_base_dir().path_join(body_type)
         result.append(custom_dir)
+
+    # PortMaster installs the complete LPC PNG library outside the PCK.
+    # This allows a one-time SD transfer; later updates replace only the PCK.
+    # FileAccess/Image.load handle these absolute PNG paths at runtime.
+    var external_root: String = OS.get_environment("SKYVAL_LPC_ROOT").strip_edges()
+    if not external_root.is_empty():
+        result.append(external_root.path_join("body/bodies").path_join(body_type))
 
     var home: String = OS.get_environment("HOME")
     if not home.is_empty():
@@ -358,6 +366,11 @@ func _armor_idle_torso_coverage(pixels: Image, region: Rect2) -> int:
 # Only files that exist AND have the needed LPC animation atlas are used.
 func _armor_roots(body_root: String) -> PackedStringArray:
     var roots := PackedStringArray()
+    # Use the same full external LPC tree for plate, legion, leather and
+    # optional sleeveless lining. Do not require armor in the PCK.
+    var external_root: String = OS.get_environment("SKYVAL_LPC_ROOT").strip_edges()
+    if not external_root.is_empty():
+        roots.append(external_root)
     var home: String = OS.get_environment("HOME")
     if not home.is_empty():
         var local_res: String = home.path_join("Godot").path_join("res")
