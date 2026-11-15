@@ -1,6 +1,6 @@
-# Skyval / R36H: native-controller PortMaster test
+# Skyval / R36H: complete one-time LPC asset installation
 
-This is a developer test, not a public release. The port uses the shared
+This is a developer build, not a public release. The port uses the shared
 Godot 4.7.1 (aarch64) runtime and Westonpack 0.2 on ArkOS.
 
 ## Changes from the keyboard-mapped test
@@ -21,42 +21,92 @@ support gamepads. Native controller input has now been tested successfully
 on a physical R36H. Left-stick analog movement no longer competes with
 D-pad input; partial-tilt walking speed is verified on ArkOS/R36H.
 
-## Build on Linux
+## One-time FULL build on Kubuntu
 
 From the cloned `skyval-godot` directory:
 
 ```bash
+git pull --ff-only
 bash tools/build_portmaster.sh
 ```
 
-The script detects Godot 4.7.2 at the known local location; use
-`GODOT_BIN=/path/to/Godot` if needed. Override the sprite root with
-`LPC_SPRITES_ROOT=/path/to/spritesheets` if desired.
+This now defaults to **full assets**, NOT the old 14-PNG smoke test.
+The script automatically prefers your full Universal LPC addon at
+`~/Godot/res/addons/Universal_LPC/resources/spritesheets` and falls back
+to the other known local paths. If necessary, set an explicit source:
 
-Only 14 selected LPC PNGs and static **CascadiaMono-Regular.ttf** are
-bundled. The font is discovered through Kvoka File Bridge under
-`Cascadia_Mono/static/CascadiaMono-Regular.ttf` and should be installed
-once with `bash tools/install_cascadia.sh /full/path/to/ttf`. The builder
-prefers the project-local copy; `SKYVAL_FONT_PATH` overrides the location.
-Missing fonts fall back to the Godot default; the huge LPC library remains
-external.
+```bash
+LPC_SPRITES_ROOT="$HOME/Godot/res/addons/Universal_LPC/resources/spritesheets" \
+  bash tools/build_portmaster.sh --full-assets
+```
 
-Output:
+It copies the **whole LPC resource tree** (all available bodies, heads,
+eyes, hair, clothing, footwear, armor and other library resources)
+to `dist/portmaster/roms/ports/skyval/resources/lpc/`.
+It does not push these large assets into Git and does not import them
+into Godot's PCK. Godot loads needed PNGs from the SD card on demand.
+This first archive can therefore be large, depending on the local
+LPC library and free disk/SD space.
+
+All UI code, translations, title/creation JPEG backgrounds, and
+CascadiaMono-Regular.ttf remain **inside** the small `skyval.pck`.
+The font is auto-discovered or can be set with `SKYVAL_FONT_PATH`.
+Godot can be set with `GODOT_BIN` if not found automatically.
+
+**First-time output**: `dist/portmaster/Skyval_PortMaster_Full.zip`.
+
+Unzip the entire `Skyval.sh` and `skyval/` tree onto your SD
+under `roms/ports/` (or `roms2/ports/`). The layout must be:
 
 ```text
-dist/portmaster/Skyval_PortMaster_Test.zip
-dist/portmaster/roms/ports/
+roms/ports/
   Skyval.sh
   skyval/
     skyval.pck
-    README.txt
+    resources/lpc/
+      body/bodies/male/light.png
+      body/bodies/female/light.png
+      head/heads/human/...
+      hair/...
+      torso/armour/...
+      ...
+    saves/             (your existing character saves; KEEP THIS!)
+    conf/              (existing preferences; KEEP THIS!)
 ```
 
-Ensure the console has `godot_4.7.1` and `weston_pkg_0.2` installed
-through PortMaster Runtime Manager. Copy **both** the new `Skyval.sh`
-and `skyval/skyval.pck` to `roms/ports/` (or `roms2/ports/` for a
-two-card setup). Delete any old `skyval.gptk`: the new launcher does not
-read it.
+**NEVER delete the existing `skyval/` directory** on the console:
+merging the archive over it preserves `skyval/saves/`, `conf/`, and
+any existing logs. Do not manually replace/decompress the LPC PNGs
+individually. If transferring via a file manager, merge directories,
+overwrite matching game files, but leave `saves/` alone. Remove any
+obsolete `skyval.gptk` from the earlier keyboard-mapping version.
+
+Make sure the console has `godot_4.7.1` and `weston_pkg_0.2`
+installed via PortMaster Runtime Manager.
+
+## Smaller future updates (no asset recopy)
+
+Once the full library is on the SD card, use:
+
+```bash
+git pull --ff-only
+bash tools/build_portmaster.sh --code-only
+```
+
+This builds `dist/portmaster/Skyval_PortMaster_Update.zip`, with **only**
+`Skyval.sh`, `skyval/skyval.pck` and `skyval/README.txt`.
+Install it over the same `roms/ports/` path. The existing
+`skyval/resources/lpc/` is untouched. The old `--no-assets`
+argument is retained as an alias for `--code-only`.
+
+Runtime environment: `portmaster/Skyval.sh` passes
+`SKYVAL_LPC_ROOT="$GAMEDIR/resources/lpc"` to Godot. On startup it
+checks the body resource and reports a clear error to
+`roms/ports/skyval/log.txt` if the full first-install step was missed.
+No additional console configuration is required.
+
+**Asset licenses:** This is for private development/testing. Audit and
+preserve LPC licensing and credits before public distribution.
 
 ## Native controller mapping
 
