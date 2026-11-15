@@ -125,6 +125,49 @@ written in the same v1 save. Loading older v1 saves without inventory
 starts with an empty backpack and an unopened test chest, while keeping
 the already saved character appearance.
 
+## Armor classes and portrait information
+
+The 3× character portrait and its bottom divider have moved **upward**
+to make room for a two-line status block inside the right-side preview:
+
+- `Тканина` / `Cloth`, followed by `Броня +0` / `Armor +0`
+  for the existing clothing-only character
+- `Легка броня` / `Light armor`: default protection **+2**
+- `Важка броня` / `Heavy armor`: default protection **+5**
+
+These are **prototype game-balancing numbers**, not ratings from LPC.
+Every current clothing item declares `armor_class: "cloth"` and
+`armor_value: 0`. The item catalog also supports `light` / `heavy`,
+class-specific default values, and per-item armor-value overrides.
+`SkyvalInventory.get_total_armor()` sums equipped protection, while
+`get_equipped_armor_class()` reports the highest equipped class.
+`compare_item_armor(item_id)` calculates the change relative to the
+currently worn item in the same slot without equipping anything.
+The lower portrait panel currently displays the total for equipped items;
+prospective comparisons can use the comparison method in future equipment
+selection UI. Current saves remain compatible because these stats are
+looked up from item definitions, not added to save-file contents.
+
+### Universal LPC armor candidates (bridge catalog, 2026-11-15)
+
+The connected **Kvoka File Bridge** directory listing for the local
+`/home/serhii/Godot/res` resource folder confirms these exact paths:
+
+- `assets/lpc_sprites/torso/armour/plate/female/brass.png`
+- `assets/lpc_sprites/legs/armour/plate/female/brass.png`
+- `assets/lpc_sprites/feet/armour/plate/female/iron.png`
+- `assets/lpc_sprites/shoulders/plate/female/bronze.png`
+- `assets/lpc_sprites/torso/armour/legion/male/ceramic.png`
+
+The connected folder also contains `addons/Universal_LPC/resources/`
+with many spritesheets, but the brief catalog view did not establish
+complete male/female variant coverage or which light armor pieces should
+be imported. The paths above are **candidate asset layers**, not yet
+equippable armor: the current LPC rendering pipeline must support
+layer composition before these can be introduced safely. A heavy plate
+set is a reasonable first integration target after verifying compatible
+sprite sheets and the project's asset licenses.
+
 ## Pause and Back navigation
 
 The autoload `SkyvalUiPause` (`ui/pause_manager.gd`) tracks every blocking UI
