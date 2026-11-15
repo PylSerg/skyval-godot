@@ -1208,6 +1208,10 @@ func _update_compact_choice() -> void:
     if not appearance_window and _inventory != null:
         var slot: String = str(_inventory.call("get_equipment_slot", field_key))
         pending_change = _selected_equipment_id(field_key) != str(_inventory.call("get_equipped", slot))
+    if not appearance_window and _equip_hint != null:
+        # Keep the label's height reserved so browsing doesn't shift the
+        # interface. Only show A: equip for an unconfirmed selection.
+        _equip_hint.modulate.a = 1.0 if pending_change else 0.0
     _compact_choice_value.add_theme_color_override("font_color", ACTIVE_HIGHLIGHT if pending_change else Color("#f0f1ed"))
     _compact_prev.disabled = not _can_adjust_field(field_key, -1)
     _compact_next.disabled = not _can_adjust_field(field_key, 1)
