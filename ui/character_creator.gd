@@ -1099,7 +1099,7 @@ func _build_confirmation_overlay() -> void:
     _confirmation_accept = _label(MIN_UI_FONT_SIZE)
     _confirmation_accept.clip_text = false
     _confirmation_accept.custom_minimum_size.y = 22
-    _confirmation_accept.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    _confirmation_accept.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
     _confirmation_accept.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     _confirmation_accept.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
     _confirmation_accept.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -1109,7 +1109,7 @@ func _build_confirmation_overlay() -> void:
     _confirmation_cancel = _label(MIN_UI_FONT_SIZE)
     _confirmation_cancel.clip_text = false
     _confirmation_cancel.custom_minimum_size.y = 22
-    _confirmation_cancel.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    _confirmation_cancel.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
     _confirmation_cancel.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     _confirmation_cancel.add_theme_color_override("font_color", UiTheme.MUTED)
     _confirmation_cancel.mouse_filter = Control.MOUSE_FILTER_STOP
