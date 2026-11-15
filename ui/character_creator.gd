@@ -62,6 +62,10 @@ var _row_values: Array[Label] = []
 var _row_counters: Dictionary = {}
 # Inventory only: candidate item per field. Browsing does not equip it.
 var _equipment_preview: Dictionary = {}
+# Temporary LPC appearance for visual try-on; inventory stays untouched
+# until A confirms. Never let a trial outfit enter a save checkpoint.
+var _try_on_original_lpc: Dictionary = {}
+var _try_on_visual_key: String = ""
 var _row_scroll: ScrollContainer
 var _page_clip: Control
 var _action_hint: Label
@@ -388,6 +392,83 @@ func _browse_equipment(direction: int) -> void:
     _update_compact_choice()
 
 
+func _restore_equipment_try_on() -> void:
+    if _try_on_original_lpc.is_empty():
+        return
+    var lpc: Node2D = avatar.get_lpc_character()
+    if lpc != null:
+        if not bool(lpc.call("apply_appearance_state", _try_on_original_lpc)):
+            push_warning("Skyval: couldn't restore the original outfit after preview.")
+    _try_on_original_lpc.clear()
+    _try_on_visual_key = ""
+    if is_instance_valid(_preview) and _preview.has_method("clear_frame_cache"):
+        _preview.call("clear_frame_cache")
+
+
+func _preview_equipment_on_character(field: String) -> void:
+    if appearance_window or _inventory == null or not avatar.has_lpc_character():
+        return
+    var slot: String = str(_inventory.call("get_equipment_slot", field))
+    var candidate_id: String = _selected_equipment_id(field)
+    var actual_id: String = str(_inventory.call("get_equipped", slot))
+    if slot.is_empty() or candidate_id == actual_id:
+        _restore_equipment_try_on()
+        return
+
+    var item: Dictionary = _inventory.call("get_item", candidate_id)
+    # Unknown or unsupported equipment locations have no LPC layer yet.
+    if not candidate_id.is_empty() and item.is_empty():
+        _restore_equipment_try_on()
+        return
+    if slot not in ["armor", "shirt", "pants", "footwear"]:
+        _restore_equipment_try_on()
+        return
+
+    var lpc: Node2D = avatar.get_lpc_character()
+    if lpc == null or not lpc.has_method("export_appearance_state"):
+        return
+    if _try_on_original_lpc.is_empty():
+        _try_on_original_lpc = lpc.call("export_appearance_state")
+
+    var key: String = "%s:%s" % [field, candidate_id]
+    if key == _try_on_visual_key:
+        return
+
+    # Always build from the actual worn outfit, rather than accumulating
+    # previous trial changes. This also restores the shirt when leaving
+    # an armor preview without pressing A.
+    var desired: Dictionary = _try_on_original_lpc.duplicate(true)
+    var style: String = "none" if candidate_id.is_empty() else str(item.get("style", "none"))
+    match slot:
+        "armor":
+            desired["armor_style"] = style
+            if not candidate_id.is_empty():
+                desired["shirt_style"] = "none"
+        "shirt":
+            desired["shirt_style"] = style
+            if not candidate_id.is_empty():
+                desired["shirt_variant"] = str(item.get("variant", desired.get("shirt_variant", "blue")))
+                desired["armor_style"] = "none"
+        "pants":
+            desired["pants_style"] = style
+            if not candidate_id.is_empty():
+                desired["pants_variant"] = str(item.get("variant", desired.get("pants_variant", "charcoal")))
+        "footwear":
+            desired["footwear_style"] = style
+            if not candidate_id.is_empty():
+                desired["boots_variant"] = str(item.get("variant", desired.get("boots_variant", "brown")))
+
+    # Rendering only: no InventoryState mutation, changed signal or save.
+    # The LPC renderer validates all required atlas files before swapping
+    # sprites, so a missing armor sheet won't corrupt the existing outfit.
+    if not bool(lpc.call("apply_appearance_state", desired)):
+        _restore_equipment_try_on()
+        return
+    _try_on_visual_key = key
+    if is_instance_valid(_preview) and _preview.has_method("clear_frame_cache"):
+        _preview.call("clear_frame_cache")
+
+
 func _confirm_equipment_selection() -> void:
     if _inventory == null or appearance_window:
         return
@@ -403,6 +484,9 @@ func _confirm_equipment_selection() -> void:
     var equipped_id: String = str(_inventory.call("get_equipped", slot))
     if candidate_id == equipped_id:
         return
+    # Restore the real LPC layers BEFORE invoking InventoryState.equip().
+    # Otherwise a visual-only try-on could leak into a persisted outfit.
+    _restore_equipment_try_on()
     # Ownership and LPC art are validated by InventoryState before
     # actually changing the character. Browsing alone never reaches here.
     var changed: bool = false
@@ -518,6 +602,10 @@ func close_for_menu() -> void:
 func _set_open(next_open: bool) -> void:
     if _opened == next_open:
         return
+    if not next_open and not appearance_window:
+        # Main menu can request a checkpoint immediately after closing
+        # Backpack. Restore trial sprites before the menu saves the avatar.
+        _restore_equipment_try_on()
     _opened = next_open
     # Invalidate any unfinished layout operation if the window closes
     # or reopens while the previous layout is being initialized.
@@ -807,6 +895,8 @@ func _set_tab(next_tab: int) -> void:
     if _page_tween != null and _page_tween.is_running():
         return
 
+    # A pending try-on belongs to the previous tab, not to the avatar.
+    _restore_equipment_try_on()
     # Reuse the same field/portrait system. Only the left scroll page slides;
     # the 3x character preview never moves.
     var outgoing: ScrollContainer = _row_scroll
@@ -1123,6 +1213,8 @@ func _update_compact_choice() -> void:
     _compact_next.disabled = not _can_adjust_field(field_key, 1)
     _value_labels[field_key] = _compact_choice_value
     _value_windows[field_key] = _compact_choice_window
+    if not appearance_window:
+        _preview_equipment_on_character(field_key)
     _refresh_armor_status()
     call_deferred("_refresh_all_value_marquees")
 
