@@ -12,7 +12,7 @@ scenes; the UI is designed for this size.
 buttons and analog axes directly on desktop and on R36H. The same code path
 is used for both targets.
 
-| Control | World | Character creator |
+| Control | World | Wardrobe/backpack |
 |---|---|---|
 | Left stick | Analog walk (speed depends on tilt) | Select item / change value |
 | D-pad ↓ | Reserved for future quick actions | Next item |
@@ -22,7 +22,7 @@ is used for both targets.
 | Start or R3 | Open main menu | Open main menu (closes backpack) |
 | B | Reserved | Close backpack |
 | X | Reserved | Reserved |
-| A | Interact with nearby test chest | Equip selected item / unequip selected slot |
+| A | Interact with nearby test chest | Cycle owned option in selected field |
 | L1 / R1 | Reserved | Reserved |
 
 Press **Select / Back** or **L3** in the world to open the **backpack**.
@@ -92,14 +92,19 @@ brown pants, navy cuffed pants, brown boots and black shoes.
 Items are uniquely identified, transferred one by one, and never created
 by cycling arbitrary LPC clothing variants.
 
-Open the backpack with Select/L3. Its **Equipped** section shows
-top, trousers and footwear, including empty slots. Press **A** on an
-equipped item to put it back into the bag. Its **In backpack** section
-lists only physically owned items. Press **A** on a bag item to equip it,
-moving any previously equipped item of the same slot into the bag.
-The existing LPC sprite validation still applies: when a required
-sprite is missing, the failed equipment change leaves inventory and
-the previous appearance untouched.
+Open the wardrobe/backpack with Select/L3. It retains the **original
+six selector rows** and the 3× character preview: Top, Top color, Pants,
+Pants color, Shoes and Shoes color, each with its left/right arrows.
+The selectable values now come only from clothes the character already
+wears or has taken from the chest. **No separate Equipped / In backpack
+sections** are displayed. The player's unused owned garments remain in
+the backpack state and become available through the original selectors.
+Changing the style equips an owned garment (returning the previous one
+to the backpack); changing its color cycles only through *owned*
+variants of that style. Selecting **None / Немає** in a style row
+unequips the garment. If no alternatives are owned, the relevant arrows
+are disabled. The LPC sprite validation still applies: failed changes
+leave items and appearance untouched.
 
 The game checkpoints after taking items and after equipment changes.
 The backpack, equipped slots and unlooted chest contents are also
@@ -136,10 +141,9 @@ The creator pauses world movement. Its right-stick rotation cycles through
 The stick must return to center before another step. Vertical right-stick
 motions do nothing in the creator.
 
-The backpack and appearance editor share the same 3× character portrait.
-The backpack has equipped slots and owned items; the appearance window
-has single-column full-width selectors. They are **separate windows**
-without tabs. Shared fixed panel insets (7px),
+The wardrobe/backpack and appearance editor share the same 3× character
+portrait and single-column full-width selectors. They are **separate
+windows** without tabs. Shared fixed panel insets (7px),
 group spacing (12px), and inner field spacing (5px) preserve the 320×240
 layout. Overflowing fields scroll vertically and reveal the selection,
 with a hidden vertical bar. Horizontal right-stick flick rotates the
@@ -162,9 +166,9 @@ without increasing the world-render resolution. The code also checks
 Ukrainian glyphs and uses a built-in fallback only when needed. The previous Latin-only
 `assets/fonts/Cascadia.ttf` is no longer used by the UI.
 
-Empty equipment slots display **None / Немає**; equipped garments can
-be unequipped into the backpack individually. No quick-undress shortcut
-or in-world language switch is present.
+Empty clothing styles display **None / Немає** in both the style
+and color fields. Changing a style to None returns the worn item to
+the backpack. There is no quick-undress shortcut or in-world language switch.
 
 ## Appearance and localization
 
