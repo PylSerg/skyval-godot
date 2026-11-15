@@ -362,10 +362,19 @@ func cycle_armor(direction: int, avatar: Node) -> bool:
     var index: int = options.find(equipped_id)
     if index < 0:
         return false
-    var next_id: String = options[posmod(index + (1 if direction >= 0 else -1), options.size())]
-    if next_id.is_empty():
-        return unequip("armor", avatar)
-    return equip(next_id, avatar)
+
+    # A single missing/malformed LPC sprite must not trap the player on
+    # the same item forever. Try the next owned option in the requested
+    # direction, preserving inventory if an equip attempt fails.
+    var step_direction: int = 1 if direction >= 0 else -1
+    for offset in range(1, options.size()):
+        var next_id: String = options[posmod(index + offset * step_direction, options.size())]
+        if next_id.is_empty():
+            if unequip("armor", avatar):
+                return true
+        elif equip(next_id, avatar):
+            return true
+    return false
 
 
 # One LPC rebuild applies BOTH layers in a single, validated step.
