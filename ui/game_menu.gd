@@ -71,9 +71,13 @@ func _ready() -> void:
     _name_entry = NameEntryScript.new() as CanvasLayer
     _name_entry.name = "CharacterNameEntry"
     _name_entry.layer = 5
-    get_parent().add_child(_name_entry)
-    # The world may still be dispatching ready callbacks for its children.
-    # Initialize the dynamically created sibling before any appearance flow.
+    # Never add a sibling to the world from GameMenu._ready(): the
+    # world may still be setting up its children, so add_child() fails
+    # and leaves NameEntry detached (get_tree() == null on opening).
+    # Attach the layer to GameMenu itself, which is ready to add children.
+    add_child(_name_entry)
+    if not _name_entry.is_inside_tree():
+        push_error("Skyval: CharacterNameEntry was not added to SceneTree.")
     _name_entry.call("ensure_initialized")
     _name_entry.connect("accepted", Callable(self, "_on_name_confirmed"))
     _name_entry.connect("cancelled", Callable(self, "_on_name_cancelled"))
