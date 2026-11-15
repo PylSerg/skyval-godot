@@ -44,6 +44,13 @@ On a fresh install, Continue is disabled. New Game first resets a
 hairstyle and hair color, then select **Create character / Створити
 персонажа** at the bottom of the scrollable list and press **A**.
 Only then is the new save committed and the paused world started.
+At creation time, the starting LPC outfit depends on the selected body type:
+**male** gets only **formal trousers** (no shirt, no shoes), while **female**
+gets **formal trousers plus a T-shirt** (no shoes). The draft outfit updates
+when gender changes during creation. These defaults are applied only to
+**New Game**, never when continuing an existing save or editing appearance
+later. If required LPC sprite sheets are unavailable, the old valid
+appearance is retained and a warning is logged.
 **B** cancels appearance creation and returns to the main menu without
 overwriting a previous save. An existing save still requires the
 New Game overwrite-intent confirmation (A confirms, B cancels).
