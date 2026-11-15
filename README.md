@@ -148,6 +148,15 @@ anchored inside the page width, and longer item names keep their own
 clipped horizontal marquee. This fix is based on recorded behavior and
 source inspection; it still needs a Godot runtime retest.
 
+**Compact choice arrows:** The shared five-field equipment selector and
+the appearance creator use the same compact 14px-wide left/right
+buttons (down from 22px). Their chevron font stays at the 14px minimum
+and button content padding is removed, while the 21px button height is
+unchanged. Only 2px of gap is reserved on either side of the name
+viewport, so the full item/appearance label gains 16px of space. Long
+values retain the horizontal forward/back marquee. Heading counters,
+12px panel padding and the first-open sizing fix are unchanged.
+
 Each row has a right-edge
 `current/total` counter such as `2/5`, counting **only equipped or
 owned physical items**. **None / Немає never contributes to either number**:
