@@ -7,6 +7,7 @@ signal cancelled
 const LocaleScript = preload("res://localization/localization.gd")
 const FONT_PATH := "res://assets/fonts/CascadiaMono-Regular.ttf"
 const CREATION_BACKGROUND := "res://assets/images/create_hero_bg.jpg"
+const UiTheme = preload("res://ui/skyval_theme.gd")
 const FONT_SIZE := 14
 const GRID_COLUMNS := 8
 const NAME_WIDTH := 264.0
@@ -122,10 +123,12 @@ func _apply_purpose_style() -> void:
     # sequence. Manual save naming stays a neutral utility window.
     var scenic: bool = _purpose == "character" and _background.texture != null
     _background.visible = scenic
-    _shade.color = Color(0.02, 0.03, 0.07, 0.17) if scenic else Color(0.02, 0.04, 0.08, 0.90)
-    _entry_panel_style.bg_color = Color(0.055, 0.085, 0.14, 0.83) if scenic else Color("#202c3c")
-    _entry_panel_style.border_color = Color("#d6b77c") if scenic else Color("#7e95ae")
-    _title.add_theme_color_override("font_color", Color("#f9e3af") if scenic else Color("#f0f1ed"))
+    # Character naming keeps its artwork; manual Save overlays the game.
+    # Both use the same gold-rimmed panel with enough opacity for 14px.
+    _shade.color = Color(0.02, 0.03, 0.07, 0.17 if scenic else 0.23)
+    _entry_panel_style.bg_color = Color(0.055, 0.085, 0.14, 0.86 if scenic else 0.93)
+    _entry_panel_style.border_color = Color("#d6b77c")
+    _title.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
 
 
 func _hint_key() -> String:
@@ -261,6 +264,7 @@ func _rebuild_keyboard() -> void:
         button.add_theme_font_size_override("font_size", FONT_SIZE)
         if _font != null:
             button.add_theme_font_override("font", _font)
+        UiTheme.apply_button(button, false, false, 1.0)
         button.pressed.connect(_select_key.bind(i))
         grid.add_child(button)
         _key_buttons.append(button)
@@ -271,19 +275,9 @@ func _rebuild_keyboard() -> void:
 
 func _update_key_highlight() -> void:
     for i in range(_key_buttons.size()):
-        var selected: bool = i == _selected
-        var style := StyleBoxFlat.new()
-        style.bg_color = Color("#567895") if selected else Color("#354960")
-        style.border_color = ACTIVE if selected else Color("#667f9a")
-        style.set_border_width_all(1)
-        style.set_content_margin_all(1)
-        _key_buttons[i].add_theme_stylebox_override("normal", style)
-        _key_buttons[i].add_theme_stylebox_override("hover", style)
-        _key_buttons[i].add_theme_stylebox_override("pressed", style)
-        var color: Color = ACTIVE if selected else Color("#f0f1ed")
-        _key_buttons[i].add_theme_color_override("font_color", color)
-        _key_buttons[i].add_theme_color_override("font_hover_color", color)
-        _key_buttons[i].add_theme_color_override("font_pressed_color", color)
+        # The controller cursor matches the same gold selection as every
+        # menu, chest and equipment field; keyboard geometry is unchanged.
+        UiTheme.apply_button(_key_buttons[i], i == _selected, false, 1.0)
 
 
 func _select_key(index: int) -> void:
@@ -395,12 +389,7 @@ func _build_interface() -> void:
     panel.position = Vector2(10, 4)
     panel.custom_minimum_size = Vector2(300, 232)
     panel.size = Vector2(300, 232)
-    _entry_panel_style = StyleBoxFlat.new()
-    _entry_panel_style.bg_color = Color("#202c3c")
-    _entry_panel_style.border_color = Color("#7e95ae")
-    _entry_panel_style.set_border_width_all(1)
-    _entry_panel_style.set_corner_radius_all(3)
-    _entry_panel_style.set_content_margin_all(5)
+    _entry_panel_style = UiTheme.panel_style(0.90, 5.0)
     panel.add_theme_stylebox_override("panel", _entry_panel_style)
     _root.add_child(panel)
 
@@ -410,6 +399,7 @@ func _build_interface() -> void:
     panel.add_child(stack)
 
     _title = _new_label(16)
+    _title.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
     _title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _title.custom_minimum_size.y = 18
     stack.add_child(_title)
@@ -441,6 +431,7 @@ func _build_interface() -> void:
     keyboard_center.add_child(grid)
 
     _hint = _new_label(FONT_SIZE)
+    _hint.add_theme_color_override("font_color", UiTheme.MUTED)
     _hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _hint.custom_minimum_size.y = 33
@@ -451,7 +442,7 @@ func _build_interface() -> void:
     _confirm_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
     _root.add_child(_confirm_overlay)
     var confirmation_shade := ColorRect.new()
-    confirmation_shade.color = Color(0.03, 0.06, 0.10, 0.9)
+    confirmation_shade.color = Color(0.02, 0.03, 0.07, 0.50)
     confirmation_shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     confirmation_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
     _confirm_overlay.add_child(confirmation_shade)
@@ -459,22 +450,20 @@ func _build_interface() -> void:
     confirmation_panel.position = Vector2(20, 65)
     confirmation_panel.custom_minimum_size = Vector2(280, 110)
     confirmation_panel.size = Vector2(280, 110)
-    var confirm_style := StyleBoxFlat.new()
-    confirm_style.bg_color = Color("#202c3c")
-    confirm_style.border_color = ACTIVE
-    confirm_style.set_border_width_all(1)
-    confirm_style.set_content_margin_all(8)
+    var confirm_style: StyleBoxFlat = UiTheme.panel_style(0.97, 8.0)
     confirmation_panel.add_theme_stylebox_override("panel", confirm_style)
     _confirm_overlay.add_child(confirmation_panel)
     var confirmation_stack := VBoxContainer.new()
     confirmation_stack.add_theme_constant_override("separation", 8)
     confirmation_panel.add_child(confirmation_stack)
     _confirm_message = _new_label(FONT_SIZE)
+    _confirm_message.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
     _confirm_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _confirm_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _confirm_message.custom_minimum_size.y = 47
     confirmation_stack.add_child(_confirm_message)
     _confirm_hint = _new_label(FONT_SIZE)
+    _confirm_hint.add_theme_color_override("font_color", UiTheme.MUTED)
     _confirm_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _confirm_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     confirmation_stack.add_child(_confirm_hint)
