@@ -209,6 +209,21 @@ currently worn garment or claiming armor protection**. The user
 keeps the armor in the backpack; previously saved armor items are
 preserved in the backpack if their source art is missing.
 
+**Leather-vest front visibility (video inspection, 2026-11-15):**
+The existing `torso/armour/leather` overlay appeared on the character's
+back but left the front chest exposed in both the 3× portrait and the
+world. The fix uses **two existing Universal LPC sprite layers** rather
+than any generated/painted armor: the leather armour overlay at z=45,
+plus a sleeveless LPC leather/brown torso layer at z=40, from
+`torso/clothes/sleeveless/sleeveless/<female|male>/`. The runtime
+discovers installed colors and verifies that the chosen lining has
+non-transparent central torso pixels in all four idle **and** walk
+directions. If no compatible lining exists, the equip is declined,
+leaving the original outfit and inventory unchanged instead of
+pretending that a bare torso is covered. The connected file bridge
+verified the sleeveless folder structure but did not expose the exact
+PNG variants; the new runtime selection still needs a Godot visual test.
+
 **Torso exclusivity:** Equipping torso armor sets shirt style to
 `none` and returns the previously equipped shirt to the backpack.
 Equipping any shirt sets armor style to `none` and returns its armor
