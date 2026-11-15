@@ -33,6 +33,10 @@ const PANEL_INSET := 7
 const FIELD_GROUP_SPACING := 12
 const FIELD_CONTENT_PADDING := FIELD_GROUP_SPACING
 const FIELD_INNER_SPACING := 5
+# Compact chevrons preserve the 14px minimum glyph size and free 16px
+# of horizontal space for long item names in the 320px layout.
+const SELECTOR_ARROW_WIDTH := 14.0
+const SELECTOR_ARROW_GAP := 2.0
 # This script is instantiated twice: the tabbed backpack in the scene,
 # and appearance as an independent, reusable window.
 @export var appearance_window: bool = false
@@ -800,6 +804,23 @@ func _button() -> Button:
     button.add_theme_stylebox_override("pressed", pressed)
     return button
 
+func _selector_arrow_button() -> Button:
+    # The regular button has 18px text and padded styleboxes. Override
+    # only the small selector arrows: keep a readable 14px chevron while
+    # removing padding that would otherwise impose a >14px minimum width.
+    var button: Button = _button()
+    button.add_theme_font_size_override("font_size", MIN_UI_FONT_SIZE)
+    for style_name in ["normal", "hover", "pressed"]:
+        var style: StyleBoxFlat = button.get_theme_stylebox(style_name) as StyleBoxFlat
+        if style != null:
+            style.set_content_margin_all(0)
+    var disabled_style: StyleBoxFlat = button.get_theme_stylebox("normal").duplicate() as StyleBoxFlat
+    disabled_style.bg_color = Color("#263443")
+    disabled_style.border_color = Color("#415266")
+    button.add_theme_stylebox_override("disabled", disabled_style)
+    return button
+
+
 func _label(font_size: int) -> Label:
     var label := Label.new()
     label.add_theme_font_size_override("font_size", maxi(font_size, MIN_UI_FONT_SIZE))
@@ -908,13 +929,13 @@ func _rebuild_rows() -> void:
         choice_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         field_box.add_child(choice_row)
 
-        var previous := _button()
+        var previous := _selector_arrow_button()
         previous.text = _tr("ui.previous")
-        previous.custom_minimum_size = Vector2(22, 21)
+        previous.custom_minimum_size = Vector2(SELECTOR_ARROW_WIDTH, 21)
         previous.disabled = not _can_adjust_field(key, -1)
         choice_row.add_child(previous)
         previous.position = Vector2.ZERO
-        previous.size = Vector2(22, 21)
+        previous.size = Vector2(SELECTOR_ARROW_WIDTH, 21)
         previous.pressed.connect(_adjust.bind(key, -1, index))
 
         # A fixed clipped viewport extends only between the arrow slots.
@@ -924,8 +945,8 @@ func _rebuild_rows() -> void:
         value_window.mouse_filter = Control.MOUSE_FILTER_IGNORE
         choice_row.add_child(value_window)
         value_window.anchor_right = 1.0
-        value_window.offset_left = 24.0
-        value_window.offset_right = -24.0
+        value_window.offset_left = SELECTOR_ARROW_WIDTH + SELECTOR_ARROW_GAP
+        value_window.offset_right = -(SELECTOR_ARROW_WIDTH + SELECTOR_ARROW_GAP)
         value_window.offset_bottom = 21.0
 
         var value_label := _label(MIN_UI_FONT_SIZE)
@@ -939,14 +960,14 @@ func _rebuild_rows() -> void:
         _row_values.append(value_label)
         value_window.resized.connect(_update_value_marquee.bind(key))
 
-        var following := _button()
+        var following := _selector_arrow_button()
         following.text = _tr("ui.next")
-        following.custom_minimum_size = Vector2(22, 21)
+        following.custom_minimum_size = Vector2(SELECTOR_ARROW_WIDTH, 21)
         following.disabled = not _can_adjust_field(key, 1)
         choice_row.add_child(following)
         following.anchor_left = 1.0
         following.anchor_right = 1.0
-        following.offset_left = -22.0
+        following.offset_left = -SELECTOR_ARROW_WIDTH
         following.offset_right = 0.0
         following.offset_bottom = 21.0
         following.pressed.connect(_adjust.bind(key, 1, index))
