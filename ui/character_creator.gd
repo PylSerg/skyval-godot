@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Shared single-category window for wardrobe and standalone appearance creation.
+## Shared character UI: tabbed backpack plus standalone appearance creation.
 ## Text lives exclusively in localization/strings.json.
 
 const PreviewScript = preload("res://ui/character_preview.gd")
@@ -10,6 +10,9 @@ const CLOTHING_FIELDS := [
     "pants_style", "pants_variant",
     "footwear_style", "boots_variant",
 ]
+const BACKPACK_TABS := ["ui.clothes", "inventory.tab.armor", "inventory.tab.weapons"]
+const TAB_SLIDE_SECONDS := 0.18
+const TAB_HORIZONTAL_PADDING := 8
 # Use only native joypad buttons and axes; avoid GUI double input.
 const NAV_DEBOUNCE_MS := 100
 const LEFT_STICK_PRESS := 0.65
@@ -17,12 +20,12 @@ const LEFT_STICK_RELEASE := 0.42
 const RIGHT_STICK_PRESS := 0.65
 const RIGHT_STICK_RELEASE := 0.35
 
-# Shared across Appearance and Clothing, so switching tabs does not
-# change panel insets or the vertical rhythm of the controls.
+# Shared across the standalone Appearance window and all backpack tabs
+# to preserve the small-screen insets and row spacing.
 const PANEL_INSET := 7
 const FIELD_GROUP_SPACING := 12
 const FIELD_INNER_SPACING := 5
-# This script is instantiated twice: clothing in the existing scene,
+# This script is instantiated twice: the tabbed backpack in the scene,
 # and appearance as an independent, reusable window.
 @export var appearance_window: bool = false
 
@@ -35,6 +38,10 @@ var _opened: bool = false
 var _creation_mode: bool = false
 var _edit_snapshot: Dictionary = {}
 var _selected_index: int = 0
+var _active_tab: int = 0
+var _tab_scroll: ScrollContainer
+var _tab_buttons: Array[Button] = []
+var _page_tween: Tween
 var _row_labels: Array[Label] = []
 var _row_values: Array[Label] = []
 var _row_scroll: ScrollContainer
@@ -193,6 +200,12 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
                 _accept_appearance()
             else:
                 _adjust_selected(1)
+        JOY_BUTTON_LEFT_SHOULDER:
+            if not appearance_window:
+                _set_tab(posmod(_active_tab - 1, BACKPACK_TABS.size()))
+        JOY_BUTTON_RIGHT_SHOULDER:
+            if not appearance_window:
+                _set_tab(posmod(_active_tab + 1, BACKPACK_TABS.size()))
         JOY_BUTTON_DPAD_UP:
             _move_selection(-1)
         JOY_BUTTON_DPAD_DOWN:
@@ -296,7 +309,9 @@ func _update_row_highlight() -> void:
 
 
 func _current_fields() -> Array:
-    return APPEARANCE_FIELDS if appearance_window else CLOTHING_FIELDS
+    if appearance_window:
+        return APPEARANCE_FIELDS
+    return CLOTHING_FIELDS if _active_tab == 0 else []
 
 
 func is_open() -> bool:
@@ -417,11 +432,32 @@ func _build_interface() -> void:
     stack.add_theme_constant_override("separation", 4)
     panel.add_child(stack)
 
-    # Each window owns one category, so there are no switching tabs.
+    # Appearance stays a standalone window. The backpack restores
+    # its category strip with automatic horizontal scrolling.
     _title_label = _label(18)
     _title_label.custom_minimum_size.y = 24
     _title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     stack.add_child(_title_label)
+
+    if not appearance_window:
+        _tab_scroll = ScrollContainer.new()
+        _tab_scroll.custom_minimum_size.y = 25
+        _tab_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        _tab_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+        _tab_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+        stack.add_child(_tab_scroll)
+
+        var tabs := HBoxContainer.new()
+        tabs.add_theme_constant_override("separation", 2)
+        _tab_scroll.add_child(tabs)
+        for index in range(BACKPACK_TABS.size()):
+            var tab: Button = _button()
+            tab.add_theme_font_size_override("font_size", 13)
+            tab.custom_minimum_size.y = 21
+            tab.size_flags_horizontal = Control.SIZE_FILL
+            tab.pressed.connect(_set_tab.bind(index))
+            tabs.add_child(tab)
+            _tab_buttons.append(tab)
 
     # Keep the scrollable single-column fields inside the left panel.
     _page_clip = Control.new()
@@ -448,6 +484,68 @@ func _build_interface() -> void:
     _root.add_child(_missing_label)
 
     _refresh_text()
+
+
+func _set_tab(next_tab: int) -> void:
+    if appearance_window or not _opened:
+        return
+    if next_tab < 0 or next_tab >= BACKPACK_TABS.size() or next_tab == _active_tab:
+        return
+    if _page_tween != null and _page_tween.is_running():
+        return
+
+    # Reuse the same field/portrait system. Only the left scroll page slides;
+    # the 3x character preview never moves.
+    var outgoing: ScrollContainer = _row_scroll
+    var width: float = _page_clip.size.x
+    var travel: float = -1.0 if next_tab > _active_tab else 1.0
+    _active_tab = next_tab
+    _selected_index = 0
+
+    _row_scroll = _create_page_scroll()
+    _page_clip.add_child(_row_scroll)
+    _row_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    _refresh_text()
+
+    if width <= 0.0:
+        outgoing.queue_free()
+        return
+    _row_scroll.position.x = -travel * width
+    _page_tween = create_tween()
+    _page_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+    _page_tween.set_trans(Tween.TRANS_CUBIC)
+    _page_tween.set_ease(Tween.EASE_OUT)
+    _page_tween.tween_property(outgoing, "position:x", travel * width, TAB_SLIDE_SECONDS)
+    _page_tween.parallel().tween_property(_row_scroll, "position:x", 0.0, TAB_SLIDE_SECONDS)
+    _page_tween.finished.connect(outgoing.queue_free)
+
+
+func _update_tab_styles() -> void:
+    for index in range(_tab_buttons.size()):
+        var tab: Button = _tab_buttons[index]
+        var selected: bool = index == _active_tab
+        var style := StyleBoxFlat.new()
+        style.bg_color = Color("#597a9b") if selected else Color("#354960")
+        style.border_color = Color("#e7ca86") if selected else Color("#667f9a")
+        style.set_border_width_all(1)
+        style.set_content_margin_all(2)
+        style.set_content_margin(SIDE_LEFT, TAB_HORIZONTAL_PADDING)
+        style.set_content_margin(SIDE_RIGHT, TAB_HORIZONTAL_PADDING)
+        tab.add_theme_stylebox_override("normal", style)
+        var hover := style.duplicate() as StyleBoxFlat
+        hover.bg_color = Color("#6a8cac") if selected else Color("#4c6986")
+        tab.add_theme_stylebox_override("hover", hover)
+        tab.add_theme_color_override("font_color", Color("#fff0c8") if selected else Color("#edf1f5"))
+
+
+func _reveal_active_tab() -> void:
+    var intended_tab: int = _active_tab
+    await get_tree().process_frame
+    if appearance_window or _tab_scroll == null or intended_tab != _active_tab:
+        return
+    if intended_tab >= 0 and intended_tab < _tab_buttons.size():
+        _tab_scroll.ensure_control_visible(_tab_buttons[intended_tab])
+
 
 func _create_page_scroll() -> ScrollContainer:
     var scroll := ScrollContainer.new()
@@ -502,7 +600,12 @@ func _label(font_size: int) -> Label:
 func _refresh_text() -> void:
     if _title_label == null:
         return
-    _title_label.text = _tr("ui.appearance") if appearance_window else _tr("ui.clothes")
+    _title_label.text = _tr("ui.appearance") if appearance_window else _tr("inventory.title")
+    if not appearance_window:
+        for index in range(_tab_buttons.size()):
+            _tab_buttons[index].text = _tr(str(BACKPACK_TABS[index]))
+        _update_tab_styles()
+        _reveal_active_tab()
     _missing_label.text = _tr("ui.missing_lpc")
     _missing_label.visible = not avatar.has_lpc_character()
     _preview.set("character", avatar.get_lpc_character())
@@ -520,6 +623,20 @@ func _rebuild_rows() -> void:
 
     _confirm_button = null
     var fields: Array = _current_fields()
+    if not appearance_window and _active_tab != 0:
+        var placeholder := VBoxContainer.new()
+        placeholder.add_theme_constant_override("separation", 10)
+        _rows.add_child(placeholder)
+        var caption := _label(15)
+        caption.text = _tr(str(BACKPACK_TABS[_active_tab]))
+        caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        placeholder.add_child(caption)
+        var empty_text := _label(12)
+        empty_text.text = _tr("inventory.empty_category")
+        empty_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        empty_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        placeholder.add_child(empty_text)
+
     for property_key in fields:
         var index: int = _row_labels.size()
         var key: String = str(property_key)
