@@ -20,9 +20,9 @@ const ITEMS := {
 # Future LPC armor pieces will declare their own class and protection
 # value. Class ranks describe the material tier; armor_value is additive.
 const ARMOR_CLASSES := {
-    "cloth": {"rank": 0, "label": "armor.class.cloth"},
-    "light": {"rank": 1, "label": "armor.class.light"},
-    "heavy": {"rank": 2, "label": "armor.class.heavy"},
+    "cloth": {"rank": 0, "label": "armor.class.cloth", "default_value": 0},
+    "light": {"rank": 1, "label": "armor.class.light", "default_value": 2},
+    "heavy": {"rank": 2, "label": "armor.class.heavy", "default_value": 5},
 }
 
 const TEST_CHEST_ITEMS := [
@@ -88,7 +88,12 @@ func get_item_armor_class(item_id: String) -> String:
 
 func get_item_armor_value(item_id: String) -> int:
     var info: Dictionary = get_item(item_id)
-    return maxi(int(info.get("armor_value", 0)), 0)
+    if info.is_empty():
+        return 0
+    # Each item can override its tier's default value independently.
+    var armor_class: String = get_item_armor_class(item_id)
+    var base: int = int(ARMOR_CLASSES[armor_class]["default_value"])
+    return maxi(int(info.get("armor_value", base)), 0)
 
 
 func get_total_armor() -> int:
