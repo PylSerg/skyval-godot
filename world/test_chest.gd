@@ -212,6 +212,8 @@ func _refresh() -> void:
     _empty.text = _tr("chest.empty")
     var stock: Array[String] = _inventory.call("get_chest")
     for child in _rows.get_children():
+        if child == _empty:
+            continue
         _rows.remove_child(child)
         child.queue_free()
     _buttons.clear()
