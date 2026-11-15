@@ -279,11 +279,12 @@ func _build_interface() -> void:
     panel_style.border_color = Color("#7e95ae")
     panel_style.set_border_width_all(1)
     panel_style.set_corner_radius_all(3)
-    panel_style.set_content_margin_all(5)
+    # Keep text and choice arrows away from the panel frame.
+    panel_style.set_content_margin_all(7)
     panel.add_theme_stylebox_override("panel", panel_style)
 
     var stack := VBoxContainer.new()
-    stack.add_theme_constant_override("separation", 3)
+    stack.add_theme_constant_override("separation", 4)
     panel.add_child(stack)
 
     # The tabs are now the top row. Controller shortcuts replace the
@@ -309,13 +310,16 @@ func _build_interface() -> void:
     _row_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     _row_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
     _row_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-    _row_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+    # Make the scrollbar discoverable whenever fields overflow the viewport.
+    # Controller navigation still scrolls the selected field into view.
+    _row_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
     stack.add_child(_row_scroll)
 
     _rows = VBoxContainer.new()
     _rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     # Comfortable breathing room between field groups. Longer lists scroll.
-    _rows.add_theme_constant_override("separation", 6)
+    # Real breathing room between fields, not just taller invisible rows.
+    _rows.add_theme_constant_override("separation", 8)
     _row_scroll.add_child(_rows)
 
     # Use the full right column; the portrait itself is drawn at 3×.
@@ -400,8 +404,9 @@ func _rebuild_rows() -> void:
 
         # Each property gets its own full-width label and selector row.
         var field_box := VBoxContainer.new()
-        field_box.custom_minimum_size.y = 40
-        field_box.add_theme_constant_override("separation", 4)
+        # Clear label-to-control gap and breathing room below each selector.
+        field_box.custom_minimum_size.y = 43
+        field_box.add_theme_constant_override("separation", 7)
         _rows.add_child(field_box)
 
         var name_label := _label(11)
