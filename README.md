@@ -476,12 +476,14 @@ Older saves containing both a worn shirt and armor are repaired on
 load, keeping the shirt as a backpack item. Armor removal leaves
 the torso bare until the player selects a shirt again.
 
-For a full private-development PortMaster install, the build script now
-ships the complete LPC sprite library **separately from the PCK** under
-`skyval/resources/lpc/`. Skyval loads the PNGs on demand via
-`SKYVAL_LPC_ROOT`, so a large asset set does not need to be imported
-into Godot for every build. Do not distribute this bundle publicly
-without reviewing every LPC license and attribution.
+For a private-development PortMaster install, the build script packages
+**only the LPC images used by Skyval** (appearance options, currently
+implemented equipment, and the three supported armor types) under
+`skyval/resources/lpc/`, separately from the PCK. Other sprites from
+the large source library are excluded. The selection is generated from
+the current renderer and inventory code by `tools/collect_lpc_assets.py`.
+Skyval loads the selected PNGs on demand via `SKYVAL_LPC_ROOT`.
+Do not distribute this bundle publicly without reviewing LPC licenses.
 
 ## Pause and Back navigation
 
@@ -572,9 +574,11 @@ and English. The `SkyvalLocale` service loads it. Language selection lives in th
 persisted in `user://skyval_settings.cfg`.
 
 The LPC sprites remain outside Git in the user's local resource library.
-The one-time full PortMaster package copies all available LPC source
-resources to the SD card; future code-only archives skip the art. Inspect
-and retain original LPC licensing/credits before distributing anything.
+The initial PortMaster package copies only the LPC sprites currently
+needed by this game, not the complete Universal LPC library. Future
+code-only archives skip the already installed art. Rebuild the asset
+package after adding a new item/style that needs a new sprite. Inspect
+original LPC licensing/credits before distributing anything.
 
 ## PortMaster native-controller test
 
@@ -592,18 +596,17 @@ git pull --ff-only
 bash tools/build_portmaster.sh
 ```
 
-This produces `dist/portmaster/Skyval_PortMaster_Full.zip`, with all
-available local LPC resources in `skyval/resources/lpc/`. Copy the
-archive contents onto the SD card's `roms/ports/`, **merging** the
-existing `skyval/` folder and preserving `skyval/saves/` and
-`skyval/conf/`. For subsequent code/UI updates, build with
-`bash tools/build_portmaster.sh --code-only` and transfer the much
-smaller `Skyval_PortMaster_Update.zip` instead. It does not re-copy
-any LPC assets. The current launcher requires the initial external
-resource tree and sets `SKYVAL_LPC_ROOT` automatically; this replaces
-the old 14-test-sprite bundle. For source selection, use
-`LPC_SPRITES_ROOT=/path/to/spritesheets` if auto-detection misses
-your full LPC installation. See `portmaster/README.md` for details.
+This produces `dist/portmaster/Skyval_PortMaster_Full.zip` containing
+only the currently used LPC PNGs in `skyval/resources/lpc/` and an
+`LPC_SELECTED_ASSETS.txt` inventory. Copy the archive contents onto
+the SD card's `roms/ports/`, **merging** the existing `skyval/`
+directory and preserving `skyval/saves/` and `skyval/conf/`.
+For later code/UI updates, run
+`bash tools/build_portmaster.sh --code-only` and transfer the smaller
+`Skyval_PortMaster_Update.zip` without re-copying sprites.
+The launcher sets `SKYVAL_LPC_ROOT` automatically. If the source
+isn't detected, set `LPC_SPRITES_ROOT=/path/to/spritesheets`.
+See `portmaster/README.md` for details.
 
 **R36H status:** Native controls have been confirmed working on the physical
 R36H. Walking uses only the left-stick axes now, avoiding any D-pad override
