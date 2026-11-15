@@ -15,7 +15,7 @@ const MAX_CACHED_ATLASES := 10
 const SKINS := ["light", "amber", "olive", "brown", "bronze"]
 const HAIR_COLORS := ["black", "dark_brown", "blonde", "redhead", "ash"]
 const EYE_COLORS := ["blue", "green", "brown", "gray", "purple", "yellow"]
-const HAIR_STYLES := ["buzzcut", "bedhead", "curtains", "mop", "spiked"]
+const HAIR_STYLES := ["none", "buzzcut", "bedhead", "curtains", "mop", "spiked"]
 const SHIRT_COLORS := ["blue", "forest", "maroon", "white", "black", "leather"]
 const PANTS_COLORS := ["charcoal", "brown", "navy", "black", "blue", "leather"]
 const BOOTS_COLORS := ["brown", "black", "leather", "gray", "tan", "forest"]
@@ -167,8 +167,11 @@ func _load_appearance(skin: String) -> bool:
         {"name": "Head", "path": root.path_join("head/heads/human/%s/%s.png" % [human_head, skin]), "z": 100, "required": true},
         {"name": "Face", "path": root.path_join("head/faces/%s/neutral/%s.png" % [human_head, skin]), "z": 101, "required": false},
         {"name": "Eyes", "path": root.path_join("eyes/human/adult/default/%s.png" % eye_variant), "z": 105, "required": false},
-        {"name": "Hair", "path": root.path_join("hair/%s/adult/%s.png" % [hair_style, hair_variant]), "z": 120, "required": false},
     ]
+    # "None" is a real hairstyle choice: omit the Hair layer entirely,
+    # rather than trying to load a nonexistent hair/none/... sprite.
+    if hair_style != "none":
+        layers.append({"name": "Hair", "path": root.path_join("hair/%s/adult/%s.png" % [hair_style, hair_variant]), "z": 120, "required": false})
     if pants_style != "none":
         layers.append({"name": "Pants", "path": root.path_join("legs/%s/%s/%s.png" % [pants_style, clothing_shape, pants_variant]), "z": 20, "required": true})
     if footwear_style != "none":
