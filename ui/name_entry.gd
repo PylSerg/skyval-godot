@@ -40,6 +40,15 @@ var _ignore_buttons_until: int = 0
 
 
 func _ready() -> void:
+    # When this CanvasLayer is inserted while its parent is entering the
+    # scene, another UI can call open_entry before Godot dispatches _ready.
+    # Initialization is deliberately idempotent and can be requested early.
+    ensure_initialized()
+
+
+func ensure_initialized() -> void:
+    if is_instance_valid(_root):
+        return
     process_mode = Node.PROCESS_MODE_ALWAYS
     _locale = get_node_or_null("/root/SkyvalLocale")
     if _locale == null:
@@ -65,6 +74,8 @@ func is_open() -> bool:
 
 
 func open_entry(body_type: String = "male") -> void:
+    # Do not rely on _ready having already run for a dynamically added UI.
+    ensure_initialized()
     _body_type = body_type
     _name = ""
     _selected = 0
@@ -130,12 +141,12 @@ func _input(event: InputEvent) -> void:
                 JOY_BUTTON_B:
                     _show_confirmation("exit")
                 JOY_BUTTON_X:
-                    _randomize_name()
-                JOY_BUTTON_Y:
                     if not _name.strip_edges().is_empty():
                         _show_confirmation("accept")
                     else:
                         _hint.text = _tr("name.empty")
+                JOY_BUTTON_Y:
+                    _randomize_name()
         get_viewport().set_input_as_handled()
     elif event is InputEventJoypadMotion:
         var motion: InputEventJoypadMotion = event
