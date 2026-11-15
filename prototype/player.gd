@@ -5,14 +5,23 @@ const SPEED := 100.0
 const STICK_DEADZONE := 0.22
 const EDGE_MARGIN := Vector2(8.0, 14.0)
 
+var _spawn_position: Vector2
+
 @export var world_bounds := Rect2(Vector2.ZERO, Vector2(1280.0, 960.0))
 
 @onready var appearance: SkyvalCharacterVisual = $CharacterVisual
 
 func _ready() -> void:
+    _spawn_position = global_position
     Input.joy_connection_changed.connect(_on_joy_connection_changed)
     for device in Input.get_connected_joypads():
         _on_joy_connection_changed(device, true)
+
+func reset_for_new_game() -> void:
+    velocity = Vector2.ZERO
+    global_position = _spawn_position
+    appearance.reset_save_state()
+
 
 func _on_joy_connection_changed(device: int, connected: bool) -> void:
     if connected:
