@@ -45,6 +45,7 @@ var _held_joy_buttons: Dictionary = {}
 var _joy_axis_direction: Dictionary = {}
 var _right_stick_latched: Dictionary = {}
 var _last_navigation_ms: int = -10000
+var _ignore_presses_before_ms: int = 0
 var _root: Control
 var _title_label: Label
 var _rows: VBoxContainer
@@ -149,6 +150,8 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
     if _held_joy_buttons.has(button_id):
         return
     _held_joy_buttons[button_id] = true
+    if _opened and Time.get_ticks_msec() < _ignore_presses_before_ms:
+        return
 
     if not _opened:
         # Wardrobe is available only during gameplay, never over startup
@@ -305,7 +308,13 @@ func begin_creation() -> void:
 
 func open_for_edit() -> void:
     # Public entrypoint for future NPC/dialogue or other character services.
-    if not appearance_window:
+    if not appearance_window or _opened:
+        return
+    var menu: Node = get_parent().get_node_or_null("GameMenu")
+    var wardrobe: Node = get_parent().get_node_or_null("CharacterCreator")
+    if menu != null and bool(menu.call("is_open")):
+        return
+    if wardrobe != null and bool(wardrobe.call("is_open")):
         return
     _creation_mode = false
     _edit_snapshot = avatar.get_save_state()
@@ -335,8 +344,12 @@ func _cancel_appearance() -> void:
 
 
 func close_for_menu() -> void:
-    # Central menu owns Start. Never leave two paused UI layers open.
-    if _opened:
+    # The global menu takes pause ownership before closing a sibling window.
+    if not _opened:
+        return
+    if appearance_window:
+        _cancel_appearance()
+    else:
         _set_open(false)
 
 
@@ -348,6 +361,8 @@ func _set_open(next_open: bool) -> void:
     _set_ui_pause(next_open)
     if next_open:
         _last_navigation_ms = -10000
+        # Ignore the input event that launched this modal window.
+        _ignore_presses_before_ms = Time.get_ticks_msec() + 150
         # Re-arm both sticks only on opening the menu.
         _joy_axis_direction.clear()
         _right_stick_latched.clear()
