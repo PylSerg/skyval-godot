@@ -7,6 +7,10 @@ const LocaleScript = preload("res://localization/localization.gd")
 const SaveStoreScript = preload("res://game/save_store.gd")
 const NameEntryScript = preload("res://ui/name_entry.gd")
 const FONT_PATH := "res://assets/fonts/CascadiaMono-Regular.ttf"
+const TITLE_IMAGE_PATH := "res://assets/ui/title_background.jpg"
+const TITLE_MENU_WIDTH := 184.0
+const TITLE_BUTTON_HEIGHT := 24.0
+const TITLE_BUTTON_GAP := 1.0
 const MIN_UI_FONT_SIZE := 14
 const ACTIVE_HIGHLIGHT := Color("#e7ca86")
 const NAV_DEBOUNCE_MS := 100
@@ -41,6 +45,12 @@ var _active_save_path: String = ""
 var _save_store: RefCounted
 var _name_entry: CanvasLayer
 var _root: Control
+var _title_image: TextureRect
+var _shade: ColorRect
+var _panel: PanelContainer
+var _panel_style: StyleBoxFlat
+var _title_panel_style: StyleBoxFlat
+var _divider: ColorRect
 var _heading: Label
 var _main_panel: VBoxContainer
 var _settings_panel: VBoxContainer
@@ -278,15 +288,17 @@ func _show_settings(show: bool) -> void:
 
 
 func _move_selection(direction: int) -> void:
-    var next_index: int = _selected_option + direction
+    # Main/title screen options are drawn bottom-to-top. Up navigates
+    # to the next logical option, which is physically above Continue.
+    var delta: int = -direction if _is_title_menu() else direction
+    var next_index: int = _selected_option + delta
     while next_index >= 0 and next_index < _visible_options.size():
         if not _menu_buttons[next_index].disabled:
             _selected_option = next_index
             _status_message = ""
             _refresh_text()
             return
-        next_index += direction
-
+        next_index += delta
 
 func _activate_option(index: int) -> void:
     if not _opened or index < 0 or index >= _visible_options.size():
@@ -734,44 +746,62 @@ func _build_interface() -> void:
     _root.mouse_filter = Control.MOUSE_FILTER_STOP
     add_child(_root)
 
-    var shade := ColorRect.new()
-    shade.color = Color(0.03, 0.08, 0.10, 0.76)
-    shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    _root.add_child(shade)
+    # A 320x240 optimized version of the supplied 4:3 title illustration.
+    _title_image = TextureRect.new()
+    _title_image.name = "TitleBackground"
+    _title_image.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    _title_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    _title_image.stretch_mode = TextureRect.STRETCH_SCALE
+    _title_image.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+    _title_image.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    if ResourceLoader.exists(TITLE_IMAGE_PATH):
+        _title_image.texture = load(TITLE_IMAGE_PATH) as Texture2D
+    else:
+        push_warning("Skyval: title art not bundled: " + TITLE_IMAGE_PATH)
+    _root.add_child(_title_image)
 
-    var panel := PanelContainer.new()
-    # Seven in-game actions fit inside the 320x240 viewport at 14px.
-    panel.position = Vector2(34, 8)
-    panel.custom_minimum_size = Vector2(252, 224)
-    panel.size = Vector2(252, 224)
-    _root.add_child(panel)
-    var panel_style := StyleBoxFlat.new()
-    panel_style.bg_color = Color("#202c3c")
-    panel_style.border_color = Color("#7e95ae")
-    panel_style.set_border_width_all(1)
-    panel_style.set_corner_radius_all(3)
-    panel_style.set_content_margin_all(7)
-    panel.add_theme_stylebox_override("panel", panel_style)
+    _shade = ColorRect.new()
+    _shade.color = Color(0.03, 0.08, 0.10, 0.76)
+    _shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    _shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _root.add_child(_shade)
+
+    _panel = PanelContainer.new()
+    _panel.position = Vector2(34, 8)
+    _panel.custom_minimum_size = Vector2(252, 224)
+    _panel.size = Vector2(252, 224)
+    _root.add_child(_panel)
+    _panel_style = StyleBoxFlat.new()
+    _panel_style.bg_color = Color("#202c3c")
+    _panel_style.border_color = Color("#7e95ae")
+    _panel_style.set_border_width_all(1)
+    _panel_style.set_corner_radius_all(3)
+    _panel_style.set_content_margin_all(7)
+    _panel.add_theme_stylebox_override("panel", _panel_style)
+
+    _title_panel_style = StyleBoxFlat.new()
+    _title_panel_style.bg_color = Color(0.04, 0.06, 0.11, 0.52)
+    _title_panel_style.set_corner_radius_all(4)
+    _title_panel_style.set_content_margin_all(4)
 
     var stack := VBoxContainer.new()
     stack.add_theme_constant_override("separation", 4)
-    panel.add_child(stack)
+    _panel.add_child(stack)
 
     _heading = _label(17)
     _heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     stack.add_child(_heading)
 
-    var divider := ColorRect.new()
-    divider.color = Color("#52657a")
-    divider.custom_minimum_size.y = 1
-    divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    stack.add_child(divider)
+    _divider = ColorRect.new()
+    _divider.color = Color("#52657a")
+    _divider.custom_minimum_size.y = 1
+    _divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    stack.add_child(_divider)
 
     _main_panel = VBoxContainer.new()
     _main_panel.add_theme_constant_override("separation", 1)
     stack.add_child(_main_panel)
-    # Reuse seven buttons; hidden options occupy no space.
+    # Seven game actions share the same buttons as at most five title actions.
     for i in range(GAME_OPTIONS.size()):
         var option := _button()
         option.add_theme_font_size_override("font_size", MIN_UI_FONT_SIZE)
@@ -821,7 +851,7 @@ func _build_interface() -> void:
     _profile_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _continue_panel.add_child(_profile_hint)
 
-    # Confirmation is kept inside the same panel, with no Back buttons.
+    # Confirmations remain modal in the framed panel.
     _confirm_panel = VBoxContainer.new()
     _confirm_panel.add_theme_constant_override("separation", 12)
     stack.add_child(_confirm_panel)
@@ -837,7 +867,6 @@ func _build_interface() -> void:
     _confirm_panel.add_child(_confirm_hint)
 
     _refresh_text()
-
 
 func _label(font_size: int) -> Label:
     var label := Label.new()
@@ -872,16 +901,46 @@ func _button() -> Button:
     return button
 
 
+func _is_title_menu() -> bool:
+    return _main_mode and not _settings_open and _list_mode.is_empty() and _confirm_action.is_empty()
+
+
+func _style_menu_layout() -> void:
+    var title: bool = _is_title_menu()
+    _title_image.visible = _main_mode and _title_image.texture != null
+    _shade.color = Color(0.03, 0.04, 0.08, 0.07) if title and _title_image.texture != null else Color(0.03, 0.08, 0.10, 0.76)
+    _heading.visible = not title
+    _divider.visible = not title
+    _panel.add_theme_stylebox_override("panel", _title_panel_style if title else _panel_style)
+    if title:
+        var count: int = _visible_options.size()
+        var height: float = 8.0 + TITLE_BUTTON_HEIGHT * count + TITLE_BUTTON_GAP * maxi(0, count - 1)
+        _panel.custom_minimum_size = Vector2(TITLE_MENU_WIDTH, height)
+        _panel.size = Vector2(TITLE_MENU_WIDTH, height)
+        _panel.position = Vector2(320.0 - TITLE_MENU_WIDTH - 9.0, 240.0 - height - 9.0)
+        for i in range(count):
+            _main_panel.move_child(_menu_buttons[i], 0)
+    else:
+        for i in range(_menu_buttons.size()):
+            _main_panel.move_child(_menu_buttons[i], i)
+        _panel.custom_minimum_size = Vector2(252, 224)
+        _panel.size = Vector2(252, 224)
+        _panel.position = Vector2(34, 8)
+
+
 func _update_highlight() -> void:
     for index in range(_menu_buttons.size()):
         var button: Button = _menu_buttons[index]
         var unavailable: bool = button.disabled
         var selected: bool = index == _selected_option and not unavailable
         var style := StyleBoxFlat.new()
-        style.bg_color = Color("#293748") if unavailable else (Color("#597a9b") if selected else Color("#354960"))
-        style.border_color = Color("#52657a") if unavailable else (ACTIVE_HIGHLIGHT if selected else Color("#667f9a"))
+        if _is_title_menu():
+            style.bg_color = Color(0.06, 0.10, 0.18, 0.86) if selected else Color(0.05, 0.08, 0.13, 0.45)
+            style.border_color = ACTIVE_HIGHLIGHT if selected else Color(0, 0, 0, 0)
+        else:
+            style.bg_color = Color("#293748") if unavailable else (Color("#597a9b") if selected else Color("#354960"))
+            style.border_color = Color("#52657a") if unavailable else (ACTIVE_HIGHLIGHT if selected else Color("#667f9a"))
         style.set_border_width_all(1)
-        # Seven 14px rows should remain within the 320x240 menu panel.
         style.set_content_margin_all(1)
         button.add_theme_stylebox_override("normal", style)
         button.add_theme_stylebox_override("disabled", style)
@@ -959,4 +1018,5 @@ func _refresh_text() -> void:
     _confirm_panel.visible = not _confirm_action.is_empty()
     if not _list_mode.is_empty():
         _draw_profiles()
+    _style_menu_layout()
     _update_highlight()
