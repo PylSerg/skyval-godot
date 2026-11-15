@@ -45,10 +45,31 @@ const TEST_ARMOR_CHEST_ITEMS := [
     "plate_cuirass",
 ]
 
+# Five matching equipment areas in Clothing and Armor. Existing saved
+# names stay unchanged (shirt/pants/footwear/armor); the empty extra
+# slots reserve room for actual head, hand and leg art later.
+const EQUIPMENT_FIELD_SLOTS := {
+    "clothes_head": "clothes_head",
+    "clothes_top": "shirt",
+    "clothes_bottom": "pants",
+    "clothes_hands": "clothes_hands",
+    "clothes_feet": "footwear",
+    "armor_head": "armor_head",
+    "armor_top": "armor",
+    "armor_bottom": "armor_bottom",
+    "armor_hands": "armor_hands",
+    "armor_feet": "armor_feet",
+}
+const EMPTY_EQUIPMENT := {
+    "shirt": "", "pants": "", "footwear": "", "armor": "",
+    "clothes_head": "", "clothes_hands": "",
+    "armor_head": "", "armor_bottom": "", "armor_hands": "", "armor_feet": "",
+}
+
 var _bag: Array[String] = []
 var _chest: Array[String] = []
 var _armor_chest: Array[String] = []
-var _equipped: Dictionary = {"shirt": "", "pants": "", "footwear": "", "armor": ""}
+var _equipped: Dictionary = EMPTY_EQUIPMENT.duplicate()
 
 
 func _ready() -> void:
@@ -67,12 +88,9 @@ func reset_for_new_game(body_type: String = "male") -> void:
 
 
 func set_starter_equipment(body_type: String) -> void:
-    _equipped = {
-        "shirt": "basic_tshirt" if body_type == "female" else "",
-        "pants": "formal_pants",
-        "footwear": "",
-        "armor": "",
-    }
+    _equipped = EMPTY_EQUIPMENT.duplicate()
+    _equipped["shirt"] = "basic_tshirt" if body_type == "female" else ""
+    _equipped["pants"] = "formal_pants"
     changed.emit()
 
 
@@ -176,7 +194,7 @@ func load_save_state(data: Variant, avatar: Node) -> void:
         _armor_chest.clear()
         for item_id in TEST_ARMOR_CHEST_ITEMS:
             _armor_chest.append(item_id)
-        _equipped = {"shirt": "", "pants": "", "footwear": "", "armor": ""}
+        _equipped = EMPTY_EQUIPMENT.duplicate()
         _infer_legacy_equipment(avatar)
         changed.emit()
         return
@@ -186,7 +204,7 @@ func load_save_state(data: Variant, avatar: Node) -> void:
     var bag: Array[String] = []
     var chest: Array[String] = []
     var armor_chest: Array[String] = []
-    var equipment: Dictionary = {"shirt": "", "pants": "", "footwear": "", "armor": ""}
+    var equipment: Dictionary = EMPTY_EQUIPMENT.duplicate()
 
     var saved_equipment: Variant = raw.get("equipped", {})
     if saved_equipment is Dictionary:
@@ -248,9 +266,9 @@ func load_save_state(data: Variant, avatar: Node) -> void:
 func _infer_legacy_equipment(avatar: Node) -> void:
     if avatar == null or not avatar.has_method("get_lpc_option"):
         return
-    for slot in _equipped.keys():
-        if slot == "armor":
-            continue
+    # Legacy LPC saves know only these three clothing categories. Do not
+    # try to read nonexistent *_style fields for future empty equipment.
+    for slot in ["shirt", "pants", "footwear"]:
         var style_key: String = "footwear_style" if slot == "footwear" else slot + "_style"
         var variant_key: String = "boots_variant" if slot == "footwear" else slot + "_variant"
         var style: String = str(avatar.call("get_lpc_option", style_key))
@@ -273,6 +291,56 @@ func take_from_chest(requested: Array[String], chest_kind: String = "clothes") -
     if count > 0:
         changed.emit()
     return count
+
+
+# Shared five-field selector API for both tabs. It enumerates actual
+# owned physical items, including the worn item, plus "None". Head/hands
+# and lower armor stay at 1/1 until matching assets/items are introduced.
+func get_equipment_slot(field: String) -> String:
+    return str(EQUIPMENT_FIELD_SLOTS.get(field, ""))
+
+
+func get_equipment_choices(field: String) -> Array[String]:
+    var choices: Array[String] = []
+    var slot: String = get_equipment_slot(field)
+    if slot.is_empty():
+        return choices
+    choices.append("")
+    var equipped_id: String = get_equipped(slot)
+    for raw_id in ITEMS.keys():
+        var item_id: String = str(raw_id)
+        var item: Dictionary = get_item(item_id)
+        if str(item.get("slot", "")) != slot:
+            continue
+        if item_id == equipped_id or _bag.has(item_id):
+            choices.append(item_id)
+    return choices
+
+
+func cycle_equipment_field(field: String, direction: int, avatar: Node) -> bool:
+    var slot: String = get_equipment_slot(field)
+    if slot.is_empty():
+        return false
+    if slot == "armor":
+        # Preserve existing "skip missing LPC atlas" behavior.
+        return cycle_armor(direction, avatar)
+
+    var choices: Array[String] = get_equipment_choices(field)
+    if choices.size() <= 1:
+        return false
+    var current_id: String = get_equipped(slot)
+    var current_index: int = choices.find(current_id)
+    if current_index < 0:
+        return false
+    var step: int = 1 if direction >= 0 else -1
+    for offset in range(1, choices.size()):
+        var next_id: String = choices[posmod(current_index + offset * step, choices.size())]
+        if next_id.is_empty():
+            if unequip(slot, avatar):
+                return true
+        elif equip(next_id, avatar):
+            return true
+    return false
 
 
 # Expose only physically owned clothes to the original six selector rows.
@@ -407,7 +475,12 @@ func equip(item_id: String, avatar: Node) -> bool:
     if slot == "armor":
         if not _apply_armor_to_avatar(avatar, item_id):
             return false
-    elif not _apply_to_avatar(avatar, slot, item):
+    elif slot in ["shirt", "pants", "footwear"]:
+        if not _apply_to_avatar(avatar, slot, item):
+            return false
+    else:
+        # Future equipment areas must be given matching LPC layers before
+        # their items can be equipped. Never silently claim a visual swap.
         return false
 
     var old_id: String = get_equipped(slot)
