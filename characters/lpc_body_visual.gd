@@ -592,9 +592,12 @@ func change_body_type(direction: int = 1) -> bool:
     if not available:
         return false
     var genders: Array[String] = ["male", "female"]
-    var next_index: int = genders.find(body_type) + (1 if direction >= 0 else -1)
-    if next_index < 0 or next_index >= genders.size():
+    var current_index: int = genders.find(body_type)
+    if current_index < 0:
         return false
+    var next_index: int = posmod(
+        current_index + (1 if direction >= 0 else -1), genders.size()
+    )
     var previous: String = body_type
     body_type = genders[next_index]
     if _load_appearance(skin_variant):
@@ -634,9 +637,7 @@ func _change_skin(direction: int) -> bool:
     var start: int = maxi(SKINS.find(skin_variant), 0)
     var step_direction: int = 1 if direction >= 0 else -1
     for step in range(1, SKINS.size()):
-        var index: int = start + step * step_direction
-        if index < 0 or index >= SKINS.size():
-            break
+        var index: int = posmod(start + step * step_direction, SKINS.size())
         if _load_appearance(SKINS[index]):
             return true
     return false
@@ -645,17 +646,10 @@ func _change_variant(property_name: String, options: Array, direction: int) -> b
     var previous: String = str(get(property_name))
     var start: int = maxi(options.find(previous), 0)
     var step_direction: int = 1 if direction >= 0 else -1
-    # Only actual gear choices are circular; appearance choices stop at ends.
-    var wrap: bool = property_name in [
-        "shirt_variant", "pants_variant", "boots_variant",
-        "shirt_style", "pants_style", "footwear_style",
-    ]
+    # Body appearance and item variants are both cyclic. Invalid LPC
+    # files are skipped without changing the currently visible character.
     for step in range(1, options.size()):
-        var index: int = start + step * step_direction
-        if wrap:
-            index = posmod(index, options.size())
-        elif index < 0 or index >= options.size():
-            break
+        var index: int = posmod(start + step * step_direction, options.size())
         set(property_name, str(options[index]))
         if _load_appearance(skin_variant):
             return true
