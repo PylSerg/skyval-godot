@@ -120,7 +120,7 @@ bottom-centered layout.
 
 The gameplay menu, character/save lists, loot chests and confirmation
 choices use vertically arranged options. Confirmation choices are **plain
-right-aligned text**, without button backgrounds: **A: Підтвердити** and
+left-aligned text**, without button backgrounds: **A: Підтвердити** and
 **B: Скасувати** appear on separate lines. Gamepad A/B still perform
 the actions; clicking the text also works. Hints and choices start with
 capital letters in Ukrainian and English.
