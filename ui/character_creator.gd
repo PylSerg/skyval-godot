@@ -351,6 +351,72 @@ func _adjust_selected(direction: int) -> void:
         # D-pad, left stick and on-screen arrows only browse candidates.
         _browse_equipment(direction)
 
+func _selected_equipment_id(field: String) -> String:
+    if _inventory == null:
+        return ""
+    var options: Array[String] = _inventory.call("get_equipment_choices", field)
+    var slot: String = str(_inventory.call("get_equipment_slot", field))
+    var equipped_id: String = str(_inventory.call("get_equipped", slot))
+    var candidate_id: String = str(_equipment_preview.get(field, equipped_id))
+    if not options.has(candidate_id):
+        candidate_id = equipped_id if options.has(equipped_id) else ""
+    _equipment_preview[field] = candidate_id
+    return candidate_id
+
+
+func _browse_equipment(direction: int) -> void:
+    if _inventory == null or appearance_window:
+        return
+    var fields: Array = _current_fields()
+    if _selected_index < 0 or _selected_index >= fields.size():
+        return
+    var field: String = str(fields[_selected_index])
+    var options: Array[String] = _inventory.call("get_equipment_choices", field)
+    if options.size() <= 1:
+        return
+
+    var current: String = _selected_equipment_id(field)
+    var index: int = options.find(current)
+    if index < 0:
+        index = 0
+    var next_index: int = posmod(index + (1 if direction >= 0 else -1), options.size())
+    _equipment_preview[field] = options[next_index]
+    var counter: Label = _row_counters.get(field) as Label
+    if is_instance_valid(counter):
+        counter.text = _field_counter(field)
+    _update_compact_choice()
+
+
+func _confirm_equipment_selection() -> void:
+    if _inventory == null or appearance_window:
+        return
+    var fields: Array = _current_fields()
+    if _selected_index < 0 or _selected_index >= fields.size():
+        return
+    var field: String = str(fields[_selected_index])
+    var slot: String = str(_inventory.call("get_equipment_slot", field))
+    if slot.is_empty():
+        return
+
+    var candidate_id: String = _selected_equipment_id(field)
+    var equipped_id: String = str(_inventory.call("get_equipped", slot))
+    if candidate_id == equipped_id:
+        return
+    # Ownership and LPC art are validated by InventoryState before
+    # actually changing the character. Browsing alone never reaches here.
+    var changed: bool = false
+    if candidate_id.is_empty():
+        changed = bool(_inventory.call("unequip", slot, avatar))
+    else:
+        changed = bool(_inventory.call("equip", candidate_id, avatar))
+    if changed:
+        # Equip/unequip emit 'changed'; that refreshes the preview and
+        # armor status. Checkpoint only real, confirmed equipment changes.
+        var menu: Node = get_parent().get_node_or_null("GameMenu")
+        if menu != null:
+            menu.call("save_checkpoint")
+
+
 func _update_row_highlight() -> void:
     # Highlight the complete field (name, counter and selector) by its
     # background, not by changing the name/value text color.
