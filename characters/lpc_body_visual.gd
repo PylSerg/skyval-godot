@@ -11,6 +11,7 @@ const DIRECTIONS := ["s", "w", "e", "n"]
 const ROW_INDEX := [2, 1, 3, 0]
 const IDLE_FRAMES := [0, 0, 1]
 const WALK_FRAMES := [1, 2, 3, 4, 5, 6, 7, 8]
+const MAX_CACHED_ATLASES := 10
 const SKINS := ["light", "amber", "olive", "brown", "bronze"]
 const HAIR_COLORS := ["black", "dark_brown", "blonde", "redhead", "ash"]
 const EYE_COLORS := ["blue", "green", "brown", "gray", "purple", "yellow"]
@@ -58,6 +59,12 @@ var available: bool = false
 var _sprites: Array[AnimatedSprite2D] = []
 var _saved_outfit: Dictionary = {}
 var _last_clothing_state: Dictionary = {}
+# External PNGs are otherwise decoded on every menu selection. A small
+# bounded cache keeps the active LPC atlases in memory for quick swaps.
+var _atlas_cache: Dictionary = {}
+var _atlas_cache_order: Array[String] = []
+var _armor_path_cache: Dictionary = {}
+var _lining_path_cache: Dictionary = {}
 var _direction: int = 0
 var _walking: bool = false
 
@@ -119,14 +126,27 @@ func _get_sheet_root(body_path: String) -> String:
     return ""
 
 func _load_texture(path: String) -> Texture2D:
+    if _atlas_cache.has(path):
+        return _atlas_cache[path] as Texture2D
+
+    var texture: Texture2D = null
     if path.begins_with("res://"):
-        return load(path) as Texture2D
-    var image := Image.new()
-    var status: Error = image.load(path)
-    if status != OK:
-        push_warning("Skyval LPC: couldn't decode %s (error %d)" % [path, status])
-        return null
-    return ImageTexture.create_from_image(image)
+        texture = load(path) as Texture2D
+    else:
+        var image := Image.new()
+        var status: Error = image.load(path)
+        if status != OK:
+            push_warning("Skyval LPC: couldn't decode %s (error %d)" % [path, status])
+            return null
+        texture = ImageTexture.create_from_image(image)
+
+    if texture != null:
+        _atlas_cache[path] = texture
+        _atlas_cache_order.append(path)
+        while _atlas_cache_order.size() > MAX_CACHED_ATLASES:
+            var oldest: String = _atlas_cache_order.pop_front()
+            _atlas_cache.erase(oldest)
+    return texture
 
 func _load_appearance(skin: String) -> bool:
     var body_path: String = _find_body_path(skin)
@@ -266,6 +286,9 @@ func _armor_roots(body_root: String) -> PackedStringArray:
 
 
 func _find_armor_sheet(body_root: String, style: String) -> String:
+    var cache_key: String = "%s|%s|%s" % [body_root, body_type, style]
+    if _armor_path_cache.has(cache_key):
+        return str(_armor_path_cache[cache_key])
     var shape: String = "female" if body_type == "female" else "male"
     var types: Array[String] = []
     var preferences: Array[String] = []
@@ -320,7 +343,9 @@ func _find_armor_sheet(body_root: String, style: String) -> String:
                 # legion/plate must cover the chest in all walk/idle facings.
                 if style != "leather_vest" and not _has_visible_torso_in_all_directions(atlas):
                     continue
+                _armor_path_cache[cache_key] = candidate
                 return candidate
+    _armor_path_cache[cache_key] = ""
     return ""
 
 
@@ -329,6 +354,9 @@ func _find_armor_sheet(body_root: String, style: String) -> String:
 # from the SAME Universal LPC artwork set fills that gap while retaining
 # the leather armor details above it. Never synthesize replacement pixels.
 func _find_leather_vest_lining(body_root: String) -> String:
+    var cache_key: String = "%s|%s" % [body_root, body_type]
+    if _lining_path_cache.has(cache_key):
+        return str(_lining_path_cache[cache_key])
     var shape: String = "female" if body_type == "female" else "male"
     var preferred_colors: Array[String] = [
         "leather.png", "brown.png", "tan.png", "chestnut.png", "dark_brown.png"
@@ -361,7 +389,9 @@ func _find_leather_vest_lining(body_root: String) -> String:
             # The vest lining is optional. A correctly sized real LPC
             # sleeveless sprite is preferable to failing a valid armor swap;
             # these sheets can intentionally have narrow side/back coverage.
+            _lining_path_cache[cache_key] = path
             return path
+    _lining_path_cache[cache_key] = ""
     return ""
 
 
