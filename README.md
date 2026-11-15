@@ -15,18 +15,28 @@ is used for both targets.
 | Control | World | Character creator |
 |---|---|---|
 | Left stick | Analog walk (speed depends on tilt) | Select item / change value |
-| D-pad ↓ | Open character creator | Next item |
+| D-pad ↓ | Reserved for future quick actions | Next item |
 | D-pad ↑/←/→ | Reserved for future equipment/items | Select item / change value |
 | Right stick | Smooth camera look | Horizontal flick rotates portrait ±90° |
-| Start or X | Reserved | Close creator |
-| B | Reserved | Close creator |
+| Select / Back | Open character creator (future inventory) | Close creator |
+| Start | Open main menu | Open main menu (closes creator) |
+| X or B | Reserved | Close creator |
 | A | Reserved | Change selected option |
 | L1 / R1 | Reserved | Appearance / Clothing tab |
-| Other buttons | Reserved | Reserved |
 
-Press **D-pad Down** in the world to open the character creator; D-pad Down
-then returns to its usual menu-navigation role. Close the creator using
-**B**, **Start**, or **X**. Start/X no longer open it from the world.
+Press **Select / Back** in the world to open the character creator. Close
+it with **Select**, **B**, or **X**. Press **Start** from the world or while
+editing the character to open the global game menu. The world pauses
+while either interface is open.
+
+The main menu initially has two actions: **Settings** and **Quit**.
+Settings currently contains only language (Ukrainian / English). Use
+D-pad up/down or left-stick vertical to pick a menu item and **A** to
+activate it. Inside Settings, use D-pad left/right, left-stick horizontal,
+or **A** to switch languages, **B/X** to go back, and **Start** to close
+the menu. The selected language is stored in
+`user://skyval_settings.cfg` via the existing localization service.
+**Quit** exits Godot, returning to PortMaster on the handheld.
 
 The creator pauses world movement. Its right-stick rotation cycles through
 **front → right → back → left → front**, one 90° step per horizontal tilt.
@@ -73,9 +83,8 @@ avatar remains as a missing-assets fallback.
 
 All in-game strings are in
 [localization/strings.json](localization/strings.json), currently Ukrainian
-and English. The `SkyvalLocale` service loads it. Language selection will
-move to the future global **Settings** menu; the preference is persisted in
-`user://skyval_settings.cfg`.
+and English. The `SkyvalLocale` service loads it. Language selection lives in the global **Settings** menu; the preference is
+persisted in `user://skyval_settings.cfg`.
 
 The LPC sprites remain outside Git in the user's local resource library.
 Only the selected sprites are bundled for PortMaster tests. Inspect and
@@ -114,6 +123,7 @@ See [portmaster/README.md](portmaster/README.md) for details.
 - `prototype/player.gd`: left-stick-only analog movement; D-pad reserved
 - `prototype/smart_camera.gd`: native right-stick look
 - `ui/character_creator.gd`: native controller-driven creator UI
+- `ui/game_menu.gd`: Start menu, language settings and Quit
 - `ui/character_preview.gd`: cyclic 90° preview rotation
 - `characters/lpc_body_visual.gd`: LPC rendering and appearance slots
 - `localization/strings.json`: localized UI text

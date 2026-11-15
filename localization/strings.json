@@ -65,7 +65,15 @@
     "value.hair_style.curtains": "Із проділом",
     "value.hair_style.mop": "Густа",
     "value.hair_style.spiked": "Їжачок",
-    "value.clothing.none": "Немає"
+    "value.clothing.none": "Немає",
+    "menu.title": "Меню",
+    "menu.settings": "Налаштування",
+    "menu.quit": "Вийти",
+    "settings.title": "Налаштування",
+    "settings.language": "Мова",
+    "settings.language.uk": "Українська",
+    "settings.language.en": "Англійська",
+    "settings.back": "Назад"
   },
   "en": {
     "ui.title": "Character",
@@ -133,6 +141,14 @@
     "value.hair_style.curtains": "Curtains",
     "value.hair_style.mop": "Mop",
     "value.hair_style.spiked": "Spiked",
-    "value.clothing.none": "None"
+    "value.clothing.none": "None",
+    "menu.title": "Menu",
+    "menu.settings": "Settings",
+    "menu.quit": "Quit",
+    "settings.title": "Settings",
+    "settings.language": "Language",
+    "settings.language.uk": "Ukrainian",
+    "settings.language.en": "English",
+    "settings.back": "Back"
   }
 }

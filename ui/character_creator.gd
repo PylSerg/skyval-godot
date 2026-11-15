@@ -147,15 +147,23 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
     _held_joy_buttons[button_id] = true
 
     if not _opened:
-        # World shortcut: D-pad Down opens the creator.
-        # Start and X are freed for future world-level actions.
-        if event.button_index == JOY_BUTTON_DPAD_DOWN:
+        # Select/Back opens the creator. Start belongs to GameMenu, and the
+        # four D-pad directions are reserved for world-level quick actions.
+        if event.button_index == JOY_BUTTON_BACK:
+            var game_menu: Node = get_parent().get_node_or_null("GameMenu")
+            if game_menu != null and bool(game_menu.call("is_open")):
+                return
             _set_open(true)
             get_viewport().set_input_as_handled()
         return
 
+    # Start is handled by GameMenu even while this editor is open; it will
+    # close the editor before showing the main menu.
+    if event.button_index == JOY_BUTTON_START:
+        return
+
     match event.button_index:
-        JOY_BUTTON_START, JOY_BUTTON_X, JOY_BUTTON_B:
+        JOY_BUTTON_BACK, JOY_BUTTON_X, JOY_BUTTON_B:
             _set_open(false)
         JOY_BUTTON_A:
             _adjust_selected(1)
@@ -254,6 +262,12 @@ func _update_row_highlight() -> void:
             label.add_theme_color_override("font_color", Color("#f8d984") if selected else Color("#f0f1ed"))
         if index < _row_values.size() and is_instance_valid(_row_values[index]):
             _row_values[index].add_theme_color_override("font_color", Color("#f8d984") if selected else Color("#f0f1ed"))
+
+func close_for_menu() -> void:
+    # Central menu owns Start. Never leave two paused UI layers open.
+    if _opened:
+        _set_open(false)
+
 
 func _set_open(next_open: bool) -> void:
     _opened = next_open
