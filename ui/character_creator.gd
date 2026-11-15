@@ -36,6 +36,7 @@ signal cancelled
 
 var _opened: bool = false
 var _creation_mode: bool = false
+var _confirmation_open: bool = false
 var _edit_snapshot: Dictionary = {}
 var _selected_index: int = 0
 var _active_tab: int = 0
@@ -46,7 +47,10 @@ var _row_labels: Array[Label] = []
 var _row_values: Array[Label] = []
 var _row_scroll: ScrollContainer
 var _page_clip: Control
-var _confirm_button: Button
+var _action_hint: Label
+var _confirmation_overlay: Control
+var _confirmation_message: Label
+var _confirmation_hint: Label
 var _ui_font: FontFile
 var _held_joy_buttons: Dictionary = {}
 var _joy_axis_direction: Dictionary = {}
@@ -180,6 +184,16 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
             get_viewport().set_input_as_handled()
         return
 
+    if appearance_window and _confirmation_open:
+        # Confirmation is modal: no changes to the character until A or B.
+        match event.button_index:
+            JOY_BUTTON_A:
+                _accept_appearance()
+            JOY_BUTTON_B:
+                _dismiss_confirmation()
+        get_viewport().set_input_as_handled()
+        return
+
     # Start/R3 belongs to GameMenu, except while creating a new character.
     if event.button_index == JOY_BUTTON_START or event.button_index == JOY_BUTTON_RIGHT_STICK:
         return
@@ -196,10 +210,10 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
             else:
                 _set_open(false)
         JOY_BUTTON_A:
-            if appearance_window and _selected_index == APPEARANCE_FIELDS.size():
-                _accept_appearance()
-            else:
-                _adjust_selected(1)
+            _adjust_selected(1)
+        JOY_BUTTON_X:
+            if appearance_window:
+                _show_confirmation()
         JOY_BUTTON_LEFT_SHOULDER:
             if not appearance_window:
                 _set_tab(posmod(_active_tab - 1, BACKPACK_TABS.size()))
@@ -222,6 +236,9 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
 # The lower release threshold prevents drift from triggering repeated actions.
 func _handle_joy_axis(event: InputEventJoypadMotion) -> void:
     if not _opened:
+        return
+    if appearance_window and _confirmation_open:
+        get_viewport().set_input_as_handled()
         return
     # One 90-degree step per right-stick horizontal tilt. The stick must
     # return near the center before another step, including opposite tilts.
@@ -275,7 +292,7 @@ func _can_navigate() -> bool:
 func _move_selection(amount: int) -> void:
     if not _can_navigate():
         return
-    var option_count: int = _current_fields().size() + (1 if appearance_window else 0)
+    var option_count: int = _current_fields().size()
     if option_count == 0:
         return
     _selected_index = posmod(_selected_index + amount, option_count)
@@ -297,15 +314,6 @@ func _update_row_highlight() -> void:
             label.add_theme_color_override("font_color", Color("#f8d984") if selected else Color("#f0f1ed"))
         if index < _row_values.size() and is_instance_valid(_row_values[index]):
             _row_values[index].add_theme_color_override("font_color", Color("#f8d984") if selected else Color("#f0f1ed"))
-    if appearance_window and is_instance_valid(_confirm_button):
-        var selected_confirm: bool = _selected_index == APPEARANCE_FIELDS.size()
-        var style := StyleBoxFlat.new()
-        style.bg_color = Color("#597a9b") if selected_confirm else Color("#354960")
-        style.border_color = Color("#e7ca86") if selected_confirm else Color("#667f9a")
-        style.set_border_width_all(1)
-        style.set_content_margin_all(2)
-        _confirm_button.add_theme_stylebox_override("normal", style)
-        _confirm_button.add_theme_color_override("font_color", Color("#fff0c8") if selected_confirm else Color("#edf1f5"))
 
 
 func _current_fields() -> Array:
@@ -344,8 +352,10 @@ func open_for_edit() -> void:
 
 
 func _accept_appearance() -> void:
-    if not appearance_window or not _opened:
+    if not appearance_window or not _opened or not _confirmation_open:
         return
+    _confirmation_open = false
+    _confirmation_overlay.hide()
     confirmed.emit()
     _creation_mode = false
     _edit_snapshot.clear()
@@ -355,6 +365,8 @@ func _accept_appearance() -> void:
 func _cancel_appearance() -> void:
     if not appearance_window or not _opened:
         return
+    _confirmation_open = false
+    _confirmation_overlay.hide()
     if not _creation_mode and not _edit_snapshot.is_empty():
         avatar.apply_save_state(_edit_snapshot)
     # Emit while paused so the calling menu can claim pause ownership.
@@ -378,6 +390,9 @@ func _set_open(next_open: bool) -> void:
     if _opened == next_open:
         return
     _opened = next_open
+    _confirmation_open = false
+    if _confirmation_overlay != null:
+        _confirmation_overlay.hide()
     _root.visible = next_open
     _set_ui_pause(next_open)
     if next_open:
@@ -439,6 +454,13 @@ func _build_interface() -> void:
     _title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     stack.add_child(_title_label)
 
+    if appearance_window:
+        # Always-visible instruction, outside the scrollable parameter list.
+        _action_hint = _label(11)
+        _action_hint.custom_minimum_size.y = 17
+        _action_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        stack.add_child(_action_hint)
+
     if not appearance_window:
         _tab_scroll = ScrollContainer.new()
         _tab_scroll.custom_minimum_size.y = 25
@@ -482,6 +504,9 @@ func _build_interface() -> void:
     _missing_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _missing_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _root.add_child(_missing_label)
+
+    if appearance_window:
+        _build_confirmation_overlay()
 
     _refresh_text()
 
@@ -547,6 +572,67 @@ func _reveal_active_tab() -> void:
         _tab_scroll.ensure_control_visible(_tab_buttons[intended_tab])
 
 
+
+
+func _show_confirmation() -> void:
+    if not appearance_window or not _opened or _confirmation_open:
+        return
+    _confirmation_open = true
+    _confirmation_message.text = _tr("ui.confirm_create_question") if _creation_mode else _tr("ui.confirm_edit_question")
+    _confirmation_hint.text = _tr("ui.confirm_joy_hint")
+    _confirmation_overlay.show()
+
+
+func _dismiss_confirmation() -> void:
+    _confirmation_open = false
+    if _confirmation_overlay != null:
+        _confirmation_overlay.hide()
+
+
+func _build_confirmation_overlay() -> void:
+    _confirmation_overlay = Control.new()
+    _confirmation_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    _confirmation_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+    _root.add_child(_confirmation_overlay)
+
+    var backdrop := ColorRect.new()
+    backdrop.color = Color(0.03, 0.06, 0.10, 0.88)
+    backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _confirmation_overlay.add_child(backdrop)
+
+    var panel := PanelContainer.new()
+    panel.position = Vector2(27, 65)
+    panel.custom_minimum_size = Vector2(266, 110)
+    panel.size = Vector2(266, 110)
+    _confirmation_overlay.add_child(panel)
+
+    var style := StyleBoxFlat.new()
+    style.bg_color = Color("#202c3c")
+    style.border_color = Color("#e7ca86")
+    style.set_border_width_all(1)
+    style.set_corner_radius_all(3)
+    style.set_content_margin_all(8)
+    panel.add_theme_stylebox_override("panel", style)
+
+    var content := VBoxContainer.new()
+    content.add_theme_constant_override("separation", 12)
+    panel.add_child(content)
+
+    _confirmation_message = _label(15)
+    _confirmation_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    _confirmation_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _confirmation_message.clip_text = false
+    _confirmation_message.custom_minimum_size.y = 45
+    content.add_child(_confirmation_message)
+
+    _confirmation_hint = _label(12)
+    _confirmation_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    _confirmation_hint.clip_text = false
+    content.add_child(_confirmation_hint)
+
+    _confirmation_overlay.hide()
+
 func _create_page_scroll() -> ScrollContainer:
     var scroll := ScrollContainer.new()
     scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -601,6 +687,10 @@ func _refresh_text() -> void:
     if _title_label == null:
         return
     _title_label.text = _tr("ui.appearance") if appearance_window else _tr("inventory.title")
+    if appearance_window:
+        _action_hint.text = _tr("ui.hint_create_x") if _creation_mode else _tr("ui.hint_edit_x")
+        _confirmation_message.text = _tr("ui.confirm_create_question") if _creation_mode else _tr("ui.confirm_edit_question")
+        _confirmation_hint.text = _tr("ui.confirm_joy_hint")
     if not appearance_window:
         for index in range(_tab_buttons.size()):
             _tab_buttons[index].text = _tr(str(BACKPACK_TABS[index]))
@@ -621,7 +711,6 @@ func _rebuild_rows() -> void:
         _rows.remove_child(child)
         child.queue_free()
 
-    _confirm_button = null
     var fields: Array = _current_fields()
     if not appearance_window and _active_tab != 0:
         var placeholder := VBoxContainer.new()
@@ -692,14 +781,6 @@ func _rebuild_rows() -> void:
             separator.size_flags_horizontal = Control.SIZE_EXPAND_FILL
             separator.mouse_filter = Control.MOUSE_FILTER_IGNORE
             field_box.add_child(separator)
-
-    if appearance_window:
-        _confirm_button = _button()
-        _confirm_button.text = _tr("ui.confirm_character") if _creation_mode else _tr("ui.confirm_appearance_edit")
-        _confirm_button.add_theme_font_size_override("font_size", 13)
-        _confirm_button.custom_minimum_size.y = 26
-        _confirm_button.pressed.connect(_accept_appearance)
-        _rows.add_child(_confirm_button)
 
     _update_row_highlight()
     _reveal_selected_row()
