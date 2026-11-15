@@ -250,6 +250,8 @@ func _build_layer(label: String, layer_z: int, atlas: Texture2D) -> AnimatedSpri
         frames.remove_animation("default")
     _add_action(frames, atlas, "idle", IDLE_Y, IDLE_FRAMES, 3.0)
     _add_action(frames, atlas, "walk", WALK_Y, WALK_FRAMES, 9.0)
+    if label == "Armor" or label == "ArmorVestFront":
+        _repair_armor_idle_frames(frames, atlas)
     sprite.sprite_frames = frames
     return sprite
 
@@ -265,6 +267,87 @@ func _add_action(frames: SpriteFrames, atlas: Texture2D, action: String, start_y
             cell.atlas = atlas
             cell.region = Rect2(int(frame_number) * CELL, row_y, CELL, CELL)
             frames.add_frame(animation, cell)
+
+# Some Universal LPC armor atlases have complete walk frames but
+# incomplete idle poses. Apply the same torso-coverage comparison used
+# by ui/character_preview.gd to the IN-WORLD idle animations, once when
+# equipping the armor. Walking frames themselves remain untouched.
+func _repair_armor_idle_frames(frames: SpriteFrames, atlas: Texture2D) -> void:
+    var pixels: Image = atlas.get_image()
+    if pixels == null or pixels.is_empty():
+        return
+
+    for direction in DIRECTIONS:
+        var idle_name: StringName = StringName("idle-" + str(direction))
+        var walk_name: StringName = StringName("walk-" + str(direction))
+        if not frames.has_animation(idle_name) or not frames.has_animation(walk_name):
+            continue
+
+        var idle_count: int = frames.get_frame_count(idle_name)
+        if idle_count == 0:
+            continue
+
+        # Assess all idle poses: a blank alternate idle frame would
+        # otherwise flicker even if the first standing frame looks fine.
+        var weakest_idle_score: int = 999999
+        for idle_index in range(idle_count):
+            var idle_frame: AtlasTexture = frames.get_frame_texture(idle_name, idle_index) as AtlasTexture
+            if idle_frame == null:
+                weakest_idle_score = 0
+                continue
+            weakest_idle_score = mini(
+                weakest_idle_score, _armor_idle_torso_coverage(pixels, idle_frame.region)
+            )
+
+        var best_walk_score: int = 0
+        var best_walk_frame: Texture2D = null
+        # Same order as the confirmed working 3x preview fallback.
+        for walk_index in [0, 4, 2, 6, 1, 5, 3, 7]:
+            if walk_index >= frames.get_frame_count(walk_name):
+                continue
+            var candidate: AtlasTexture = frames.get_frame_texture(walk_name, walk_index) as AtlasTexture
+            if candidate == null:
+                continue
+            var coverage: int = _armor_idle_torso_coverage(pixels, candidate.region)
+            if coverage > best_walk_score:
+                best_walk_score = coverage
+                best_walk_frame = candidate
+
+        if best_walk_frame == null or best_walk_score < 5:
+            continue
+        if best_walk_score <= weakest_idle_score + maxi(4, int(weakest_idle_score * 0.20)):
+            continue
+
+        # Reuse ONE genuine walk texture for every idle frame of that
+        # facing. The armor remains still when the player stands, instead
+        # of flashing between intact and incomplete idle frames.
+        for idle_index in range(idle_count):
+            frames.set_frame(
+                idle_name, idle_index, best_walk_frame,
+                frames.get_frame_duration(idle_name, idle_index)
+            )
+
+
+func _armor_idle_torso_coverage(pixels: Image, region: Rect2) -> int:
+    var x0: int = int(region.position.x)
+    var y0: int = int(region.position.y)
+    if x0 < 0 or y0 < 0 or x0 + CELL > pixels.get_width() or y0 + CELL > pixels.get_height():
+        return 0
+
+    var visible: int = 0
+    var almost_white: int = 0
+    for y in range(25, 49, 2):
+        for x in range(19, 46, 2):
+            var color: Color = pixels.get_pixel(x0 + x, y0 + y)
+            if color.a < 0.25:
+                continue
+            visible += 1
+            if color.r > 0.97 and color.g > 0.97 and color.b > 0.97:
+                almost_white += 1
+    if visible >= 40 and almost_white * 5 >= visible * 4:
+        return 0
+    return visible
+
 
 # Read the actual armors in the user's Universal LPC library. The
 # project sometimes loads its body from the small assets/lpc_sprites set,
