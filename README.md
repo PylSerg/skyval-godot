@@ -186,22 +186,43 @@ The connected **Kvoka File Bridge** directory listing for the local
 - `assets/lpc_sprites/shoulders/plate/female/bronze.png`
 - `assets/lpc_sprites/torso/armour/legion/male/ceramic.png`
 
-The connected folder also contains `addons/Universal_LPC/resources/`
-with many spritesheets, but the brief catalog view did not establish
-complete male/female variant coverage or which light armor pieces should
-be imported. The LPC renderer now overlays the matching heavy torso
-layer when a compatible sheet exists: female brass plate or male ceramic
-legion. A provisional animated pixel-armor base is always drawn beneath
-any authentic armor layer at the same 64x64 LPC frame coordinates.
-It guarantees visible equipment even when the external heavy sheet is
-missing, partly transparent or incompatible. These fallback panels cover
-the ordinary shirt in-world and in the 3× portrait: leather vest,
-reinforced vest and heavy cuirass all look distinct.
-The equipment remains validated separately from the display layer.
-These hand-authored fallback designs are **prototypes**, not claimed
-to be original Universal LPC artwork. Future work should confirm
-matching male/female LPC sheets and licenses before shipping the
-complete armor illustrations to PortMaster.
+The connected bridge's **folder tree** confirms a complete
+`addons/Universal_LPC/resources/spritesheets/torso/armour/` category
+with these subdirectories for both `female` and `male`:
+`leather/`, `legion/` and `plate/`. The current bridge view does **not**
+expose the exact PNG filenames or bitmap contents inside those
+directories. On the actual user's machine, the LPC renderer discovers
+the existing PNG files dynamically, tries preferred material colors
+first, and accepts a sheet only if its atlas has the supported 64×64
+idle/walk frames.
+
+The temporary, hand-drawn pixel armor has been **removed**.
+The armor items now map to genuine LPC torso categories:
+`leather_vest` → `leather`,
+`reinforced_vest` → `legion` (with leather fallback), and
+`plate_cuirass` → `plate` (with legion fallback).
+Both `res://addons/Universal_LPC/resources/spritesheets` and the
+external `~/Godot/res/addons/Universal_LPC/resources/spritesheets`
+are searched, independently of the body sheet's source folder.
+When no suitable sheet exists, equipping **fails without removing the
+currently worn garment or claiming armor protection**. The user
+keeps the armor in the backpack; previously saved armor items are
+preserved in the backpack if their source art is missing.
+
+**Torso exclusivity:** Equipping torso armor sets shirt style to
+`none` and returns the previously equipped shirt to the backpack.
+Equipping any shirt sets armor style to `none` and returns its armor
+item to the backpack. This is one atomic visual transition, followed
+by inventory mutation only on success. Pants and shoes are not removed.
+Older saves containing both a worn shirt and armor are repaired on
+load, keeping the shirt as a backpack item. Armor removal leaves
+the torso bare until the player selects a shirt again.
+
+These local full-size sheets are **not automatically bundled into
+R36H/PortMaster exports**. For standalone builds, copy the licensed
+necessary sprite sheets into the project's packed resource paths and
+verify the exported atlas and licenses. Do not ship the 900 MB source
+tree by accident.
 
 ## Pause and Back navigation
 
