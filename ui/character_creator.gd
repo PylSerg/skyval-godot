@@ -434,6 +434,9 @@ func _set_open(next_open: bool) -> void:
         _refresh_text()
         _update_row_highlight()
     else:
+        # Infinite marquee tweens should not consume CPU while this
+        # overlay is closed (especially on the R36H).
+        _stop_value_marquees()
         get_viewport().gui_release_focus()
 
 
@@ -747,10 +750,7 @@ func _refresh_text() -> void:
     _rebuild_rows()
 
 func _rebuild_rows() -> void:
-    for running_tween in _value_marquees.values():
-        if running_tween is Tween and running_tween.is_valid():
-            running_tween.kill()
-    _value_marquees.clear()
+    _stop_value_marquees()
     _value_windows.clear()
     _value_labels.clear()
     _field_arrows.clear()
@@ -919,13 +919,22 @@ func _refresh_options() -> void:
     call_deferred("_refresh_all_value_marquees")
 
 
+func _stop_value_marquees() -> void:
+    for running_tween in _value_marquees.values():
+        if running_tween is Tween and running_tween.is_valid():
+            running_tween.kill()
+    _value_marquees.clear()
+
+
 func _refresh_all_value_marquees() -> void:
+    if not _opened:
+        return
     for field_key in _value_windows.keys():
         _update_value_marquee(str(field_key))
 
 
 func _update_value_marquee(key: String) -> void:
-    if not _value_windows.has(key) or not _value_labels.has(key):
+    if not _opened or not _value_windows.has(key) or not _value_labels.has(key):
         return
     var viewport: Control = _value_windows[key] as Control
     var label: Label = _value_labels[key] as Label
