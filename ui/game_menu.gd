@@ -7,6 +7,7 @@ const LocaleScript = preload("res://localization/localization.gd")
 const SaveStoreScript = preload("res://game/save_store.gd")
 const NameEntryScript = preload("res://ui/name_entry.gd")
 const UiTheme = preload("res://ui/skyval_theme.gd")
+const ControllerChoiceScript = preload("res://ui/nintendo_choice.gd")
 const FONT_PATH := "res://assets/fonts/CascadiaMono-Regular.ttf"
 const TITLE_IMAGE_PATH := "res://assets/images/title_bg.jpg"
 const TITLE_MENU_WIDTH := 184.0
@@ -60,8 +61,8 @@ var _profile_list: VBoxContainer
 var _profile_hint: Label
 var _confirm_panel: VBoxContainer
 var _confirm_message: Label
-var _confirm_accept: Label
-var _confirm_cancel: Label
+var _confirm_accept: Control
+var _confirm_cancel: Control
 var _menu_buttons: Array[Button] = []
 var _language_caption: Label
 var _language_value: Label
@@ -734,19 +735,6 @@ func _change_language(_direction: int) -> void:
     _locale.call("set_language", desired)
 
 
-func _on_confirmation_choice_input(event: InputEvent, accept: bool) -> void:
-    if _confirm_action.is_empty() or not _opened:
-        return
-    if event is InputEventMouseButton:
-        var click: InputEventMouseButton = event as InputEventMouseButton
-        if click.button_index == MOUSE_BUTTON_LEFT and click.pressed:
-            if accept:
-                _accept_confirmation()
-            else:
-                _dismiss_confirmation()
-            get_viewport().set_input_as_handled()
-
-
 func _build_interface() -> void:
     _root = Control.new()
     _root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -857,8 +845,8 @@ func _build_interface() -> void:
     _profile_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _continue_panel.add_child(_profile_hint)
 
-    # Confirmation options are left-aligned plain text, NOT buttons.
-    # Each is a separate line; gamepad A/B remains the primary control.
+    # Confirmation alternatives are neutral, unhighlighted text with
+    # Nintendo-colored A/B circles. Both are left aligned and clickable.
     _confirm_panel = VBoxContainer.new()
     _confirm_panel.add_theme_constant_override("separation", 5)
     stack.add_child(_confirm_panel)
@@ -875,22 +863,14 @@ func _build_interface() -> void:
     confirm_options.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     _confirm_panel.add_child(confirm_options)
 
-    _confirm_accept = _label(MIN_UI_FONT_SIZE)
-    _confirm_accept.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-    _confirm_accept.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    _confirm_accept.custom_minimum_size.y = 22
-    _confirm_accept.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
-    _confirm_accept.mouse_filter = Control.MOUSE_FILTER_STOP
-    _confirm_accept.gui_input.connect(_on_confirmation_choice_input.bind(true))
+    _confirm_accept = ControllerChoiceScript.new() as Control
+    _confirm_accept.call("configure", "A", _tr("menu.confirm_accept"), _font)
+    _confirm_accept.connect("activated", Callable(self, "_accept_confirmation"))
     confirm_options.add_child(_confirm_accept)
 
-    _confirm_cancel = _label(MIN_UI_FONT_SIZE)
-    _confirm_cancel.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-    _confirm_cancel.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    _confirm_cancel.custom_minimum_size.y = 22
-    _confirm_cancel.add_theme_color_override("font_color", UiTheme.MUTED)
-    _confirm_cancel.mouse_filter = Control.MOUSE_FILTER_STOP
-    _confirm_cancel.gui_input.connect(_on_confirmation_choice_input.bind(false))
+    _confirm_cancel = ControllerChoiceScript.new() as Control
+    _confirm_cancel.call("configure", "B", _tr("menu.confirm_cancel"), _font)
+    _confirm_cancel.connect("activated", Callable(self, "_dismiss_confirmation"))
     confirm_options.add_child(_confirm_cancel)
 
     _refresh_text()
@@ -1040,8 +1020,8 @@ func _refresh_text() -> void:
 
     _language_caption.text = _tr("settings.language")
     _language_value.text = _tr("settings.language.en") if str(_locale.get("language")) == "en" else _tr("settings.language.uk")
-    _confirm_accept.text = _tr("menu.confirm_accept")
-    _confirm_cancel.text = _tr("menu.confirm_cancel")
+    _confirm_accept.call("set_caption", _tr("menu.confirm_accept"))
+    _confirm_cancel.call("set_caption", _tr("menu.confirm_cancel"))
     _main_panel.visible = not _settings_open and _list_mode.is_empty() and _confirm_action.is_empty()
     _settings_panel.visible = _settings_open and _confirm_action.is_empty()
     _continue_panel.visible = not _list_mode.is_empty() and _confirm_action.is_empty()
