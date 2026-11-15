@@ -147,9 +147,9 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
     _held_joy_buttons[button_id] = true
 
     if not _opened:
-        # Select/Back opens the creator. Start belongs to GameMenu, and the
-        # four D-pad directions are reserved for world-level quick actions.
-        if event.button_index == JOY_BUTTON_BACK:
+        # Select/Back or L3 opens the creator. Start or R3 belongs to GameMenu,
+        # and the D-pad is reserved for world-level quick actions.
+        if event.button_index == JOY_BUTTON_BACK or event.button_index == JOY_BUTTON_LEFT_STICK:
             var game_menu: Node = get_parent().get_node_or_null("GameMenu")
             if game_menu != null and bool(game_menu.call("is_open")):
                 return
@@ -157,13 +157,13 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
             get_viewport().set_input_as_handled()
         return
 
-    # Start is handled by GameMenu even while this editor is open; it will
-    # close the editor before showing the main menu.
-    if event.button_index == JOY_BUTTON_START:
+    # Start/R3 is handled by GameMenu even while this editor is open;
+    # it will close the editor before showing the main menu.
+    if event.button_index == JOY_BUTTON_START or event.button_index == JOY_BUTTON_RIGHT_STICK:
         return
 
     match event.button_index:
-        JOY_BUTTON_BACK, JOY_BUTTON_X, JOY_BUTTON_B:
+        JOY_BUTTON_BACK, JOY_BUTTON_LEFT_STICK, JOY_BUTTON_X, JOY_BUTTON_B:
             _set_open(false)
         JOY_BUTTON_A:
             _adjust_selected(1)
