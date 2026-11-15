@@ -197,10 +197,14 @@ first, and accepts a sheet only if its atlas has the supported 64×64
 idle/walk frames.
 
 The temporary, hand-drawn pixel armor has been **removed**.
-The armor items now map to genuine LPC torso categories:
+The armor items now map to distinct genuine LPC torso categories:
 `leather_vest` → `leather`,
-`reinforced_vest` → `legion` (with leather fallback), and
-`plate_cuirass` → `plate` (with legion fallback).
+`reinforced_vest` → `legion`, and
+`plate_cuirass` → `plate`.
+The loader does **not** silently substitute leather for legion or
+legion for plate. It also checks the alpha coverage in all four
+walking/idle directions for legion and plate atlases; a sheet that is
+large enough but empty from the front is not accepted.
 Both `res://addons/Universal_LPC/resources/spritesheets` and the
 external `~/Godot/res/addons/Universal_LPC/resources/spritesheets`
 are searched, independently of the body sheet's source folder.
@@ -223,6 +227,17 @@ leaving the original outfit and inventory unchanged instead of
 pretending that a bare torso is covered. The connected file bridge
 verified the sleeveless folder structure but did not expose the exact
 PNG variants; the new runtime selection still needs a Godot visual test.
+
+**Armor preview regression (recording, 2026-11-15):**
+Rapidly cycling between the three armor pieces and None repeatedly
+caused the right-hand 3× portrait area to turn solid white, sometimes
+for several seconds. The paused preview now draws the underlying
+atlas using `draw_texture_rect_region()` rather than passing a
+nested `AtlasTexture` directly to `draw_texture()`, ignores
+sprite nodes queued for deletion, and schedules one additional
+preview redraw after the next frame when the new LPC layers settle.
+This is a targeted fix based on code analysis, **not yet confirmed
+by a live Godot test**.
 
 **Torso exclusivity:** Equipping torso armor sets shirt style to
 `none` and returns the previously equipped shirt to the backpack.
