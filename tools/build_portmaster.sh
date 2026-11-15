@@ -56,25 +56,17 @@ for subdir in prototype characters ui localization inventory world game; do
     cp -R "$ROOT/$subdir" "$STAGE/$subdir"
 done
 
-# Include the dedicated title illustration. Keep it bundled with the PCK
-# even in --no-assets smoke tests (that option only skips LPC sheets).
-TITLE_ART="$ROOT/assets/images/title_bg.jpg"
-if [ -f "$TITLE_ART" ]; then
+# Include EVERY UI background/image in Git automatically. New art added
+# under assets/images/ will then appear in the PCK without script edits.
+if [ -d "$ROOT/assets/images" ]; then
     mkdir -p "$STAGE/assets/images"
-    cp "$TITLE_ART" "$STAGE/assets/images/title_bg.jpg"
-else
-    echo "NOTE: title art missing from assets/images; title falls back to dark menu."
+    cp -R "$ROOT/assets/images/." "$STAGE/assets/images/"
 fi
-
-# Character creation has its own illustrated backdrop. Unlike optional LPC
-# sprite sheets, this small UI asset is always included in test builds.
-CREATION_ART="$ROOT/assets/images/create_hero_bg.jpg"
-if [ -f "$CREATION_ART" ]; then
-    mkdir -p "$STAGE/assets/images"
-    cp "$CREATION_ART" "$STAGE/assets/images/create_hero_bg.jpg"
-else
-    echo "NOTE: creation art missing; character editor will use a plain backdrop."
-fi
+for required_image in title_bg.jpg create_hero_bg.jpg; do
+    if [ ! -s "$STAGE/assets/images/$required_image" ]; then
+        echo "WARNING: expected Skyval screen background missing: $required_image"
+    fi
+done
 
 # Prefer the static Cascadia Mono Regular from the connected asset library.
 # Copy only the font actually used by the creator, not the old Cascadia.ttf.
@@ -215,6 +207,9 @@ Source: https://github.com/PylSerg/skyval-godot
 Log after launching: roms/ports/skyval/log.txt
 EOF
 
+# Delete the old 14-sprite smoke-test archive so nobody installs it by
+# mistake after producing the new complete/full/update packages.
+rm -f "$DIST/Skyval_PortMaster_Test.zip"
 if command -v zip >/dev/null 2>&1; then
     # ZIP stores already-compressed PNGs without another expensive pass.
     # Each build removes the previous named archive to avoid stale files.
