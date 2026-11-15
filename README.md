@@ -54,8 +54,8 @@ After confirming appearance, the game opens a **character name** window:
   interface language, plus a space and a backspace key. Initial letters
   are capitalized automatically.
 - **D-pad, left stick and right stick** move across the grid.
-  **A** enters a letter, **X** suggests a random gender-appropriate name,
-  **Y** confirms the entered name (with an A/B confirmation), and
+  **A** enters a letter, **Y** suggests a random gender-appropriate name,
+  **X** confirms the entered name (with an A/B confirmation), and
   **B** returns to the main menu (also with an A/B confirmation).
 - Empty names cannot be confirmed. Exiting name entry does not create
   a character or a save.
