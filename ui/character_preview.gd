@@ -22,7 +22,8 @@ func rotate_step(direction: int) -> void:
 
 func _draw() -> void:
     draw_rect(Rect2(Vector2.ZERO, size), Color(0.10, 0.16, 0.22, 0.92))
-    draw_rect(Rect2(4, size.y - 18, size.x - 8, 1), Color(0.30, 0.43, 0.47, 0.50))
+    # Leave the bottom 50+ pixels free for class/defense labels.
+    draw_rect(Rect2(4, size.y - 58, size.x - 8, 1), Color(0.30, 0.43, 0.47, 0.50))
     if character == null or not is_instance_valid(character):
         return
 
@@ -35,7 +36,8 @@ func _draw() -> void:
     )
 
     var animation: StringName = StringName("idle-" + DIRECTIONS[facing])
-    var origin: Vector2 = Vector2(roundf(size.x * 0.5), roundf(size.y * 0.69))
+    # Raise the standing figure so its feet clear the relocated divider.
+    var origin: Vector2 = Vector2(roundf(size.x * 0.5), roundf(size.y * 0.57))
     draw_set_transform(origin, 0.0, Vector2(PREVIEW_SCALE, PREVIEW_SCALE))
     for sprite in layers:
         if sprite.sprite_frames == null or not sprite.sprite_frames.has_animation(animation):
