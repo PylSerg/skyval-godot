@@ -5,3 +5,6 @@
 /dist/
 
 .vscode
+
+# Runtime character profiles (never commit player saves)
+/saves/
