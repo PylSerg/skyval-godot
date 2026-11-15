@@ -163,7 +163,8 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
         return
 
     match event.button_index:
-        JOY_BUTTON_BACK, JOY_BUTTON_LEFT_STICK, JOY_BUTTON_X, JOY_BUTTON_B:
+        JOY_BUTTON_B:
+            # B is the only Back action. Select/L3 only opens this panel.
             _set_open(false)
         JOY_BUTTON_A:
             _adjust_selected(1)
@@ -270,9 +271,11 @@ func close_for_menu() -> void:
 
 
 func _set_open(next_open: bool) -> void:
+    if _opened == next_open:
+        return
     _opened = next_open
     _root.visible = next_open
-    get_tree().paused = next_open
+    _set_ui_pause(next_open)
     if next_open:
         _last_navigation_ms = -10000
         # Re-arm both sticks only on opening the menu.
@@ -282,6 +285,16 @@ func _set_open(next_open: bool) -> void:
         _update_row_highlight()
     else:
         get_viewport().gui_release_focus()
+
+
+func _set_ui_pause(is_open: bool) -> void:
+    var pause_manager: Node = get_node_or_null("/root/SkyvalUiPause")
+    if pause_manager != null:
+        pause_manager.call("set_open", self, is_open)
+    else:
+        # Fallback for an editor that has not reloaded project.godot yet.
+        get_tree().paused = is_open
+
 
 func _build_interface() -> void:
     _root = Control.new()
