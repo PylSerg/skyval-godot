@@ -114,9 +114,12 @@ a translucent navy/gold control panel and a framed LPC character preview.
 The five appearance fields remain visible together as a compact list:
 body type, skin, eyes, hairstyle and hair color. One shared selector below
 the list shows and changes the highlighted field's actual value and
-retains the original field counters. The D-pad and left stick move through
-the list or change its value, A changes the value, right-stick horizontal
-flicks rotate the portrait by 90°, X confirms and B cancels.
+retains the original field counters. The D-pad and left stick move through the list or change its value,
+right-stick horizontal flicks rotate the portrait by 90°.
+**During creation:** A does nothing, B returns to the main menu,
+Y randomizes the body type, skin, eyes, hair style and hair color (using
+valid LPC assets), and X immediately advances to character-name entry.
+There is no extra A-confirmation after X. Inventory A still equips gear.
 The backpack now shares this compact five-field layout and the same
 gold-accented, translucent panel styling. Unlike creation, its background
 is the **paused gameplay world**, not the appearance illustration.
@@ -124,9 +127,11 @@ The portrait keeps the armor statistics below the character.
 
 ### Character creation
 
-New Game opens the appearance editor. Choose the body, eyes and hair,
-then confirm with **X** followed by **A**. The name-entry keyboard then
-appears. Its Ukrainian/English characters and space/backspace fit 320×240.
+New Game opens the appearance editor. Choose the body, eyes and hair
+with left/right, or press **Y** to randomize the entire look. Press
+**X** to go directly to the character-name keyboard; **A** has no
+action in creation, and **B** returns to the main menu.
+The name-entry keyboard then appears. Its Ukrainian/English characters and space/backspace fit 320×240.
 **A** picks characters, **Y** suggests a random gender-appropriate name,
 **X** confirms with a dialog, and **B** cancels with a dialog. Only a
 confirmed name allocates a new profile. Default LPC outfits depend on
@@ -277,9 +282,10 @@ returns the other to the backpack. There are no separate "Equipped" and "In back
 rows stops at the first/last entry (no wrapping). Item choices **and
 appearance choices** (gender, skin, eyes, hair style and color) wrap
 cyclically. The creation screen still has no separate Create button:
-press X to open confirmation, then A to create or B to cancel.
-The left/right arrows in the appearance screen therefore stay enabled
-at both ends when multiple options exist. Invalid or missing LPC
+press X to continue directly to the name screen, Y for a random
+appearance, or B to return to the main menu. A is intentionally inactive
+on the creation screen. Left/right choice arrows stay enabled at both
+ends when multiple options exist. Invalid or missing LPC
 alternatives are skipped without modifying the current appearance.
 Unobtainable clothes or armor are not silently added.
 
