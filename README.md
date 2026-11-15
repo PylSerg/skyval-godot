@@ -39,9 +39,11 @@ Appearance and clothing fields share fixed panel insets (7px),
 group spacing (12px), and inner field spacing (5px), with 16px headings
 and subtle 1px horizontal separators. Overflowing lists continue to
 scroll vertically and auto-reveal the selected field; the vertical bar
-stays hidden. L1 / R1 switch tabs with a short horizontal slide of the
-contents, and the active tab gets a brighter background and border.
-No swipe input was added. The right-side portrait stays fixed.
+stays hidden. L1 / R1 select the tabs and slide page contents horizontally.
+Each tab is sized by its text and equal 10px left/right padding; the
+top tab strip can scroll horizontally when tabs do not fit. The active
+tab is automatically revealed, with a brighter background and border.
+No swipe-to-switch input was added. The right-side portrait stays fixed.
 
 The UI prefers the static **Cascadia Mono Regular** at
 `assets/fonts/CascadiaMono-Regular.ttf`. This is the correct font discovered
