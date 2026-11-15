@@ -90,7 +90,7 @@ var _missing_label: Label
 var _value_labels: Dictionary = {}
 var _value_windows: Dictionary = {}
 var _value_marquees: Dictionary = {}
- var _inventory: Node
+var _inventory: Node
 var _locale: Node
 
 func _ready() -> void:
@@ -560,7 +560,12 @@ func _build_interface() -> void:
     var shade := ColorRect.new()
     # Inventory overlays the paused game world. Do not replace it with
     # creation art or hide it under the old nearly opaque shade.
-    shade.color = Color(0.02, 0.03, 0.07, 0.12) if appearance_window and _appearance_bg.texture != null else Color(0.02, 0.03, 0.07, 0.18) if not appearance_window else Color(0.03, 0.08, 0.10, 0.76)
+    if not appearance_window:
+        shade.color = Color(0.02, 0.03, 0.07, 0.18)
+    elif _appearance_bg.texture != null:
+        shade.color = Color(0.02, 0.03, 0.07, 0.12)
+    else:
+        shade.color = Color(0.03, 0.08, 0.10, 0.76)
     shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
     shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     _root.add_child(shade)
@@ -748,15 +753,15 @@ func _update_tab_styles() -> void:
         var tab: Button = _tab_buttons[index]
         var selected: bool = index == _active_tab
         var style := StyleBoxFlat.new()
-        style.bg_color = Color("#597a9b") if selected else Color("#354960")
-        style.border_color = ACTIVE_HIGHLIGHT if selected else Color("#667f9a")
+        style.bg_color = Color(0.22, 0.31, 0.44, 0.90) if selected else Color(0.06, 0.10, 0.16, 0.68)
+        style.border_color = ACTIVE_HIGHLIGHT if selected else Color("#72869a")
         style.set_border_width_all(1)
         style.set_content_margin_all(2)
         style.set_content_margin(SIDE_LEFT, TAB_HORIZONTAL_PADDING)
         style.set_content_margin(SIDE_RIGHT, TAB_HORIZONTAL_PADDING)
         tab.add_theme_stylebox_override("normal", style)
         var hover := style.duplicate() as StyleBoxFlat
-        hover.bg_color = Color("#6a8cac") if selected else Color("#4c6986")
+        hover.bg_color = Color(0.29, 0.40, 0.53, 0.95) if selected else Color(0.16, 0.24, 0.34, 0.86)
         tab.add_theme_stylebox_override("hover", hover)
         var tab_text: Color = ACTIVE_HIGHLIGHT if selected else Color("#edf1f5")
         tab.add_theme_color_override("font_color", tab_text)
@@ -925,7 +930,7 @@ func _rebuild_rows() -> void:
     _stop_value_marquees()
     _value_windows.clear()
     _value_labels.clear()
-     _row_counters.clear()
+    _row_counters.clear()
     _row_labels.clear()
     _row_panels.clear()
     _row_values.clear()
