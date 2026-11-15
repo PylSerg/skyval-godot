@@ -23,7 +23,7 @@ is used for both targets.
 | B | Reserved | Close backpack |
 | X | Reserved | Reserved |
 | A | Interact with nearby test chest | Cycle owned option in selected field |
-| L1 / R1 | Reserved | Reserved |
+| L1 / R1 | Reserved | Previous / next backpack tab |
 
 Press **Select / Back** or **L3** in the world to open the **backpack**.
 Press **Select/L3** again to close it, or use **B** to return to the world.
@@ -92,9 +92,14 @@ brown pants, navy cuffed pants, brown boots and black shoes.
 Items are uniquely identified, transferred one by one, and never created
 by cycling arbitrary LPC clothing variants.
 
-Open the wardrobe/backpack with Select/L3. It retains the **original
-six selector rows** and the 3× character preview: Top, Top color, Pants,
-Pants color, Shoes and Shoes color, each with its left/right arrows.
+Open the backpack with Select/L3. The horizontally scrollable tabs are
+**Clothing / Одяг**, **Armor / Броня**, and **Weapons / Зброя**.
+Switch with L1/R1 or select the tabs by mouse/touch; page contents slide
+horizontally while the 3× portrait stays fixed. Armor and Weapons are
+currently empty placeholders (no items or equipment mechanics yet).
+The Clothing tab retains the **original six selector rows**: Top,
+Top color, Pants, Pants color, Shoes and Shoes color, with their
+left/right arrows.
 The selectable values now come only from clothes the character already
 wears or has taken from the chest. **No separate Equipped / In backpack
 sections** are displayed. The player's unused owned garments remain in
@@ -141,14 +146,16 @@ The creator pauses world movement. Its right-stick rotation cycles through
 The stick must return to center before another step. Vertical right-stick
 motions do nothing in the creator.
 
-The wardrobe/backpack and appearance editor share the same 3× character
-portrait and single-column full-width selectors. They are **separate
-windows** without tabs. Shared fixed panel insets (7px),
-group spacing (12px), and inner field spacing (5px) preserve the 320×240
-layout. Overflowing fields scroll vertically and reveal the selection,
-with a hidden vertical bar. Horizontal right-stick flick rotates the
-portrait ±90°; L1/R1 no longer switch appearance/clothing tabs.
-Appearance creation adds a confirmation item at the end of its fields.
+The backpack and standalone appearance editor share the same 3×
+character portrait and single-column full-width selectors. They remain
+**separate windows**; only the backpack has category tabs (Clothing,
+Armor, Weapons), while the appearance creator has none. Fixed panel insets
+(7px), field group spacing (12px), and inner spacing (5px) preserve
+the 320×240 layout. The clothing list scrolls vertically with a hidden
+scrollbar; the tab strip scrolls horizontally and auto-reveals the active
+tab. L1/R1 switch backpack tabs with a slide transition. Horizontal
+right-stick flick rotates the portrait ±90°. Appearance creation adds
+a confirmation item at the end of its fields.
 
 The UI prefers the static **Cascadia Mono Regular** at
 `assets/fonts/CascadiaMono-Regular.ttf`. This is the correct font discovered
