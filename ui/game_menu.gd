@@ -465,14 +465,17 @@ func _button() -> Button:
 
 func _update_highlight() -> void:
     for index in range(_menu_buttons.size()):
-        var selected: bool = index == _selected_option
         var button: Button = _menu_buttons[index]
+        var unavailable: bool = button.disabled
+        var selected: bool = index == _selected_option and not unavailable
         var style := StyleBoxFlat.new()
-        style.bg_color = Color("#597a9b") if selected else Color("#354960")
-        style.border_color = Color("#e7ca86") if selected else Color("#667f9a")
+        style.bg_color = Color("#293748") if unavailable else (Color("#597a9b") if selected else Color("#354960"))
+        style.border_color = Color("#52657a") if unavailable else (Color("#e7ca86") if selected else Color("#667f9a"))
         style.set_border_width_all(1)
         style.set_content_margin_all(3)
         button.add_theme_stylebox_override("normal", style)
+        button.add_theme_stylebox_override("disabled", style)
+        button.add_theme_color_override("font_disabled_color", Color("#8493a5"))
         var hover := style.duplicate() as StyleBoxFlat
         hover.bg_color = Color("#6a8cac") if selected else Color("#4c6986")
         button.add_theme_stylebox_override("hover", hover)
