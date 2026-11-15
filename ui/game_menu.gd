@@ -7,7 +7,7 @@ const LocaleScript = preload("res://localization/localization.gd")
 const SaveStoreScript = preload("res://game/save_store.gd")
 const NameEntryScript = preload("res://ui/name_entry.gd")
 const FONT_PATH := "res://assets/fonts/CascadiaMono-Regular.ttf"
-const TITLE_IMAGE_PATH := "res://assets/ui/title_background.webp"
+const TITLE_IMAGE_PATH := "res://assets/ui/title_background.jpg"
 const TITLE_MENU_WIDTH := 184.0
 const TITLE_BUTTON_HEIGHT := 24.0
 const TITLE_BUTTON_GAP := 1.0
@@ -288,17 +288,15 @@ func _show_settings(show: bool) -> void:
 
 
 func _move_selection(direction: int) -> void:
-    # Main/title screen options are drawn bottom-to-top. Up navigates
-    # to the next logical option, which is physically above Continue.
-    var delta: int = -direction if _is_title_menu() else direction
-    var next_index: int = _selected_option + delta
+    # Title and game menus both preserve their natural top-to-bottom order.
+    var next_index: int = _selected_option + direction
     while next_index >= 0 and next_index < _visible_options.size():
         if not _menu_buttons[next_index].disabled:
             _selected_option = next_index
             _status_message = ""
             _refresh_text()
             return
-        next_index += delta
+        next_index += direction
 
 func _activate_option(index: int) -> void:
     if not _opened or index < 0 or index >= _visible_options.size():
@@ -918,8 +916,10 @@ func _style_menu_layout() -> void:
         _panel.custom_minimum_size = Vector2(TITLE_MENU_WIDTH, height)
         _panel.size = Vector2(TITLE_MENU_WIDTH, height)
         _panel.position = Vector2(320.0 - TITLE_MENU_WIDTH - 9.0, 240.0 - height - 9.0)
-        for i in range(count):
-            _main_panel.move_child(_menu_buttons[i], 0)
+        # Keep Continue at the top and Quit at the bottom. Only anchor
+        # the stack to the lower edge; do not reverse button order.
+        for i in range(_menu_buttons.size()):
+            _main_panel.move_child(_menu_buttons[i], i)
     else:
         for i in range(_menu_buttons.size()):
             _main_panel.move_child(_menu_buttons[i], i)
