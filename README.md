@@ -127,7 +127,20 @@ existing shirt, pants, footwear and torso-armor save keys are retained,
 so older saves remain compatible.
 
 A full-width selection background, 12px all-around inner padding and
-14px or larger text remain in both categories. Each row has a right-edge
+14px or larger text remain in both categories. The selected row heading
+and the selected tab label use the **exact gold color of their borders**
+(`#e7ca86`), while the equipment value text stays neutral. The main
+menu's active option uses the same gold border/text accent, including
+when hovered or pressed.
+
+**First-open layout fix:** field headers and selector arrow positions are
+anchored inside the field width rather than allowing long text to expand
+the row. The right-side counter and the right arrow can no longer spill
+past the clipped equipment column during the first inventory opening;
+the middle item value keeps its separate clipped horizontal marquee.
+Marquee text measurements run after the first Godot layout frame.
+
+Each row has a right-edge
 `current/total` counter such as `2/5`, counting **only equipped or
 owned physical items**. **None / Немає never contributes to either number**:
 an empty slot with no owned items shows `0/0`, no equipped item with
