@@ -289,7 +289,9 @@ func _generate_armor_cell(
     var bob: int = -1 if walking and frame_index % 3 == 1 else 0
     var left: int = 24 if body_type == "male" else 25
     var width: int = 16 if body_type == "male" else 14
-    var top: int = 29 + bob
+    # Universal LPC idle torsos begin around row 35 of the 64px cell.
+    # At row 29 the vest would overlap the face rather than the shirt.
+    var top: int = 35 + bob
 
     var dark: Color = Color("#35291f")
     var base: Color = Color("#815034")
