@@ -32,51 +32,65 @@ reusable window which is opened during New Game, not a backpack tab.
 Press **Start** or **R3** during gameplay to open the global menu.
 The world pauses while a blocking interface is open.
 
-## Main menu and prototype saves
+## Main menu, character creation and saves
 
-The game **starts paused in its main menu**, with four vertically stacked
-options: **Continue / Продовжити**, **New Game / Нова гра**,
+The game starts paused at 320×240. The global menu has four options:
+**Continue / Продовжити**, **New Game / Нова гра**,
 **Settings / Налаштування**, and **Quit / Вийти**.
-On a fresh install, Continue is disabled. New Game first resets a
-**draft** character to the prototype spawn and opens the separate
-**Appearance / Зовнішність** window. Configure body type, skin, eyes,
-hairstyle and hair color, then press **X**, as indicated by the fixed
-hint below the appearance heading. A separate modal asks for confirmation:
-**A** creates the character, while **B** dismisses the confirmation and
-returns to editing. There is no Create Character button in the parameter
-list. Only after confirming with A is the new save committed and the
-paused world started. The reusable appearance editor uses the same X →
-A/B confirmation to apply later changes.
-At creation time, the starting LPC outfit depends on the selected body type:
-**male** gets only **formal trousers** (no shirt, no shoes), while **female**
-gets **formal trousers plus a T-shirt** (no shoes). The draft outfit updates
-when gender changes during creation. These defaults are applied only to
-**New Game**, never when continuing an existing save or editing appearance
-later. If required LPC sprite sheets are unavailable, the old valid
-appearance is retained and a warning is logged.
-**B** cancels appearance creation and returns to the main menu without
-overwriting a previous save. An existing save still requires the
-New Game overwrite-intent confirmation (A confirms, B cancels).
-Continue loads saved position and appearance before unpausing; when
-already playing, it simply resumes the world.
+Continue is disabled when no valid character profiles are present.
 
-The provisional save file is `user://skyval_save_v1.json`. It stores the
-player position, appearance, equipped item ids, backpack inventory and
-the remaining contents of the test chest (when available). The game writes
-the initial save **after character creation is confirmed**, then checkpoints
-when opening the in-game menu or choosing Quit. This is **not yet**
-a complete RPG save system: future NPCs, quests and world changes
-will need their own serialization. Continue stays disabled if the v1 save
-is absent or invalid.
+**New Game** starts a draft at the spawn point and opens the separate
+**Appearance / Зовнішність** editor. Choose body type, skin, eyes,
+hairstyle and hair color, then use **X** followed by **A** to confirm
+the appearance. **B** cancels the appearance confirmation. This step
+does not save the draft.
 
-Settings currently contains only language (Ukrainian / English). Use
-D-pad up/down or left-stick vertical to pick a menu item and **A** to
-activate it. Inside Settings, use D-pad left/right, left-stick horizontal,
-or **A** to switch languages. **B** goes back; **Start/R3** closes the
-menu only after a game has begun, preventing startup-menu bypass.
-The selected language is stored in `user://skyval_settings.cfg` via
-the existing localization service. **Quit** exits Godot, returning to
-PortMaster on the handheld.
+After confirming appearance, the game opens a **character name** window:
+- The first row shows the available name slots as spaced underscores;
+  each selected letter fills the next slot, using the 14px Cascadia font.
+  The maximum character count is computed from the available row width
+  and font metrics, so no truncated name is accepted.
+- The grid shows Ukrainian or English letters according to the chosen
+  interface language, plus a space and a backspace key. Initial letters
+  are capitalized automatically.
+- **D-pad, left stick and right stick** move across the grid.
+  **A** enters a letter, **X** suggests a random gender-appropriate name,
+  **Y** confirms the entered name (with an A/B confirmation), and
+  **B** returns to the main menu (also with an A/B confirmation).
+- Empty names cannot be confirmed. Exiting name entry does not create
+  a character or a save.
+
+Only after the name is confirmed does a **new independent profile** exist.
+The initial LPC outfit depends on body type: male begins with formal
+trousers; female with formal trousers and a T-shirt. Both start without
+shoes. The draft equipment is not persisted if creation is cancelled.
+
+**Continue** opens the list of created characters, newest launch first.
+Use **D-pad up/down** or **left stick** to select, **A** to load,
+**B** to return, and **X** to delete. Deletion requires an explicit
+**A** confirmation or **B** cancellation. If the current character
+is deleted, the running session is invalidated so its save cannot be
+silently recreated at the next checkpoint.
+
+Profiles are stored as **`<identifier>-<character_name>.json`** in
+**`saves/`**; spaces in filenames become underscores. The folder is
+created on the first save if missing, and is ignored by Git. On the
+handheld the launcher sets **`SKYVAL_SAVES_DIR`** to
+**`/roms/ports/skyval/saves`**. In desktop Godot, the fallback is
+**`user://saves`**. Each v2 JSON stores identity, last launch time,
+player position, appearance, inventory, equipment and chest state.
+The game checkpoints when opening the global menu, choosing Quit,
+or changing inventory/equipment and opening chests. Launching a saved
+character updates its last-launch ordering. This is not yet a complete
+world/quest/NPC serialization system.
+
+Legacy single-file `user://skyval_save_v1.json` is not automatically
+converted into a new named profile. The previous file is not deleted
+or overwritten by this implementation.
+
+The backpack is available only during gameplay, never over the start
+menu or creation windows. The chosen UI language is retained in
+`user://skyval_settings.cfg`. **Quit** returns to PortMaster on R36H.
 
 ## Test chest, backpack and equipped clothing
 
@@ -184,11 +198,10 @@ Unobtainable clothes or armor are not silently added.
 
 The game checkpoints after taking items and after equipment changes.
 The backpack, equipped slots and **both chests'** remaining contents
-are written in the same v1 save. Loading older v1 saves without inventory
-starts with an empty backpack and unopened chests, while keeping the
-saved character appearance. Loading existing saves that predate armor
-preserves their original clothing-chest depletion and initializes
-the new armor chest once, without resetting their clothing or position.
+are stored in each character's v2 profile. The inventory subsystem still
+supports missing legacy inventory fields if a profile was converted
+externally; automatic migration from the single v1 save is not enabled.
+Saved outfits and armor still depend on available LPC art.
 
 ## Armor classes and portrait information
 
