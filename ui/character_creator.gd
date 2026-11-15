@@ -342,7 +342,11 @@ func _update_row_highlight() -> void:
 func _current_fields() -> Array:
     if appearance_window:
         return APPEARANCE_FIELDS
-    return CLOTHING_FIELDS if _active_tab == 0 else []
+    if _active_tab == 0:
+        return CLOTHING_FIELDS
+    if _active_tab == 1:
+        return ["armor_equipped"]
+    return []
 
 
 func is_open() -> bool:
@@ -752,7 +756,7 @@ func _rebuild_rows() -> void:
         child.queue_free()
 
     var fields: Array = _current_fields()
-    if not appearance_window and _active_tab != 0:
+    if not appearance_window and _active_tab == 2:
         var placeholder := VBoxContainer.new()
         placeholder.add_theme_constant_override("separation", 10)
         _rows.add_child(placeholder)
@@ -852,6 +856,12 @@ func _reveal_selected_row() -> void:
 func _localized_value(key: String) -> String:
     if not avatar.has_lpc_character():
         return _tr("ui.missing_lpc")
+    if key == "armor_equipped" and _inventory != null:
+        var equipped_id: String = str(_inventory.call("get_equipped", "armor"))
+        if equipped_id.is_empty():
+            return _tr("value.clothing.none")
+        var armor_info: Dictionary = _inventory.call("get_item", equipped_id)
+        return _tr(str(armor_info.get("label", "inventory.none")))
     var value: String = avatar.get_lpc_option(key)
     if not appearance_window and _inventory != null:
         # The empty equipment slot must show None in both its style and
@@ -911,7 +921,13 @@ func _adjust(key: String, direction: int, index: int = -1) -> void:
         _reveal_selected_row()
 
     if not appearance_window:
-        if _inventory != null and bool(_inventory.call("cycle_field", key, direction, avatar)):
+        var changed: bool = false
+        if _inventory != null:
+            if key == "armor_equipped":
+                changed = bool(_inventory.call("cycle_armor", direction, avatar))
+            else:
+                changed = bool(_inventory.call("cycle_field", key, direction, avatar))
+        if changed:
             _refresh_options()
             var menu: Node = get_parent().get_node_or_null("GameMenu")
             if menu != null:
@@ -937,8 +953,12 @@ func _field_counter(key: String) -> String:
         choices = avatar.get_lpc_option_choices(key)
         chosen = avatar.get_lpc_option(key)
     elif _inventory != null:
-        choices = _inventory.call("get_field_choices", key)
-        chosen = str(_inventory.call("get_equipped", _clothing_slot(key)))
+        if key == "armor_equipped":
+            choices = _inventory.call("get_armor_choices")
+            chosen = str(_inventory.call("get_equipped", "armor"))
+        else:
+            choices = _inventory.call("get_field_choices", key)
+            chosen = str(_inventory.call("get_equipped", _clothing_slot(key)))
     if choices.is_empty():
         return "0/0"
     var index: int = choices.find(chosen)
@@ -949,6 +969,11 @@ func _can_adjust_field(key: String, direction: int) -> bool:
     if not avatar.has_lpc_character():
         return false
     if not appearance_window:
+        if key == "armor_equipped":
+            if _inventory == null:
+                return false
+            var available_armor: Array[String] = _inventory.call("get_armor_choices")
+            return available_armor.size() > 1
         return _can_change_clothing_field(key)
     var choices: Array[String] = avatar.get_lpc_option_choices(key)
     var index: int = choices.find(avatar.get_lpc_option(key))
