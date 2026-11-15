@@ -275,10 +275,14 @@ func _find_armor_sheet(body_root: String, style: String) -> String:
             types = ["leather"]
             preferences = ["brown", "leather", "tan", "chestnut", "chocolate"]
         "reinforced_vest":
-            types = ["legion", "leather"]
+            # Never replace legion armor with a leather vest merely
+            # because it shares the same atlas size.
+            types = ["legion"]
             preferences = ["iron", "steel", "gray", "black", "slate", "ceramic"]
         "plate_cuirass":
-            types = ["plate", "legion"]
+            # A plate cuirass must actually look like plate; accepting
+            # legion sprites here made the heavy and reinforced armor identical.
+            types = ["plate"]
             preferences = ["iron", "steel", "silver", "brass", "ceramic"]
         _:
             return ""
@@ -309,8 +313,15 @@ func _find_armor_sheet(body_root: String, style: String) -> String:
                 if not _texture_exists(candidate):
                     continue
                 var atlas: Texture2D = _load_texture(candidate)
-                if atlas != null and atlas.get_width() >= 9 * CELL and atlas.get_height() >= IDLE_Y + 4 * CELL:
-                    return candidate
+                if atlas == null or atlas.get_width() < 9 * CELL or atlas.get_height() < IDLE_Y + 4 * CELL:
+                    continue
+                # Size alone is not enough: some original LPC sheets have
+                # transparent facing frames despite having a full atlas.
+                # Leather gets an independent sleeveless front layer, but
+                # legion/plate must cover the chest in all walk/idle facings.
+                if style != "leather_vest" and not _has_visible_torso_in_all_directions(atlas):
+                    continue
+                return candidate
     return ""
 
 
