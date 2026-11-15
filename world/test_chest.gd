@@ -8,6 +8,7 @@ const STICK_PRESS := 0.65
 const STICK_RELEASE := 0.42
 const FONT_PATH := "res://assets/fonts/CascadiaMono-Regular.ttf"
 const MIN_UI_FONT_SIZE := 14
+const UiTheme = preload("res://ui/skyval_theme.gd")
 
 # One shared chest UI, with independent stock and world placement.
 @export_enum("clothes", "armor") var chest_kind: String = "clothes"
@@ -273,15 +274,7 @@ func _update_highlight() -> void:
     for index in range(controls.size()):
         var button: Button = controls[index]
         var active: bool = index == _selected_index
-        var style := StyleBoxFlat.new()
-        style.bg_color = Color("#597a9b") if active else Color("#354960")
-        style.border_color = Color("#e7ca86") if active else Color("#667f9a")
-        style.set_border_width_all(1)
-        style.set_content_margin_all(3)
-        button.add_theme_stylebox_override("normal", style)
-        button.add_theme_stylebox_override("disabled", style)
-        button.add_theme_color_override("font_color", Color("#fff0c8") if active else Color("#edf1f5"))
-        button.add_theme_color_override("font_disabled_color", Color("#8393a4"))
+        UiTheme.apply_button(button, active, button.disabled, 3.0)
 
 
 func _build_interface() -> void:
@@ -297,31 +290,29 @@ func _build_interface() -> void:
 
     var shade := ColorRect.new()
     shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    shade.color = Color(0.03, 0.08, 0.10, 0.82)
+    # Chest opens over the paused world, like the new backpack.
+    shade.color = Color(0.02, 0.03, 0.07, 0.22)
     shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
     _root.add_child(shade)
 
     var panel := PanelContainer.new()
     panel.position = Vector2(20, 12)
+    panel.custom_minimum_size = Vector2(280, 216)
     panel.size = Vector2(280, 216)
     _root.add_child(panel)
-    var style := StyleBoxFlat.new()
-    style.bg_color = Color("#202c3c")
-    style.border_color = Color("#7e95ae")
-    style.set_border_width_all(1)
-    style.set_corner_radius_all(3)
-    style.set_content_margin_all(8)
-    panel.add_theme_stylebox_override("panel", style)
+    panel.add_theme_stylebox_override("panel", UiTheme.panel_style(0.91, 8.0))
 
     var stack := VBoxContainer.new()
     stack.add_theme_constant_override("separation", 4)
     panel.add_child(stack)
 
     _heading = _label(17)
+    _heading.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
     _heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     stack.add_child(_heading)
 
     _hint = _label(MIN_UI_FONT_SIZE)
+    _hint.add_theme_color_override("font_color", UiTheme.MUTED)
     _hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     stack.add_child(_hint)
 
@@ -337,6 +328,7 @@ func _build_interface() -> void:
     _scroll.add_child(_rows)
 
     _empty = _label(MIN_UI_FONT_SIZE)
+    _empty.add_theme_color_override("font_color", UiTheme.MUTED)
     _empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _rows.add_child(_empty)
 
@@ -361,6 +353,7 @@ func _button() -> Button:
     button.add_theme_font_size_override("font_size", 14)
     if _font != null:
         button.add_theme_font_override("font", _font)
+    UiTheme.apply_button(button)
     return button
 
 
