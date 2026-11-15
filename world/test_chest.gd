@@ -9,6 +9,7 @@ const STICK_RELEASE := 0.42
 const FONT_PATH := "res://assets/fonts/CascadiaMono-Regular.ttf"
 const MIN_UI_FONT_SIZE := 14
 const UiTheme = preload("res://ui/skyval_theme.gd")
+const ControllerHintsScript = preload("res://ui/nintendo_hints.gd")
 
 # One shared chest UI, with independent stock and world placement.
 @export_enum("clothes", "armor") var chest_kind: String = "clothes"
@@ -17,7 +18,7 @@ const UiTheme = preload("res://ui/skyval_theme.gd")
 var _opened: bool = false
 var _root: Control
 var _heading: Label
-var _hint: Label
+var _hint: Control
 var _scroll: ScrollContainer
 var _rows: VBoxContainer
 var _empty: Label
@@ -244,7 +245,7 @@ func _refresh() -> void:
     if _root == null or _inventory == null:
         return
     _heading.text = _tr("chest.armor_title") if chest_kind == "armor" else _tr("chest.title")
-    _hint.text = _tr("chest.hint")
+    _hint.call("set_hint", _tr("chest.hint"))
     _empty.text = _tr("chest.empty")
     var stock: Array[String] = _inventory.call("get_chest_items", chest_kind)
     for child in _rows.get_children():
@@ -311,9 +312,9 @@ func _build_interface() -> void:
     _heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     stack.add_child(_heading)
 
-    _hint = _label(MIN_UI_FONT_SIZE)
-    _hint.add_theme_color_override("font_color", UiTheme.MUTED)
-    _hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    _hint = ControllerHintsScript.new() as Control
+    _hint.call("configure", _tr("chest.hint"), _font, true)
+    _hint.custom_minimum_size.y = 18
     stack.add_child(_hint)
 
     _scroll = ScrollContainer.new()
