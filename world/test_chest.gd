@@ -7,6 +7,7 @@ const LOOT_DISTANCE := 35.0
 const STICK_PRESS := 0.65
 const STICK_RELEASE := 0.42
 const FONT_PATH := "res://assets/fonts/CascadiaMono-Regular.ttf"
+const MIN_UI_FONT_SIZE := 14
 
 var _opened: bool = false
 var _root: Control
@@ -44,7 +45,7 @@ func _ready() -> void:
     _prompt = Label.new()
     _prompt.text = "A"
     _prompt.position = Vector2(-5, -31)
-    _prompt.add_theme_font_size_override("font_size", 13)
+    _prompt.add_theme_font_size_override("font_size", MIN_UI_FONT_SIZE)
     if _font != null:
         _prompt.add_theme_font_override("font", _font)
     add_child(_prompt)
@@ -315,7 +316,7 @@ func _build_interface() -> void:
     _heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     stack.add_child(_heading)
 
-    _hint = _label(11)
+    _hint = _label(MIN_UI_FONT_SIZE)
     _hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     stack.add_child(_hint)
 
@@ -330,7 +331,7 @@ func _build_interface() -> void:
     _rows.add_theme_constant_override("separation", 3)
     _scroll.add_child(_rows)
 
-    _empty = _label(13)
+    _empty = _label(MIN_UI_FONT_SIZE)
     _empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _rows.add_child(_empty)
 
@@ -342,7 +343,7 @@ func _build_interface() -> void:
 
 func _label(font_size: int) -> Label:
     var label := Label.new()
-    label.add_theme_font_size_override("font_size", font_size)
+    label.add_theme_font_size_override("font_size", maxi(font_size, MIN_UI_FONT_SIZE))
     label.add_theme_color_override("font_color", Color("#edf1f5"))
     if _font != null:
         label.add_theme_font_override("font", _font)
