@@ -123,9 +123,13 @@ func get_lpc_option(option_key: String) -> String:
     return str(_external_body.get(option_key))
 
 func get_lpc_option_choices(option_key: String) -> Array[String]:
+    var choices: Array[String] = []
     if not has_lpc_character() or not _external_body.has_method("get_option_choices"):
-        return []
-    var choices: Array[String] = _external_body.call("get_option_choices", option_key)
+        return choices
+    var raw: Variant = _external_body.call("get_option_choices", option_key)
+    if raw is Array:
+        for option in raw:
+            choices.append(str(option))
     return choices
 
 
