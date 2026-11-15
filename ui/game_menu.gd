@@ -855,7 +855,10 @@ func _build_interface() -> void:
     _confirm_message.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
     _confirm_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _confirm_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    _confirm_message.custom_minimum_size.y = 94
+    # The previous 94px reserved message height stretched short dialogs
+    # almost to the 240px viewport edge. Three lines fit in ~52px;
+    # longer names may still increase their natural minimum height.
+    _confirm_message.custom_minimum_size.y = 52
     _confirm_panel.add_child(_confirm_message)
 
     var confirm_options := VBoxContainer.new()
@@ -921,12 +924,13 @@ func _style_menu_layout() -> void:
         for i in range(_menu_buttons.size()):
             _main_panel.move_child(_menu_buttons[i], i)
     else:
-        # Content-aware window sizes, centered within the native 320x240.
-        # Confirmations have a larger text area and TWO vertical choices.
-        # Settings need less height; seven-action gameplay needs all 224px.
+        # A dialog must not inherit the height of a full action/list menu.
+        # Short text and two Nintendo actions fit in a compact 158px panel.
+        # More than three lines may grow the natural minimum; recenter the
+        # result after Godot has calculated actual child sizes.
         var panel_size: Vector2 = Vector2(252, 224)
         if not _confirm_action.is_empty():
-            panel_size = Vector2(280, 202)
+            panel_size = Vector2(280, 158)
         elif _settings_open:
             panel_size = Vector2(260, 155)
         elif not _list_mode.is_empty():
@@ -934,6 +938,21 @@ func _style_menu_layout() -> void:
         _panel.custom_minimum_size = panel_size
         _panel.size = panel_size
         _panel.position = ((Vector2(320, 240) - panel_size) * 0.5).round()
+        call_deferred("_fit_non_title_panel")
+
+
+func _fit_non_title_panel() -> void:
+    if not _opened or _is_title_menu() or _panel == null:
+        return
+    # Godot containers can increase their size beyond the requested one
+    # when wrapped text grows. Measure the real combined minimum instead
+    # of positioning a bigger box using an outdated 158px assumption.
+    var required: Vector2 = _panel.get_combined_minimum_size()
+    var requested: Vector2 = _panel.custom_minimum_size
+    var final_width: float = minf(maxf(requested.x, required.x), 308.0)
+    var final_height: float = minf(maxf(requested.y, required.y), 228.0)
+    _panel.size = Vector2(final_width, final_height)
+    _panel.position = ((Vector2(320, 240) - _panel.size) * 0.5).round()
 
 
 func _update_highlight() -> void:
