@@ -178,6 +178,9 @@ func _set_open(next_open: bool) -> void:
         _set_ui_pause(true)
         if _creator != null and _creator.has_method("close_for_menu"):
             _creator.call("close_for_menu")
+        var appearance: Node = get_parent().get_node_or_null("AppearanceEditor")
+        if appearance != null and bool(appearance.call("is_open")):
+            appearance.call("close_for_menu")
 
     print("Skyval GameMenu: OPEN=", _opened)
     _settings_open = false
