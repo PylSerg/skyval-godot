@@ -310,16 +310,15 @@ func _build_interface() -> void:
     _row_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     _row_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
     _row_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-    # Make the scrollbar discoverable whenever fields overflow the viewport.
-    # Controller navigation still scrolls the selected field into view.
-    _row_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+    # Allow scrolling with D-pad, left stick, or mouse wheel, while hiding
+    # the scrollbar so the right-hand choice arrow keeps the full row width.
+    _row_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
     stack.add_child(_row_scroll)
 
     _rows = VBoxContainer.new()
     _rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    # Comfortable breathing room between field groups. Longer lists scroll.
-    # Real breathing room between fields, not just taller invisible rows.
-    _rows.add_theme_constant_override("separation", 8)
+    # Dividers provide the main separation between groups.
+    _rows.add_theme_constant_override("separation", 6)
     _row_scroll.add_child(_rows)
 
     # Use the full right column; the portrait itself is drawn at 3×.
@@ -404,14 +403,13 @@ func _rebuild_rows() -> void:
 
         # Each property gets its own full-width label and selector row.
         var field_box := VBoxContainer.new()
-        # Clear label-to-control gap and breathing room below each selector.
-        field_box.custom_minimum_size.y = 43
-        field_box.add_theme_constant_override("separation", 7)
+        # One heading, one full-width selector, then a subtle 1px divider.
+        field_box.add_theme_constant_override("separation", 5)
         _rows.add_child(field_box)
 
-        var name_label := _label(11)
+        var name_label := _label(13)
         name_label.text = _tr("field." + key)
-        name_label.custom_minimum_size.y = 14
+        name_label.custom_minimum_size.y = 17
         field_box.add_child(name_label)
         _row_labels.append(name_label)
 
@@ -442,6 +440,17 @@ func _rebuild_rows() -> void:
         following.disabled = not avatar.has_lpc_character()
         choice_row.add_child(following)
         following.pressed.connect(_adjust.bind(key, 1, index))
+
+        # Draw a full-width divider between properties, but not after the
+        # last one. Its muted color matches the frame without competing
+        # with selection highlighting.
+        if index < fields.size() - 1:
+            var separator := ColorRect.new()
+            separator.color = Color("#52657a")
+            separator.custom_minimum_size.y = 1
+            separator.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+            separator.mouse_filter = Control.MOUSE_FILTER_IGNORE
+            field_box.add_child(separator)
 
     _update_row_highlight()
     _reveal_selected_row()
