@@ -237,7 +237,7 @@ func _add_action(frames: SpriteFrames, atlas: Texture2D, action: String, start_y
             frames.add_frame(animation, cell)
 
 func set_armor_style(new_style: String) -> bool:
-    if not new_style in ["none", "leather_vest", "reinforced_vest", "plate_cuirass"]:
+    if not ["none", "leather_vest", "reinforced_vest", "plate_cuirass"].has(new_style):
         return false
     if armor_style == new_style:
         return true
