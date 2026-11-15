@@ -4,13 +4,15 @@ extends CanvasLayer
 ## All captions come from localization/strings.json.
 
 const LocaleScript = preload("res://localization/localization.gd")
+const SaveStoreScript = preload("res://game/save_store.gd")
+const NameEntryScript = preload("res://ui/name_entry.gd")
 const FONT_PATH := "res://assets/fonts/CascadiaMono-Regular.ttf"
 const MIN_UI_FONT_SIZE := 14
 const ACTIVE_HIGHLIGHT := Color("#e7ca86")
 const NAV_DEBOUNCE_MS := 100
 const STICK_PRESS := 0.65
 const STICK_RELEASE := 0.42
-const SAVE_FILE := "user://skyval_save_v1.json"
+const VISIBLE_PROFILES := 5
 const MAIN_OPTIONS := ["menu.continue", "menu.new_game", "menu.settings", "menu.quit"]
 
 @onready var _creator: CanvasLayer = get_parent().get_node("CharacterCreator") as CanvasLayer
@@ -19,14 +21,24 @@ var _locale: Node
 var _font: FontFile
 var _opened: bool = false
 var _settings_open: bool = false
-var _confirm_new_game: bool = false
+var _confirm_delete: bool = false
+var _continue_open: bool = false
 var _session_started: bool = false
 var _creation_in_progress: bool = false
 var _selected_option: int = 0
+var _selected_profile: int = 0
+var _profiles: Array[Dictionary] = []
+var _profile_data: Dictionary = {}
+var _active_save_path: String = ""
+var _save_store: RefCounted
+var _name_entry: CanvasLayer
 var _root: Control
 var _heading: Label
 var _main_panel: VBoxContainer
 var _settings_panel: VBoxContainer
+var _continue_panel: VBoxContainer
+var _profile_list: VBoxContainer
+var _profile_hint: Label
 var _confirm_panel: VBoxContainer
 var _confirm_message: Label
 var _confirm_hint: Label
@@ -55,6 +67,13 @@ func _ready() -> void:
             _font.hinting = TextServer.HINTING_NORMAL
             _font.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_AUTO
 
+    _save_store = SaveStoreScript.new()
+    _name_entry = NameEntryScript.new() as CanvasLayer
+    _name_entry.name = "CharacterNameEntry"
+    _name_entry.layer = 5
+    get_parent().add_child(_name_entry)
+    _name_entry.connect("accepted", Callable(self, "_on_name_confirmed"))
+    _name_entry.connect("cancelled", Callable(self, "_on_name_cancelled"))
     _build_interface()
     _locale.connect("language_changed", Callable(self, "_refresh_text"))
     _root.hide()
@@ -101,74 +120,86 @@ func _handle_button(event: InputEventJoypadButton) -> void:
     _held_buttons[button_id] = true
     if _opened and Time.get_ticks_msec() < _ignore_presses_before_ms:
         return
-
     if not _opened:
-        if not _creation_in_progress and (event.button_index == JOY_BUTTON_START or event.button_index == JOY_BUTTON_RIGHT_STICK):
+        if not _creation_in_progress and event.button_index in [JOY_BUTTON_START, JOY_BUTTON_RIGHT_STICK]:
             _set_open(true)
             get_viewport().set_input_as_handled()
         return
-
-    # This menu owns all joypad input while visible. Select or L3
-    # must not open the character creator behind the menu.
-    match event.button_index:
-        JOY_BUTTON_START, JOY_BUTTON_RIGHT_STICK:
-            if _session_started:
-                _set_open(false)
-        JOY_BUTTON_B:
-            if _confirm_new_game:
-                _confirm_new_game = false
+    if _confirm_delete:
+        if event.button_index == JOY_BUTTON_A:
+            _delete_selected_profile()
+        elif event.button_index == JOY_BUTTON_B:
+            _confirm_delete = false
+            _refresh_text()
+    elif _continue_open:
+        match event.button_index:
+            JOY_BUTTON_B:
+                _continue_open = false
                 _refresh_text()
-            elif _settings_open:
-                _show_settings(false)
-            elif _session_started:
-                _set_open(false)
-        JOY_BUTTON_DPAD_UP:
-            if not _settings_open and not _confirm_new_game:
-                _move_selection(-1)
-        JOY_BUTTON_DPAD_DOWN:
-            if not _settings_open and not _confirm_new_game:
-                _move_selection(1)
-        JOY_BUTTON_DPAD_LEFT:
-            if _settings_open:
-                _change_language(-1)
-        JOY_BUTTON_DPAD_RIGHT:
-            if _settings_open:
-                _change_language(1)
-        JOY_BUTTON_A:
-            if _confirm_new_game:
-                _start_new_game()
-            elif _settings_open:
-                _change_language(1)
-            else:
-                _activate_option(_selected_option)
+            JOY_BUTTON_DPAD_UP:
+                _move_profile(-1)
+            JOY_BUTTON_DPAD_DOWN:
+                _move_profile(1)
+            JOY_BUTTON_A:
+                _select_profile()
+            JOY_BUTTON_X:
+                if not _profiles.is_empty():
+                    _confirm_delete = true
+                    _refresh_text()
+    else:
+        match event.button_index:
+            JOY_BUTTON_START, JOY_BUTTON_RIGHT_STICK:
+                if _session_started and not _settings_open:
+                    _set_open(false)
+            JOY_BUTTON_B:
+                if _settings_open:
+                    _show_settings(false)
+                elif _session_started:
+                    _set_open(false)
+            JOY_BUTTON_DPAD_UP:
+                if not _settings_open:
+                    _move_selection(-1)
+            JOY_BUTTON_DPAD_DOWN:
+                if not _settings_open:
+                    _move_selection(1)
+            JOY_BUTTON_DPAD_LEFT:
+                if _settings_open:
+                    _change_language(-1)
+            JOY_BUTTON_DPAD_RIGHT:
+                if _settings_open:
+                    _change_language(1)
+            JOY_BUTTON_A:
+                if _settings_open:
+                    _change_language(1)
+                else:
+                    _activate_option(_selected_option)
     get_viewport().set_input_as_handled()
-
 
 func _handle_axis(event: InputEventJoypadMotion) -> void:
     if not _opened:
         return
-    if event.axis != JOY_AXIS_LEFT_X and event.axis != JOY_AXIS_LEFT_Y:
+    if event.axis not in [JOY_AXIS_LEFT_X, JOY_AXIS_LEFT_Y]:
         get_viewport().set_input_as_handled()
         return
-
     var axis_key: String = "%s:%s" % [event.device, event.axis]
     var previous: int = int(_stick_direction.get(axis_key, 0))
-    var next_direction: int = 0
+    var direction: int = 0
     if event.axis_value >= STICK_PRESS:
-        next_direction = 1
+        direction = 1
     elif event.axis_value <= -STICK_PRESS:
-        next_direction = -1
+        direction = -1
     elif absf(event.axis_value) > STICK_RELEASE:
-        next_direction = previous
-    if next_direction != previous:
-        _stick_direction[axis_key] = next_direction
-        if next_direction != 0 and _can_navigate():
-            if _settings_open and event.axis == JOY_AXIS_LEFT_X:
-                _change_language(next_direction)
+        direction = previous
+    if direction != previous:
+        _stick_direction[axis_key] = direction
+        if direction != 0 and _can_navigate() and not _confirm_delete:
+            if _continue_open and event.axis == JOY_AXIS_LEFT_Y:
+                _move_profile(direction)
+            elif _settings_open and event.axis == JOY_AXIS_LEFT_X:
+                _change_language(direction)
             elif not _settings_open and event.axis == JOY_AXIS_LEFT_Y:
-                _move_selection(next_direction)
+                _move_selection(direction)
     get_viewport().set_input_as_handled()
-
 
 func _can_navigate() -> bool:
     var now: int = Time.get_ticks_msec()
@@ -206,7 +237,8 @@ func _set_open(next_open: bool) -> void:
 
     print("Skyval GameMenu: OPEN=", _opened)
     _settings_open = false
-    _confirm_new_game = false
+    _confirm_delete = false
+    _continue_open = false
     _selected_option = 0 if _session_started or _has_valid_save() else 1
     _last_navigation_ms = -10000
     _stick_direction.clear()
@@ -244,19 +276,17 @@ func _move_selection(direction: int) -> void:
 
 
 func _activate_option(index: int) -> void:
-    if not _opened or index < 0 or index >= _menu_buttons.size():
-        return
-    if _menu_buttons[index].disabled:
+    if not _opened or index < 0 or index >= _menu_buttons.size() or _menu_buttons[index].disabled:
         return
     match index:
-        0: # Continue: load on launch, resume when already in the game.
-            _continue_game()
-        1: # New game: ask before replacing an existing save.
-            if _has_valid_save():
-                _confirm_new_game = true
+        0:
+            _profiles = _save_store.call("list_profiles")
+            if not _profiles.is_empty():
+                _selected_profile = 0
+                _continue_open = true
                 _refresh_text()
-            else:
-                _start_new_game()
+        1:
+            _start_new_game()
         2:
             _show_settings(true)
         3:
@@ -265,6 +295,87 @@ func _activate_option(index: int) -> void:
             get_tree().quit()
 
 
+func _move_profile(direction: int) -> void:
+    var next_index: int = _selected_profile + direction
+    if next_index >= 0 and next_index < _profiles.size():
+        _selected_profile = next_index
+        _draw_profiles()
+
+
+func _select_profile() -> void:
+    if _selected_profile < 0 or _selected_profile >= _profiles.size():
+        return
+    if _load_profile(str(_profiles[_selected_profile].get("path", "")), true):
+        _continue_open = false
+        _set_open(false)
+    else:
+        _profiles = _save_store.call("list_profiles")
+        _selected_profile = mini(_selected_profile, maxi(0, _profiles.size() - 1))
+        _continue_open = not _profiles.is_empty()
+        _refresh_text()
+
+
+func _delete_selected_profile() -> void:
+    _confirm_delete = false
+    if _selected_profile < 0 or _selected_profile >= _profiles.size():
+        _refresh_text()
+        return
+    var path: String = str(_profiles[_selected_profile].get("path", ""))
+    if not bool(_save_store.call("delete_profile", path)):
+        push_warning("Skyval: failed to delete profile: %s" % path)
+        _refresh_text()
+        return
+    if path == _active_save_path:
+        _active_save_path = ""
+        _profile_data.clear()
+        _session_started = false
+    _profiles = _save_store.call("list_profiles")
+    _selected_profile = mini(_selected_profile, maxi(0, _profiles.size() - 1))
+    if _profiles.is_empty():
+        _continue_open = false
+        _selected_option = 1
+    _refresh_text()
+
+
+func _draw_profiles() -> void:
+    if _profile_list == null:
+        return
+    for child in _profile_list.get_children():
+        _profile_list.remove_child(child)
+        child.queue_free()
+    if _profiles.is_empty():
+        var empty_label := _label(MIN_UI_FONT_SIZE)
+        empty_label.text = _tr("save.none")
+        _profile_list.add_child(empty_label)
+        return
+    var first: int = maxi(0, _selected_profile - VISIBLE_PROFILES + 1)
+    var last: int = mini(_profiles.size(), first + VISIBLE_PROFILES)
+    for i in range(first, last):
+        var button := _button()
+        button.add_theme_font_size_override("font_size", MIN_UI_FONT_SIZE)
+        button.custom_minimum_size.y = 26
+        button.clip_text = true
+        button.text = str(_profiles[i].get("character_name", ""))
+        button.pressed.connect(_pick_profile.bind(i))
+        var selected: bool = i == _selected_profile
+        var style := StyleBoxFlat.new()
+        style.bg_color = Color("#597a9b") if selected else Color("#354960")
+        style.border_color = ACTIVE_HIGHLIGHT if selected else Color("#667f9a")
+        style.set_border_width_all(1)
+        style.set_content_margin_all(3)
+        button.add_theme_stylebox_override("normal", style)
+        button.add_theme_stylebox_override("hover", style)
+        var text_color: Color = ACTIVE_HIGHLIGHT if selected else Color("#edf1f5")
+        button.add_theme_color_override("font_color", text_color)
+        button.add_theme_color_override("font_hover_color", text_color)
+        _profile_list.add_child(button)
+    _profile_hint.text = "%d/%d   %s" % [_selected_profile + 1, _profiles.size(), _tr("save.list_hint")]
+
+
+func _pick_profile(index: int) -> void:
+    _selected_profile = index
+    _select_profile()
+
 func _get_player() -> CharacterBody2D:
     var world: Node = get_tree().current_scene
     if world == null:
@@ -272,55 +383,34 @@ func _get_player() -> CharacterBody2D:
     return world.get_node_or_null("Player") as CharacterBody2D
 
 
-func _read_save() -> Dictionary:
-    if not FileAccess.file_exists(SAVE_FILE):
-        return {}
-    var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(SAVE_FILE))
-    if not parsed is Dictionary:
-        return {}
-    var data: Dictionary = parsed
-    if data.get("version", -1) != 1:
-        return {}
-    var position_data: Variant = data.get("player_position")
-    if not position_data is Array or position_data.size() != 2:
-        return {}
-    for coord in position_data:
-        if typeof(coord) != TYPE_FLOAT and typeof(coord) != TYPE_INT:
-            return {}
-    return data
-
-
 func _has_valid_save() -> bool:
-    return not _read_save().is_empty()
+    return not _save_store.call("list_profiles").is_empty()
 
 
 func _save_current_game() -> bool:
+    if _active_save_path.is_empty():
+        return false
     var player: CharacterBody2D = _get_player()
     if player == null:
         return false
-    var data: Dictionary = {
-        "version": 1,
-        "player_position": [player.global_position.x, player.global_position.y],
-        "appearance": {},
-    }
+    var data: Dictionary = _profile_data.duplicate(true)
+    data["version"] = 2
+    data["player_position"] = [player.global_position.x, player.global_position.y]
+    data["appearance"] = {}
     var avatar: Node = player.get_node_or_null("CharacterVisual")
     if avatar != null and avatar.has_method("get_save_state"):
         data["appearance"] = avatar.call("get_save_state")
     var inventory: Node = get_node_or_null("/root/SkyvalInventory")
     if inventory != null:
         data["inventory"] = inventory.call("get_save_state")
-    var file: FileAccess = FileAccess.open(SAVE_FILE, FileAccess.WRITE)
-    if file == null:
-        push_warning("Skyval: could not write save file: %s" % error_string(FileAccess.get_open_error()))
+    if not bool(_save_store.call("write_profile", _active_save_path, data)):
         return false
-    file.store_string(JSON.stringify(data))
-    file.flush()
-    file.close()
+    _profile_data = data
     return true
 
 
-func _load_saved_game() -> bool:
-    var data: Dictionary = _read_save()
+func _load_profile(path: String, touch_launch: bool = true) -> bool:
+    var data: Dictionary = _save_store.call("read_profile", path)
     var player: CharacterBody2D = _get_player()
     if data.is_empty() or player == null:
         return false
@@ -336,29 +426,23 @@ func _load_saved_game() -> bool:
     var inventory: Node = get_node_or_null("/root/SkyvalInventory")
     if inventory != null:
         inventory.call("load_save_state", data.get("inventory", null), avatar)
+    _active_save_path = path
+    _profile_data = data
+    _session_started = true
+    if touch_launch:
+        _profile_data["last_played"] = int(Time.get_unix_time_from_system())
+        _save_current_game()
     return true
 
 
-func _continue_game() -> void:
-    if not _session_started:
-        if not _load_saved_game():
-            push_warning("Skyval: saved game is missing or invalid.")
-            _refresh_text()
-            return
-        _session_started = true
-    _set_open(false)
-
-
 func _start_new_game() -> void:
-    # Character appearance must be accepted before overwriting the old save.
     if _creation_in_progress:
         return
     var player: CharacterBody2D = _get_player()
     var editor: Node = get_parent().get_node_or_null("AppearanceEditor")
     if player == null or editor == null or not editor.has_method("begin_creation"):
-        push_error("Skyval: AppearanceEditor or Player missing; cannot start a new game.")
+        push_error("Skyval: AppearanceEditor or Player missing; cannot create a character.")
         return
-
     var on_confirmed: Callable = Callable(self, "_on_appearance_confirmed")
     var on_cancelled: Callable = Callable(self, "_on_appearance_cancelled")
     if not editor.is_connected("confirmed", on_confirmed):
@@ -375,7 +459,6 @@ func _start_new_game() -> void:
     var avatar: Node = player.get_node_or_null("CharacterVisual")
     if avatar != null and avatar.has_method("apply_starter_outfit"):
         avatar.call("apply_starter_outfit")
-    # Claim the modal pause before releasing GameMenu: no active gameplay frame.
     editor.call("begin_creation")
     _set_open(false)
 
@@ -383,29 +466,59 @@ func _start_new_game() -> void:
 func _on_appearance_confirmed() -> void:
     if not _creation_in_progress:
         return
-    # Apply the final body type's starting outfit before the first save.
     var player: CharacterBody2D = _get_player()
+    var body_type: String = "male"
     if player != null:
         var avatar: Node = player.get_node_or_null("CharacterVisual")
         if avatar != null and avatar.has_method("apply_starter_outfit"):
             avatar.call("apply_starter_outfit")
         var inventory: Node = get_node_or_null("/root/SkyvalInventory")
         if inventory != null and avatar != null and avatar.has_method("get_lpc_option"):
-            inventory.call("set_starter_equipment", avatar.call("get_lpc_option", "body_type"))
+            body_type = str(avatar.call("get_lpc_option", "body_type"))
+            inventory.call("set_starter_equipment", body_type)
+    # The character has no profile or save until the name is confirmed.
+    _name_entry.call("open_entry", body_type)
+
+
+func _on_name_confirmed(character_name: String) -> void:
+    if not _creation_in_progress:
+        return
+    var old_path: String = _active_save_path
+    var data: Dictionary = _save_store.call("new_profile", character_name)
+    if data.is_empty():
+        _on_name_cancelled()
+        return
+    _active_save_path = str(data["path"])
+    _profile_data = data
     _session_started = true
     _creation_in_progress = false
-    _save_current_game()
+    if not _save_current_game():
+        push_warning("Skyval: first character save failed.")
+        _active_save_path = old_path
+        if not old_path.is_empty():
+            _load_profile(old_path, false)
+        else:
+            _session_started = false
+            _profile_data.clear()
+        _set_open(true)
+
+
+func _on_name_cancelled() -> void:
+    if not _creation_in_progress:
+        return
+    if not _active_save_path.is_empty():
+        _load_profile(_active_save_path, false)
+    _set_open(true)
+    _creation_in_progress = false
 
 
 func _on_appearance_cancelled() -> void:
     if not _creation_in_progress:
         return
-    # The last checkpoint remains untouched, including wardrobe and position.
-    _load_saved_game()
-    # Take menu pause ownership while the editor is still open.
+    if not _active_save_path.is_empty():
+        _load_profile(_active_save_path, false)
     _set_open(true)
     _creation_in_progress = false
-
 
 func _change_language(direction: int) -> void:
     if not _opened or not _settings_open:
@@ -494,6 +607,17 @@ func _build_interface() -> void:
     next_button.pressed.connect(_change_language.bind(1))
     language_row.add_child(next_button)
 
+    _continue_panel = VBoxContainer.new()
+    _continue_panel.add_theme_constant_override("separation", 5)
+    stack.add_child(_continue_panel)
+    _profile_list = VBoxContainer.new()
+    _profile_list.add_theme_constant_override("separation", 3)
+    _continue_panel.add_child(_profile_list)
+    _profile_hint = _label(MIN_UI_FONT_SIZE)
+    _profile_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    _profile_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _continue_panel.add_child(_profile_hint)
+
     # Confirmation is kept inside the same panel, with no Back buttons.
     _confirm_panel = VBoxContainer.new()
     _confirm_panel.add_theme_constant_override("separation", 12)
@@ -575,17 +699,28 @@ func _update_highlight() -> void:
 func _refresh_text() -> void:
     if _heading == null:
         return
-    _heading.text = _tr("menu.new_game") if _confirm_new_game else (_tr("settings.title") if _settings_open else _tr("menu.title"))
+    if _confirm_delete:
+        _heading.text = _tr("save.delete_title")
+    elif _continue_open:
+        _heading.text = _tr("save.list_title")
+    elif _settings_open:
+        _heading.text = _tr("settings.title")
+    else:
+        _heading.text = _tr("menu.title")
     for index in range(MAIN_OPTIONS.size()):
         _menu_buttons[index].text = _tr(str(MAIN_OPTIONS[index]))
-    _menu_buttons[0].disabled = not _session_started and not _has_valid_save()
+    _menu_buttons[0].disabled = not _has_valid_save()
     if _menu_buttons[_selected_option].disabled:
         _selected_option = 1
     _language_caption.text = _tr("settings.language")
     _language_value.text = _tr("settings.language.en") if str(_locale.get("language")) == "en" else _tr("settings.language.uk")
-    _confirm_message.text = _tr("menu.replace_save")
+    if _confirm_delete and _selected_profile >= 0 and _selected_profile < _profiles.size():
+        _confirm_message.text = _tr("save.delete_confirm") % str(_profiles[_selected_profile].get("character_name", ""))
     _confirm_hint.text = _tr("menu.confirm_hint")
-    _main_panel.visible = not _settings_open and not _confirm_new_game
-    _settings_panel.visible = _settings_open
-    _confirm_panel.visible = _confirm_new_game
+    _main_panel.visible = not _settings_open and not _continue_open and not _confirm_delete
+    _settings_panel.visible = _settings_open and not _confirm_delete
+    _continue_panel.visible = _continue_open and not _confirm_delete
+    _confirm_panel.visible = _confirm_delete
+    if _continue_open:
+        _draw_profiles()
     _update_highlight()
