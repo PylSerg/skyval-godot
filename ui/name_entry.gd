@@ -39,7 +39,8 @@ var _opened: bool = false
 var _confirmation: String = ""
 var _confirm_overlay: Control
 var _confirm_message: Label
-var _confirm_hint: Label
+var _confirm_accept: Button
+var _confirm_cancel: Button
 var _held_buttons: Dictionary = {}
 var _axis_latches: Dictionary = {}
 var _last_nav_ms: int = -10000
@@ -330,7 +331,8 @@ func _show_confirmation(action: String) -> void:
         _confirm_message.text = _tr("save.name_exit") if action == "exit" else _tr("save.name_confirm") % _name.strip_edges()
     else:
         _confirm_message.text = _tr("name.confirm_exit") if action == "exit" else _tr("name.confirm_accept") % _name.strip_edges()
-    _confirm_hint.text = _tr("menu.confirm_hint")
+    _confirm_accept.text = _tr("menu.confirm_accept")
+    _confirm_cancel.text = _tr("menu.confirm_cancel")
     _confirm_overlay.show()
 
 
@@ -447,24 +449,47 @@ func _build_interface() -> void:
     confirmation_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
     _confirm_overlay.add_child(confirmation_shade)
     var confirmation_panel := PanelContainer.new()
-    confirmation_panel.position = Vector2(20, 65)
-    confirmation_panel.custom_minimum_size = Vector2(280, 110)
-    confirmation_panel.size = Vector2(280, 110)
+    # Centered confirmation, with space for long names and two full
+    # vertical choices. No overlapping controller hint text.
+    confirmation_panel.position = Vector2(20, 40)
+    confirmation_panel.custom_minimum_size = Vector2(280, 160)
+    confirmation_panel.size = Vector2(280, 160)
     var confirm_style: StyleBoxFlat = UiTheme.panel_style(0.97, 8.0)
     confirmation_panel.add_theme_stylebox_override("panel", confirm_style)
     _confirm_overlay.add_child(confirmation_panel)
     var confirmation_stack := VBoxContainer.new()
-    confirmation_stack.add_theme_constant_override("separation", 8)
+    confirmation_stack.add_theme_constant_override("separation", 5)
     confirmation_panel.add_child(confirmation_stack)
+
     _confirm_message = _new_label(FONT_SIZE)
     _confirm_message.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
     _confirm_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _confirm_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    _confirm_message.custom_minimum_size.y = 47
+    _confirm_message.custom_minimum_size.y = 69
     confirmation_stack.add_child(_confirm_message)
-    _confirm_hint = _new_label(FONT_SIZE)
-    _confirm_hint.add_theme_color_override("font_color", UiTheme.MUTED)
-    _confirm_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    _confirm_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    confirmation_stack.add_child(_confirm_hint)
+
+    var choices := VBoxContainer.new()
+    choices.add_theme_constant_override("separation", 4)
+    choices.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    confirmation_stack.add_child(choices)
+
+    _confirm_accept = Button.new()
+    _confirm_accept.focus_mode = Control.FOCUS_NONE
+    _confirm_accept.custom_minimum_size.y = 25
+    _confirm_accept.add_theme_font_size_override("font_size", FONT_SIZE)
+    if _font != null:
+        _confirm_accept.add_theme_font_override("font", _font)
+    UiTheme.apply_button(_confirm_accept)
+    _confirm_accept.pressed.connect(_complete_confirmation)
+    choices.add_child(_confirm_accept)
+
+    _confirm_cancel = Button.new()
+    _confirm_cancel.focus_mode = Control.FOCUS_NONE
+    _confirm_cancel.custom_minimum_size.y = 25
+    _confirm_cancel.add_theme_font_size_override("font_size", FONT_SIZE)
+    if _font != null:
+        _confirm_cancel.add_theme_font_override("font", _font)
+    UiTheme.apply_button(_confirm_cancel)
+    _confirm_cancel.pressed.connect(_close_confirmation)
+    choices.add_child(_confirm_cancel)
     _confirm_overlay.hide()
