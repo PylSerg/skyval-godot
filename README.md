@@ -58,9 +58,10 @@ already playing, it simply resumes the world.
 
 The provisional save file is `user://skyval_save_v1.json`. It stores the
 player position, appearance, equipped item ids, backpack inventory and
-the remaining contents of the test chest (when available). The game writes the initial save **after character creation is confirmed**,
-then checkpoints when opening the in-game menu or choosing Quit. This is **not yet**
-a complete RPG save system: future inventory, NPCs, quests and world changes
+the remaining contents of the test chest (when available). The game writes
+the initial save **after character creation is confirmed**, then checkpoints
+when opening the in-game menu or choosing Quit. This is **not yet**
+a complete RPG save system: future NPCs, quests and world changes
 will need their own serialization. Continue stays disabled if the v1 save
 is absent or invalid.
 
