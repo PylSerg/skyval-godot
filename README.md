@@ -18,16 +18,18 @@ is used for both targets.
 | D-pad ↓ | Reserved for future quick actions | Next item |
 | D-pad ↑/←/→ | Reserved for future equipment/items | Select item / change value |
 | Right stick | Smooth camera look | Horizontal flick rotates portrait ±90° |
-| Select / Back or L3 | Open character creator (future inventory) | Close creator |
+| Select / Back or L3 | Open character creator (future inventory) | Reserved while open |
 | Start or R3 | Open main menu | Open main menu (closes creator) |
-| X or B | Reserved | Close creator |
+| B | Reserved | Close creator |
+| X | Reserved | Reserved |
 | A | Reserved | Change selected option |
 | L1 / R1 | Reserved | Appearance / Clothing tab |
 
 Press **Select / Back** or **L3** in the world to open the character creator.
-Close it with **Select**, **L3**, **B**, or **X**. Press **Start** or **R3**
-from the world or while editing the character to open the global game menu. The world pauses
-while either interface is open.
+Close it with **B** only. **Select/L3** does not close it, and **X** is not
+a Back shortcut. Press **Start** or **R3** from the world or while editing
+the character to open the global game menu. The world pauses while either
+interface is open.
 
 The main menu initially has two actions: **Settings** and **Quit**.
 Settings currently contains only language (Ukrainian / English). Use
@@ -37,6 +39,23 @@ or **A** to switch languages, **B** to go back, and **Start/R3** to close
 the menu. The selected language is stored in
 `user://skyval_settings.cfg` via the existing localization service.
 **Quit** exits Godot, returning to PortMaster on the handheld.
+
+## Pause and Back navigation
+
+The autoload `SkyvalUiPause` (`ui/pause_manager.gd`) tracks every blocking UI
+owner. The first open interface pauses the entire SceneTree, including world
+movement, NPCs, ordinary animations and gameplay timers. The last closing
+interface restores the pause state from before the first UI was opened.
+Opening GameMenu from CharacterCreator transfers pause ownership **before**
+closing the creator, preventing an unpaused frame during the transition.
+
+Blocking interfaces must use `Node.PROCESS_MODE_ALWAYS` for their own
+controller navigation, and call
+`SkyvalUiPause.set_open(self, true/false)` whenever they open/close.
+The future inventory should follow the same contract; it is **not yet
+implemented**. **B** moves one level back: Settings → Main Menu → World,
+or CharacterCreator → World. No on-screen Back button is required.
+**Start/R3** separately toggles the global menu.
 
 The creator pauses world movement. Its right-stick rotation cycles through
 **front → right → back → left → front**, one 90° step per horizontal tilt.
@@ -124,6 +143,7 @@ See [portmaster/README.md](portmaster/README.md) for details.
 - `prototype/smart_camera.gd`: native right-stick look
 - `ui/character_creator.gd`: native controller-driven creator UI
 - `ui/game_menu.gd`: Start menu, language settings and Quit
+- `ui/pause_manager.gd`: shared pause ownership for menus and future inventory
 - `ui/character_preview.gd`: cyclic 90° preview rotation
 - `characters/lpc_body_visual.gd`: LPC rendering and appearance slots
 - `localization/strings.json`: localized UI text
