@@ -72,6 +72,7 @@ var _title_label: Label
 var _rows: VBoxContainer
 var _preview: Control
 var _preview_refresh_pending: bool = false
+var _backpack_open_generation: int = 0
 var _armor_class_label: Label
 var _armor_value_label: Label
 var _missing_label: Label
@@ -430,6 +431,9 @@ func _set_open(next_open: bool) -> void:
     if _opened == next_open:
         return
     _opened = next_open
+    # Invalidate any unfinished layout operation if the window closes
+    # or reopens while the previous layout is being initialized.
+    _backpack_open_generation += 1
     _confirmation_open = false
     if _confirmation_overlay != null:
         _confirmation_overlay.hide()
@@ -462,11 +466,51 @@ func _set_open(next_open: bool) -> void:
         if _preview != null and _preview.has_method("clear_frame_cache"):
             _preview.call("clear_frame_cache")
         _update_row_highlight()
+        if not appearance_window:
+            _initialize_backpack_page_after_layout(_backpack_open_generation)
     else:
         # Infinite marquee tweens should not consume CPU while this
         # overlay is closed (especially on the R36H).
         _stop_value_marquees()
         get_viewport().gui_release_focus()
+
+
+# The original backpack page is built while _root is hidden. At that
+# point the VBox/ScrollContainer has no final width, so long labels can
+# make its content overflow: the counter and right arrow disappear.
+# New pages created by L1/R1 work because the parent has already laid
+# out. Recreate the first page in exactly that stable state, one frame
+# after making the window visible.
+func _initialize_backpack_page_after_layout(generation: int) -> void:
+    await get_tree().process_frame
+    if not _opened or appearance_window or generation != _backpack_open_generation:
+        return
+    if _page_clip.size.x <= 0.0 or _page_clip.size.y <= 0.0:
+        # Another layout pass may be necessary when opening after startup.
+        await get_tree().process_frame
+        if not _opened or generation != _backpack_open_generation:
+            return
+
+    var previous_page: ScrollContainer = _row_scroll
+    if is_instance_valid(previous_page):
+        _page_clip.remove_child(previous_page)
+        previous_page.queue_free()
+
+    _row_scroll = _create_page_scroll()
+    _page_clip.add_child(_row_scroll)
+    _row_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    _row_scroll.position = Vector2.ZERO
+    _active_tab = 0
+    _selected_index = 0
+    _refresh_text()
+
+    # Scroll after the new field panels have received their actual width.
+    await get_tree().process_frame
+    if not _opened or generation != _backpack_open_generation:
+        return
+    _row_scroll.scroll_vertical = 0
+    if _tab_scroll != null:
+        _tab_scroll.scroll_horizontal = 0
 
 
 func _set_ui_pause(should_pause: bool) -> void:
