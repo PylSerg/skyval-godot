@@ -37,17 +37,17 @@ The world pauses while a blocking interface is open.
 Skyval starts paused at 320×240 in the **main menu**.
 
 The **title screen** uses the 320×240 Skyval sunset illustration as a
-full-screen background (`assets/ui/title_background.jpg`). Its menu stays
+full-screen background (`assets/images/title_bg.jpg`). Its menu stays
 in the original **top-to-bottom order**: Continue, Select Character,
-New Game, Settings, Quit. The entire list is anchored to the **bottom-right
-edge** with a small margin, so shorter menus move downward instead of
-reversing their order. Up/down on the D-pad and stick follow the visual
+New Game, Settings, Quit. The entire list is centered horizontally and
+anchored to the **bottom edge** with a small margin, so shorter menus
+move downward instead of reversing their order. Up/down on the D-pad and stick follow the visual
 order. Once a submenu opens, the normal readable framed menu is used.
 The separate in-game menu keeps its existing layout and options.
 
-The title artwork is a separate 320×240 JPEG resource. Put
-`title_background.jpg` in `assets/ui/` in the source checkout; the
-PortMaster build script copies it into the PCK. If the file is absent,
+The title artwork is a separate 320×240 JPEG resource at
+`assets/images/title_bg.jpg`; the PortMaster build script copies it
+into the PCK. If the file is absent,
 the menu falls back to its dark overlay without changing gameplay.
 
 
@@ -108,8 +108,10 @@ the list shows and changes the highlighted field's actual value and
 retains the original field counters. The D-pad and left stick move through
 the list or change its value, A changes the value, right-stick horizontal
 flicks rotate the portrait by 90°, X confirms and B cancels.
-The backpack keeps its original two-column styling and independent item
-selectors; no backpack behavior changes with this redesign.
+The backpack now shares this compact five-field layout and the same
+gold-accented, translucent panel styling. Unlike creation, its background
+is the **paused gameplay world**, not the appearance illustration.
+The portrait keeps the armor statistics below the character.
 
 ### Character creation
 
@@ -199,42 +201,39 @@ an empty placeholder.
 **Hands / Руки**, **Feet / Ноги**. These are equipment locations,
 not separate unrestricted color pickers. The Clothing top shows owned
 shirts, bottom owned pants, and feet owned shoes. Armor top shows the
-three found armor pieces. The other positions currently show **None /
-Немає (1/1)** and disabled arrows until real items and LPC art exist
-for those areas. New empty slot keys are included in the save state;
+three found armor pieces. The other positions currently show **None / Немає (0/0)**
+and disabled choice arrows until real items and LPC art exist for
+those areas. New empty slot keys are included in the save state;
 existing shirt, pants, footwear and torso-armor save keys are retained,
 so older saves remain compatible.
 
-A full-width selection background, 12px all-around inner padding and
-14px or larger text remain in both categories. The selected row heading
-and the selected tab label use the **exact gold color of their borders**
-(`#e7ca86`), while the equipment value text stays neutral. The main
-menu's active option uses the same gold border/text accent, including
-when hovered or pressed.
+### Compact backpack interface
 
-**First-open layout stabilization (2026-11-15 recording):**
-The first Clothing page was created while the entire overlay was hidden
-and its column did not yet have a final viewport width. The recording
-showed counters cut off at the right edge and partially invisible right
-arrows on Clothing, while switching to Armor produced a correctly sized
-page. The overlay now rebuilds the initial Clothing scroll page after
-the visible panel completes its first layout pass (using the same
-creation route as tab switching), resets to Head and scroll position
-zero, and only reveals the page after its layout has settled. An opening
-generation guard prevents late asynchronous layout work from modifying
-a subsequently closed/reopened menu. Field names and buttons remain
-anchored inside the page width, and longer item names keep their own
-clipped horizontal marquee. This fix is based on recorded behavior and
-source inspection; it still needs a Godot runtime retest.
+The inventory now uses the same 320×240 visual language as character
+creation: a translucent navy panel with a gold border, compact field rows,
+a single shared item selector beneath the list, and a framed portrait on
+the right. **There is no full-screen background image or opaque backpack
+title card**; the paused game remains visible behind the interface,
+lightly darkened for readability. The redundant “Рюкзак” heading has
+been removed to leave room for the three tabs.
 
-**Compact choice arrows:** The shared five-field equipment selector and
-the appearance creator use the same compact 14px-wide left/right
-buttons (down from 22px). Their chevron font stays at the 14px minimum
-and button content padding is removed, while the 21px button height is
-unchanged. Only 2px of gap is reserved on either side of the name
-viewport, so the full item/appearance label gains 16px of space. Long
-values retain the horizontal forward/back marquee. Heading counters,
-12px panel padding and the first-open sizing fix are unchanged.
+All five Clothing or Armor equipment locations are visible at once.
+Move the selected gold-highlighted field with D-pad/left-stick up/down;
+cycle its owned items with D-pad/left-stick left/right or A, or click its
+value arrows. Each row retains a `current/total` counter. The **single
+value selector** shows only the currently selected field and uses
+14px-wide arrow controls and a clipped, horizontally scrolling item name
+when necessary. The Weapons tab still shows its empty-category message
+without a useless selector. The portrait is drawn at **3×**, rotates by
+90° with the right stick, and keeps the armor-class/value text below a
+gold separator. Tabs switch with L1/R1 or by clicking them.
+
+The original first-open layout stabilization remains: on every opening,
+the active tab resets to Clothing, the selected field resets to Head,
+and the content is rebuilt after its viewport receives a stable width.
+Page-slide animation, equipment-change persistence, disabled arrows for
+unavailable slots, and all ownership/equipment logic are unchanged.
+The font stays at or above 14px.
 
 Each row has a right-edge
 `current/total` counter such as `2/5`, counting **only equipped or
