@@ -48,6 +48,7 @@ func _ready() -> void:
     _build_interface()
     _locale.connect("language_changed", Callable(self, "_refresh_text"))
     _root.hide()
+    print("Skyval GameMenu: READY (Start=", JOY_BUTTON_START, ", R3=", JOY_BUTTON_RIGHT_STICK, ")")
 
 
 func is_open() -> bool:
@@ -60,7 +61,10 @@ func _tr(key: String) -> String:
 
 func _input(event: InputEvent) -> void:
     if event is InputEventJoypadButton:
-        _handle_button(event as InputEventJoypadButton)
+        var joy_event: InputEventJoypadButton = event as InputEventJoypadButton
+        if joy_event.pressed:
+            print("Skyval GameMenu: BUTTON device=", joy_event.device, " index=", joy_event.button_index)
+        _handle_button(joy_event)
     elif event is InputEventJoypadMotion:
         _handle_axis(event as InputEventJoypadMotion)
 
@@ -151,6 +155,7 @@ func _set_open(next_open: bool) -> void:
         _creator.call("close_for_menu")
 
     _opened = next_open
+    print("Skyval GameMenu: OPEN=", _opened)
     _settings_open = false
     _selected_option = 0
     _last_navigation_ms = -10000
