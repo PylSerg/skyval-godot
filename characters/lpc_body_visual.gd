@@ -47,6 +47,8 @@ const FOOTWEAR_STYLES := [
 @export var shirt_style: String = "shortsleeve/shortsleeve"
 @export var pants_style: String = "pants"
 @export var footwear_style: String = "boots/basic"
+# Optional armor overlay: the equipment still works when LPC art is absent.
+@export var armor_style: String = "none"
 @export var body_directory_override: String = ""
 
 signal clothing_changed(state: Dictionary)
@@ -152,6 +154,13 @@ func _load_appearance(skin: String) -> bool:
         layers.append({"name": "Footwear", "path": root.path_join("feet/%s/%s/%s.png" % [footwear_style, clothing_shape, boots_variant]), "z": footwear_z, "required": true})
     if shirt_style != "none":
         layers.append({"name": "Shirt", "path": root.path_join("torso/clothes/%s/%s/%s.png" % [shirt_style, shirt_shape, shirt_variant]), "z": 35, "required": true})
+    # Verified heavy-armor layers from the user's LPC directory. Light
+    # armor has no confirmed matching overlay, so only stats are applied.
+    if armor_style == "plate_cuirass":
+        var armor_file: String = "torso/armour/plate/female/brass.png" if body_type == "female" else "torso/armour/legion/male/ceramic.png"
+        var armor_path: String = root.path_join(armor_file)
+        if _texture_exists(armor_path):
+            layers.append({"name": "Armor", "path": armor_path, "z": 45, "required": false})
     # First validate all required files before creating Node2D instances.
     # A failed outfit change must never remove the working character.
     var validated: Array[Dictionary] = []
@@ -226,6 +235,20 @@ func _add_action(frames: SpriteFrames, atlas: Texture2D, action: String, start_y
             cell.atlas = atlas
             cell.region = Rect2(int(frame_number) * CELL, row_y, CELL, CELL)
             frames.add_frame(animation, cell)
+
+func set_armor_style(new_style: String) -> bool:
+    if not new_style in ["none", "leather_vest", "reinforced_vest", "plate_cuirass"]:
+        return false
+    if armor_style == new_style:
+        return true
+    var previous: String = armor_style
+    armor_style = new_style
+    if not available or _load_appearance(skin_variant):
+        return true
+    armor_style = previous
+    _load_appearance(skin_variant)
+    return false
+
 
 func set_motion(direction: Vector2) -> void:
     _walking = direction.length_squared() > 0.0001
@@ -420,6 +443,7 @@ func export_appearance_state() -> Dictionary:
         "shirt_style": shirt_style,
         "pants_style": pants_style,
         "footwear_style": footwear_style,
+        "armor_style": armor_style,
     }
 
 
@@ -439,6 +463,7 @@ func apply_appearance_state(saved: Dictionary) -> bool:
         "shirt_style": SHIRT_STYLES,
         "pants_style": PANTS_STYLES,
         "footwear_style": FOOTWEAR_STYLES,
+        "armor_style": ["none", "leather_vest", "reinforced_vest", "plate_cuirass"],
     }
     for key in supported:
         if saved.has(key) and supported[key].has(saved[key]):
@@ -465,6 +490,7 @@ func reset_appearance_state() -> void:
         "shirt_style": "shortsleeve/shortsleeve",
         "pants_style": "pants",
         "footwear_style": "boots/basic",
+        "armor_style": "none",
     })
 
 
