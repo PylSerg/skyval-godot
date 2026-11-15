@@ -1068,8 +1068,23 @@ func _field_counter(key: String) -> String:
         chosen = str(_inventory.call("get_equipped", slot))
     if choices.is_empty():
         return "0/0"
-    var index: int = choices.find(chosen)
-    return "%d/%d" % [index + 1 if index >= 0 else 0, choices.size()]
+
+    if appearance_window:
+        var index: int = choices.find(chosen)
+        return "%d/%d" % [index + 1 if index >= 0 else 0, choices.size()]
+
+    # "None" is an action to unequip, not a physical item.
+    # Exclude it from both the current index and the total, without
+    # removing it from the actual cyclic equipment choices.
+    var item_count: int = 0
+    var selected_item: int = 0
+    for item_id in choices:
+        if item_id.is_empty():
+            continue
+        item_count += 1
+        if item_id == chosen:
+            selected_item = item_count
+    return "%d/%d" % [selected_item, item_count]
 
 
 func _can_adjust_field(key: String, direction: int) -> bool:
