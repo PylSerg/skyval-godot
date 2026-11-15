@@ -34,6 +34,7 @@ var _language_value: Label
 var _held_buttons: Dictionary = {}
 var _stick_direction: Dictionary = {}
 var _last_navigation_ms: int = -10000
+var _ignore_presses_before_ms: int = 0
 
 func _ready() -> void:
     process_mode = Node.PROCESS_MODE_ALWAYS
@@ -90,6 +91,8 @@ func _handle_button(event: InputEventJoypadButton) -> void:
     if _held_buttons.has(button_id):
         return
     _held_buttons[button_id] = true
+    if _opened and Time.get_ticks_msec() < _ignore_presses_before_ms:
+        return
 
     if not _opened:
         if not _creation_in_progress and (event.button_index == JOY_BUTTON_START or event.button_index == JOY_BUTTON_RIGHT_STICK):
@@ -174,6 +177,8 @@ func _set_open(next_open: bool) -> void:
         _save_current_game() # Never overwrite a save with an unfinished character.
     _opened = next_open
     if next_open:
+        # Do not treat the B/A press used to exit a modal as a menu action.
+        _ignore_presses_before_ms = Time.get_ticks_msec() + 150
         # Take pause ownership before closing another UI layer.
         _set_ui_pause(true)
         if _creator != null and _creator.has_method("close_for_menu"):
