@@ -127,6 +127,39 @@ func change_lpc_option(option_key: String, direction: int) -> bool:
         return false
     return bool(_external_body.call("change_option", option_key, direction))
 
+# Minimal v1 saved-character state. The NPC / inventory state can be
+# added to the save format later without changing this API.
+func get_save_state() -> Dictionary:
+    var state: Dictionary = {
+        "facing": int(facing),
+        "outfit_index": outfit_index,
+        "hair_index": hair_index,
+        "weapon_equipped": weapon_equipped,
+    }
+    if has_lpc_character():
+        state["lpc"] = _external_body.call("export_appearance_state")
+    return state
+
+
+func apply_save_state(state: Dictionary) -> void:
+    facing = clampi(int(state.get("facing", 0)), 0, 3)
+    outfit_index = clampi(int(state.get("outfit_index", 0)), 0, OUTFIT_COLORS.size() - 1)
+    hair_index = clampi(int(state.get("hair_index", 0)), 0, HAIR_COLORS.size() - 1)
+    weapon_equipped = bool(state.get("weapon_equipped", false))
+    if has_lpc_character() and state.get("lpc", {}) is Dictionary:
+        var lpc_state: Dictionary = state.get("lpc", {})
+        if not lpc_state.is_empty():
+            _external_body.call("apply_appearance_state", lpc_state)
+    set_motion(Vector2.ZERO)
+    queue_redraw()
+
+
+func reset_save_state() -> void:
+    if has_lpc_character():
+        _external_body.call("reset_appearance_state")
+    apply_save_state({})
+
+
 # Stable wardrobe API for the character menu and future NPC conversations.
 func get_lpc_clothing_state() -> Dictionary:
     if not has_lpc_character():
