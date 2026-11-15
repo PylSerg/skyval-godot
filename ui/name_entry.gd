@@ -8,6 +8,7 @@ const LocaleScript = preload("res://localization/localization.gd")
 const FONT_PATH := "res://assets/fonts/CascadiaMono-Regular.ttf"
 const CREATION_BACKGROUND := "res://assets/images/create_hero_bg.jpg"
 const UiTheme = preload("res://ui/skyval_theme.gd")
+const ControllerChoiceScript = preload("res://ui/nintendo_choice.gd")
 const FONT_SIZE := 14
 const GRID_COLUMNS := 8
 const NAME_WIDTH := 264.0
@@ -39,8 +40,8 @@ var _opened: bool = false
 var _confirmation: String = ""
 var _confirm_overlay: Control
 var _confirm_message: Label
-var _confirm_accept: Label
-var _confirm_cancel: Label
+var _confirm_accept: Control
+var _confirm_cancel: Control
 var _held_buttons: Dictionary = {}
 var _axis_latches: Dictionary = {}
 var _last_nav_ms: int = -10000
@@ -331,22 +332,9 @@ func _show_confirmation(action: String) -> void:
         _confirm_message.text = _tr("save.name_exit") if action == "exit" else _tr("save.name_confirm") % _name.strip_edges()
     else:
         _confirm_message.text = _tr("name.confirm_exit") if action == "exit" else _tr("name.confirm_accept") % _name.strip_edges()
-    _confirm_accept.text = _tr("menu.confirm_accept")
-    _confirm_cancel.text = _tr("menu.confirm_cancel")
+    _confirm_accept.call("set_caption", _tr("menu.confirm_accept"))
+    _confirm_cancel.call("set_caption", _tr("menu.confirm_cancel"))
     _confirm_overlay.show()
-
-
-func _on_confirmation_choice_input(event: InputEvent, accept: bool) -> void:
-    if not _opened or _confirmation.is_empty():
-        return
-    if event is InputEventMouseButton:
-        var click: InputEventMouseButton = event as InputEventMouseButton
-        if click.button_index == MOUSE_BUTTON_LEFT and click.pressed:
-            if accept:
-                _complete_confirmation()
-            else:
-                _close_confirmation()
-            get_viewport().set_input_as_handled()
 
 
 func _close_confirmation() -> void:
@@ -486,22 +474,15 @@ func _build_interface() -> void:
     choices.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     confirmation_stack.add_child(choices)
 
-    # Plain left-aligned options, not button-shaped panels.
-    _confirm_accept = _new_label(FONT_SIZE)
-    _confirm_accept.custom_minimum_size.y = 22
-    _confirm_accept.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-    _confirm_accept.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    _confirm_accept.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
-    _confirm_accept.mouse_filter = Control.MOUSE_FILTER_STOP
-    _confirm_accept.gui_input.connect(_on_confirmation_choice_input.bind(true))
+    # Confirmation options never highlight; only their A/B glyphs are
+    # colored, in the classic Nintendo order. Text stays uniformly white.
+    _confirm_accept = ControllerChoiceScript.new() as Control
+    _confirm_accept.call("configure", "A", _tr("menu.confirm_accept"), _font)
+    _confirm_accept.connect("activated", Callable(self, "_complete_confirmation"))
     choices.add_child(_confirm_accept)
 
-    _confirm_cancel = _new_label(FONT_SIZE)
-    _confirm_cancel.custom_minimum_size.y = 22
-    _confirm_cancel.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-    _confirm_cancel.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    _confirm_cancel.add_theme_color_override("font_color", UiTheme.MUTED)
-    _confirm_cancel.mouse_filter = Control.MOUSE_FILTER_STOP
-    _confirm_cancel.gui_input.connect(_on_confirmation_choice_input.bind(false))
+    _confirm_cancel = ControllerChoiceScript.new() as Control
+    _confirm_cancel.call("configure", "B", _tr("menu.confirm_cancel"), _font)
+    _confirm_cancel.connect("activated", Callable(self, "_close_confirmation"))
     choices.add_child(_confirm_cancel)
     _confirm_overlay.hide()
