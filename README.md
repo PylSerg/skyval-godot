@@ -129,8 +129,14 @@ so older saves remain compatible.
 A full-width selection background, 12px all-around inner padding and
 14px or larger text remain in both categories. Each row has a right-edge
 `current/total` counter such as `2/5`, counting **only equipped or
-owned physical items**, including the None choice. Item names are never
-abbreviated; when needed, their label scrolls smoothly forward and back.
+owned physical items**. **None / Немає never contributes to either number**:
+an empty slot with no owned items shows `0/0`, no equipped item with
+three owned choices shows `0/3`, and equipping the second of those
+three items shows `2/3`. None remains a valid cyclic selector choice
+for unequipping; only its counter representation changes. Character
+creation appearance counters continue to count all real appearance
+choices normally. Item names are never abbreviated; when needed,
+their label scrolls smoothly forward and back.
 Pressing left/right cycles through actual items for that body area,
 returning replaced equipment to the backpack. Clothing and armor tops
 remain mutually exclusive; putting on either returns the other to the
