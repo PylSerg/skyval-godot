@@ -266,6 +266,8 @@ func get_field_choices(field: String) -> Array[String]:
             # Preserve the equipped color when cycling across styles.
             var representative: String = item_id
             if not current_info.is_empty() and str(current_info.get("style", "")) == item_style:
+                # Always include the equipped variant as the representative
+                # for its style, even if an older bag variant appears first.
                 representative = current_id
             choices.append(representative)
             seen_styles[item_style] = true
