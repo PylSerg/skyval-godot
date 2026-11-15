@@ -150,21 +150,33 @@ func _can_navigate() -> bool:
 func _set_open(next_open: bool) -> void:
     if _opened == next_open:
         return
-    if next_open and _creator != null and _creator.has_method("close_for_menu"):
-        _creator.call("close_for_menu")
-
     _opened = next_open
+    if next_open:
+        # Take pause ownership before closing another UI layer.
+        _set_ui_pause(true)
+        if _creator != null and _creator.has_method("close_for_menu"):
+            _creator.call("close_for_menu")
+
     print("Skyval GameMenu: OPEN=", _opened)
     _settings_open = false
     _selected_option = 0
     _last_navigation_ms = -10000
     _stick_direction.clear()
     _root.visible = next_open
-    get_tree().paused = next_open
     if next_open:
         _refresh_text()
     else:
+        _set_ui_pause(false)
         get_viewport().gui_release_focus()
+
+
+func _set_ui_pause(is_open: bool) -> void:
+    var pause_manager: Node = get_node_or_null("/root/SkyvalUiPause")
+    if pause_manager != null:
+        pause_manager.call("set_open", self, is_open)
+    else:
+        # Fallback for an editor that has not reloaded project.godot yet.
+        get_tree().paused = is_open
 
 
 func _show_settings(show: bool) -> void:
