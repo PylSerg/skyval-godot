@@ -12,10 +12,14 @@ var facing: int = 0
 # Keep actual 64x64 RGBA frame textures alive until the outfit changes.
 # This avoids GPU atlas-UV issues in the paused CanvasItem preview.
 var _frame_cache: Dictionary = {}
+# One choice per armor layer and facing until the outfit is replaced.
+# No full-atlas rescanning while the user just keeps the menu open.
+var _armor_choice_cache: Dictionary = {}
 
 
 func clear_frame_cache() -> void:
     _frame_cache.clear()
+    _armor_choice_cache.clear()
     queue_redraw()
 
 
@@ -60,6 +64,10 @@ func _draw() -> void:
         var texture: Texture2D = sprite.sprite_frames.get_frame_texture(animation, 0)
         if texture == null:
             continue
+        if sprite.name == "Armor" or sprite.name == "ArmorVestFront":
+            texture = _select_armor_preview_frame(sprite, texture)
+        if texture == null:
+            continue
 
         # Crop the source image to the actual 64x64 LPC frame ONCE and
         # draw a standalone ImageTexture. Atlas UV rendering caused the
@@ -96,3 +104,81 @@ func _draw() -> void:
             draw_texture(display, sprite.offset)
 
     draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+# Some authentic LPC armor sheets have fully drawn walking frames but
+# incomplete idle frames in individual directions. Prefer an idle frame
+# when it is usable; otherwise select the clearest walking frame of the
+# SAME direction. This affects preview only, never world animations.
+func _select_armor_preview_frame(sprite: AnimatedSprite2D, idle_frame: Texture2D) -> Texture2D:
+    var key: String = "%d:%s" % [sprite.get_instance_id(), DIRECTIONS[facing]]
+    if _armor_choice_cache.has(key):
+        return _armor_choice_cache[key] as Texture2D
+
+    var result: Texture2D = idle_frame
+    var idle_atlas: AtlasTexture = idle_frame as AtlasTexture
+    if idle_atlas == null or idle_atlas.atlas == null:
+        _armor_choice_cache[key] = result
+        return result
+
+    var walk_name: StringName = StringName("walk-" + DIRECTIONS[facing])
+    var frames: SpriteFrames = sprite.sprite_frames
+    if not frames.has_animation(walk_name):
+        _armor_choice_cache[key] = result
+        return result
+
+    # Read source pixels once, then score the central torso in each
+    # prospective frame. No interpolation and no drawn replacement art.
+    var pixels: Image = idle_atlas.atlas.get_image()
+    if pixels == null or pixels.is_empty():
+        _armor_choice_cache[key] = result
+        return result
+
+    var idle_score: int = _armor_torso_coverage(pixels, idle_atlas.region)
+    var best_walk_score: int = 0
+    var best_walk: Texture2D = null
+
+    # Sample visually steadier walking poses first in tie cases.
+    for frame_index in [0, 4, 2, 6, 1, 5, 3, 7]:
+        if frame_index >= frames.get_frame_count(walk_name):
+            continue
+        var walk_texture: Texture2D = frames.get_frame_texture(walk_name, frame_index)
+        var atlas_frame: AtlasTexture = walk_texture as AtlasTexture
+        if atlas_frame == null or atlas_frame.atlas != idle_atlas.atlas:
+            continue
+        var coverage: int = _armor_torso_coverage(pixels, atlas_frame.region)
+        if coverage > best_walk_score:
+            best_walk_score = coverage
+            best_walk = walk_texture
+
+    # A tiny difference could be ordinary cloth motion. Switch only
+    # when the idle image is clearly less complete than the walk image.
+    if best_walk != null and best_walk_score >= 5 and best_walk_score > idle_score + maxi(4, int(idle_score * 0.20)):
+        result = best_walk
+
+    _armor_choice_cache[key] = result
+    return result
+
+
+func _armor_torso_coverage(pixels: Image, region: Rect2) -> int:
+    var x0: int = int(region.position.x)
+    var y0: int = int(region.position.y)
+    if x0 < 0 or y0 < 0 or x0 + 64 > pixels.get_width() or y0 + 64 > pixels.get_height():
+        return 0
+
+    var visible: int = 0
+    var almost_white: int = 0
+    # Only the chest region matters. Sparse straps count less than an
+    # actual torso piece, even if the texture has pixels elsewhere.
+    for y in range(25, 49, 2):
+        for x in range(19, 46, 2):
+            var pixel: Color = pixels.get_pixel(x0 + x, y0 + y)
+            if pixel.a < 0.25:
+                continue
+            visible += 1
+            if pixel.r > 0.97 and pixel.g > 0.97 and pixel.b > 0.97:
+                almost_white += 1
+    # A solid white mask is not a usable visible armor frame.
+    if visible >= 40 and almost_white * 5 >= visible * 4:
+        return 0
+    return visible
