@@ -29,7 +29,9 @@ func _draw() -> void:
 
     var layers: Array[AnimatedSprite2D] = []
     for child in character.get_children():
-        if child is AnimatedSprite2D:
+        # Outfit swaps replace AnimatedSprite2D children. Never reuse a
+        # queued-for-deletion layer during a paused-menu redraw.
+        if child is AnimatedSprite2D and not child.is_queued_for_deletion():
             layers.append(child as AnimatedSprite2D)
     layers.sort_custom(func(a: AnimatedSprite2D, b: AnimatedSprite2D) -> bool:
         return a.z_index < b.z_index
@@ -44,7 +46,30 @@ func _draw() -> void:
             continue
         if sprite.sprite_frames.get_frame_count(animation) < 1:
             continue
+
         var texture: Texture2D = sprite.sprite_frames.get_frame_texture(animation, 0)
-        if texture != null:
+        if texture == null:
+            continue
+
+        # LPC frames are AtlasTextures. Draw their explicit atlas region
+        # instead of handing a nested AtlasTexture to draw_texture(), which
+        # can show a solid white area during repeated rapid equipment swaps.
+        if texture is AtlasTexture:
+            var atlas_frame: AtlasTexture = texture as AtlasTexture
+            if atlas_frame.atlas == null:
+                continue
+            var frame_region: Rect2 = atlas_frame.region
+            if frame_region.size.x <= 0 or frame_region.size.y <= 0:
+                continue
+            draw_texture_rect_region(
+                atlas_frame.atlas,
+                Rect2(sprite.offset, frame_region.size),
+                frame_region,
+                Color.WHITE,
+                false,
+                true
+            )
+        else:
             draw_texture(texture, sprite.offset)
+
     draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
