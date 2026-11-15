@@ -28,6 +28,7 @@ const RIGHT_STICK_RELEASE := 0.35
 # Shared across the standalone Appearance window and all backpack tabs
 # to preserve the small-screen insets and row spacing.
 const MIN_UI_FONT_SIZE := 14
+const ACTIVE_HIGHLIGHT := Color("#e7ca86")
 const PANEL_INSET := 7
 const FIELD_GROUP_SPACING := 12
 const FIELD_CONTENT_PADDING := FIELD_GROUP_SPACING
@@ -338,13 +339,17 @@ func _update_row_highlight() -> void:
         var selected: bool = index == _selected_index
         var style := StyleBoxFlat.new()
         style.bg_color = Color("#38516c") if selected else Color(0, 0, 0, 0)
-        style.border_color = Color("#d9bb82") if selected else Color(0, 0, 0, 0)
+        style.border_color = ACTIVE_HIGHLIGHT if selected else Color(0, 0, 0, 0)
         style.set_border_width_all(1)
         style.set_corner_radius_all(2)
         # Equal 12px content padding on all four sides. The highlighted
         # background and border still span the complete available row.
         style.set_content_margin_all(FIELD_CONTENT_PADDING)
         field_panel.add_theme_stylebox_override("panel", style)
+        if index < _row_labels.size():
+            var name: Label = _row_labels[index]
+            if is_instance_valid(name):
+                name.add_theme_color_override("font_color", ACTIVE_HIGHLIGHT if selected else Color("#f0f1ed"))
 
 
 func _current_fields() -> Array:
@@ -621,7 +626,7 @@ func _update_tab_styles() -> void:
         var selected: bool = index == _active_tab
         var style := StyleBoxFlat.new()
         style.bg_color = Color("#597a9b") if selected else Color("#354960")
-        style.border_color = Color("#e7ca86") if selected else Color("#667f9a")
+        style.border_color = ACTIVE_HIGHLIGHT if selected else Color("#667f9a")
         style.set_border_width_all(1)
         style.set_content_margin_all(2)
         style.set_content_margin(SIDE_LEFT, TAB_HORIZONTAL_PADDING)
@@ -630,7 +635,10 @@ func _update_tab_styles() -> void:
         var hover := style.duplicate() as StyleBoxFlat
         hover.bg_color = Color("#6a8cac") if selected else Color("#4c6986")
         tab.add_theme_stylebox_override("hover", hover)
-        tab.add_theme_color_override("font_color", Color("#fff0c8") if selected else Color("#edf1f5"))
+        var tab_text: Color = ACTIVE_HIGHLIGHT if selected else Color("#edf1f5")
+        tab.add_theme_color_override("font_color", tab_text)
+        tab.add_theme_color_override("font_hover_color", tab_text)
+        tab.add_theme_color_override("font_pressed_color", tab_text)
 
 
 func _reveal_active_tab() -> void:
@@ -818,32 +826,38 @@ func _rebuild_rows() -> void:
         field_box.add_theme_constant_override("separation", FIELD_INNER_SPACING)
         field_panel.add_child(field_box)
 
-        # A right-aligned 1/N indicator shares the heading line with
-        # the field name; both remain at least 14px at 320x240.
-        var heading_row := HBoxContainer.new()
-        heading_row.add_theme_constant_override("separation", 2)
+        # Never let a heading or a long translated item name enlarge the
+        # field beyond the 320x240 inventory column. Fixed anchors keep
+        # the counter and BOTH arrows visible on the very first opening.
+        var heading_row := Control.new()
+        heading_row.custom_minimum_size.y = 18
+        heading_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         field_box.add_child(heading_row)
 
-        # Readable 14px headings fit alongside their counters inside
-        # the symmetric 12px field padding.
         var name_label := _label(MIN_UI_FONT_SIZE)
         name_label.text = _tr("field." + key)
-        name_label.custom_minimum_size.y = 17
-        name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         heading_row.add_child(name_label)
+        name_label.anchor_right = 1.0
+        name_label.anchor_bottom = 1.0
+        name_label.offset_right = -46.0
+        name_label.clip_text = true
         _row_labels.append(name_label)
 
         var counter_label := _label(MIN_UI_FONT_SIZE)
-        counter_label.custom_minimum_size.x = 44
         counter_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
         counter_label.add_theme_color_override("font_color", Color("#b5c7d9"))
         counter_label.text = _field_counter(key)
         heading_row.add_child(counter_label)
+        counter_label.anchor_left = 1.0
+        counter_label.anchor_right = 1.0
+        counter_label.offset_left = -44.0
+        counter_label.offset_right = 0.0
+        counter_label.offset_bottom = 18.0
         _row_counters[key] = counter_label
 
-        var choice_row := HBoxContainer.new()
-        choice_row.custom_minimum_size.y = 21
-        choice_row.add_theme_constant_override("separation", 2)
+        var choice_row := Control.new()
+        choice_row.custom_minimum_size.y = 22
+        choice_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         field_box.add_child(choice_row)
 
         var previous := _button()
@@ -851,16 +865,20 @@ func _rebuild_rows() -> void:
         previous.custom_minimum_size = Vector2(22, 21)
         previous.disabled = not _can_adjust_field(key, -1)
         choice_row.add_child(previous)
+        previous.position = Vector2.ZERO
+        previous.size = Vector2(22, 21)
         previous.pressed.connect(_adjust.bind(key, -1, index))
 
-        # Clipped area between arrows. Long localized names are never
-        # shortened: their full text scrolls left and back continuously.
+        # A fixed clipped viewport extends only between the arrow slots.
+        # Its label may move left/right but cannot resize the row itself.
         var value_window := Control.new()
-        value_window.custom_minimum_size.y = 21
-        value_window.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         value_window.clip_contents = true
         value_window.mouse_filter = Control.MOUSE_FILTER_IGNORE
         choice_row.add_child(value_window)
+        value_window.anchor_right = 1.0
+        value_window.offset_left = 24.0
+        value_window.offset_right = -24.0
+        value_window.offset_bottom = 21.0
 
         var value_label := _label(MIN_UI_FONT_SIZE)
         value_label.clip_text = false
@@ -878,6 +896,11 @@ func _rebuild_rows() -> void:
         following.custom_minimum_size = Vector2(22, 21)
         following.disabled = not _can_adjust_field(key, 1)
         choice_row.add_child(following)
+        following.anchor_left = 1.0
+        following.anchor_right = 1.0
+        following.offset_left = -22.0
+        following.offset_right = 0.0
+        following.offset_bottom = 21.0
         following.pressed.connect(_adjust.bind(key, 1, index))
         _field_arrows[key] = [previous, following]
 
@@ -965,6 +988,11 @@ func _stop_value_marquees() -> void:
 
 
 func _refresh_all_value_marquees() -> void:
+    if not _opened:
+        return
+    # Initial creation happens while the panel is still being laid out.
+    # Measure the label only after the column and arrow anchors settle.
+    await get_tree().process_frame
     if not _opened:
         return
     for field_key in _value_windows.keys():
