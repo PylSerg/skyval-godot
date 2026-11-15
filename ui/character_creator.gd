@@ -45,6 +45,7 @@ var _tab_scroll: ScrollContainer
 var _tab_buttons: Array[Button] = []
 var _page_tween: Tween
 var _row_labels: Array[Label] = []
+var _row_panels: Array[PanelContainer] = []
 var _row_values: Array[Label] = []
 var _row_counters: Dictionary = {}
 var _row_scroll: ScrollContainer
@@ -318,13 +319,20 @@ func _adjust_selected(direction: int) -> void:
         _adjust(str(fields[_selected_index]), direction, _selected_index)
 
 func _update_row_highlight() -> void:
-    for index in range(_row_labels.size()):
+    # Highlight the complete field (name, counter and selector) by its
+    # background, not by changing the name/value text color.
+    for index in range(_row_panels.size()):
+        var field_panel: PanelContainer = _row_panels[index]
+        if not is_instance_valid(field_panel):
+            continue
         var selected: bool = index == _selected_index
-        var label: Label = _row_labels[index]
-        if is_instance_valid(label):
-            label.add_theme_color_override("font_color", Color("#f8d984") if selected else Color("#f0f1ed"))
-        if index < _row_values.size() and is_instance_valid(_row_values[index]):
-            _row_values[index].add_theme_color_override("font_color", Color("#f8d984") if selected else Color("#f0f1ed"))
+        var style := StyleBoxFlat.new()
+        style.bg_color = Color("#38516c") if selected else Color(0, 0, 0, 0)
+        style.border_color = Color("#d9bb82") if selected else Color(0, 0, 0, 0)
+        style.set_border_width_all(1)
+        style.set_corner_radius_all(2)
+        style.set_content_margin_all(2)
+        field_panel.add_theme_stylebox_override("panel", style)
 
 
 func _current_fields() -> Array:
@@ -733,6 +741,7 @@ func _rebuild_rows() -> void:
     _field_arrows.clear()
     _row_counters.clear()
     _row_labels.clear()
+    _row_panels.clear()
     _row_values.clear()
     for child in _rows.get_children():
         _rows.remove_child(child)
@@ -757,11 +766,17 @@ func _rebuild_rows() -> void:
         var index: int = _row_labels.size()
         var key: String = str(property_key)
 
-        # Each property gets its own full-width label and selector row.
+        # Wrap the complete field in a panel so navigation can highlight
+        # the background behind the heading, counter and value selector.
+        var field_panel := PanelContainer.new()
+        field_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        field_panel.mouse_filter = Control.MOUSE_FILTER_PASS
+        _rows.add_child(field_panel)
+        _row_panels.append(field_panel)
+
         var field_box := VBoxContainer.new()
-        # One heading, one full-width selector, then a subtle 1px divider.
         field_box.add_theme_constant_override("separation", FIELD_INNER_SPACING)
-        _rows.add_child(field_box)
+        field_panel.add_child(field_box)
 
         # A right-aligned 1/N indicator shares the heading line with
         # the field name; both remain at least 14px at 320x240.
