@@ -72,7 +72,8 @@ var _page_clip: Control
 var _action_hint: Label
 var _confirmation_overlay: Control
 var _confirmation_message: Label
-var _confirmation_hint: Label
+var _confirmation_accept: Button
+var _confirmation_cancel: Button
 var _ui_font: FontFile
 var _held_joy_buttons: Dictionary = {}
 var _joy_axis_direction: Dictionary = {}
@@ -1034,7 +1035,8 @@ func _show_confirmation() -> void:
         return
     _confirmation_open = true
     _confirmation_message.text = _tr("ui.confirm_create_question") if _creation_mode else _tr("ui.confirm_edit_question")
-    _confirmation_hint.text = _tr("ui.confirm_joy_hint")
+    _confirmation_accept.text = _tr("menu.confirm_accept")
+    _confirmation_cancel.text = _tr("menu.confirm_cancel")
     _confirmation_overlay.show()
 
 
@@ -1057,30 +1059,41 @@ func _build_confirmation_overlay() -> void:
     _confirmation_overlay.add_child(backdrop)
 
     var panel := PanelContainer.new()
-    panel.position = Vector2(27, 65)
-    panel.custom_minimum_size = Vector2(266, 110)
-    panel.size = Vector2(266, 110)
+    panel.position = Vector2(25, 40)
+    panel.custom_minimum_size = Vector2(270, 160)
+    panel.size = Vector2(270, 160)
     _confirmation_overlay.add_child(panel)
 
     panel.add_theme_stylebox_override("panel", UiTheme.panel_style(0.97, 8.0))
 
     var content := VBoxContainer.new()
-    content.add_theme_constant_override("separation", 12)
+    content.add_theme_constant_override("separation", 5)
     panel.add_child(content)
 
-    _confirmation_message = _label(15)
+    _confirmation_message = _label(MIN_UI_FONT_SIZE)
     _confirmation_message.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
     _confirmation_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _confirmation_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _confirmation_message.clip_text = false
-    _confirmation_message.custom_minimum_size.y = 45
+    _confirmation_message.custom_minimum_size.y = 69
     content.add_child(_confirmation_message)
 
-    _confirmation_hint = _label(MIN_UI_FONT_SIZE)
-    _confirmation_hint.add_theme_color_override("font_color", UiTheme.MUTED)
-    _confirmation_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    _confirmation_hint.clip_text = false
-    content.add_child(_confirmation_hint)
+    var choices := VBoxContainer.new()
+    choices.add_theme_constant_override("separation", 4)
+    choices.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    content.add_child(choices)
+
+    _confirmation_accept = _button()
+    _confirmation_accept.add_theme_font_size_override("font_size", MIN_UI_FONT_SIZE)
+    _confirmation_accept.custom_minimum_size.y = 25
+    _confirmation_accept.pressed.connect(_accept_appearance)
+    choices.add_child(_confirmation_accept)
+
+    _confirmation_cancel = _button()
+    _confirmation_cancel.add_theme_font_size_override("font_size", MIN_UI_FONT_SIZE)
+    _confirmation_cancel.custom_minimum_size.y = 25
+    _confirmation_cancel.pressed.connect(_dismiss_confirmation)
+    choices.add_child(_confirmation_cancel)
 
     _confirmation_overlay.hide()
 
@@ -1140,7 +1153,8 @@ func _refresh_text() -> void:
     if appearance_window:
         _action_hint.text = _tr("ui.hint_create_x") if _creation_mode else _tr("ui.hint_edit_x")
         _confirmation_message.text = _tr("ui.confirm_create_question") if _creation_mode else _tr("ui.confirm_edit_question")
-        _confirmation_hint.text = _tr("ui.confirm_joy_hint")
+        _confirmation_accept.text = _tr("menu.confirm_accept")
+        _confirmation_cancel.text = _tr("menu.confirm_cancel")
     if not appearance_window:
         _equip_hint.text = _tr("inventory.equip_hint")
         for index in range(_tab_buttons.size()):
