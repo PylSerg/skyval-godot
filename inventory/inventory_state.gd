@@ -6,16 +6,25 @@ extends Node
 signal changed
 
 const ITEMS := {
-    "formal_pants": {"slot": "pants", "style": "formal", "variant": "charcoal", "label": "item.formal_pants"},
-    "basic_tshirt": {"slot": "shirt", "style": "shortsleeve/tshirt", "variant": "blue", "label": "item.basic_tshirt"},
-    "white_shirt": {"slot": "shirt", "style": "shortsleeve/shortsleeve", "variant": "white", "label": "item.white_shirt"},
-    "green_polo": {"slot": "shirt", "style": "shortsleeve/shortsleeve_polo", "variant": "forest", "label": "item.green_polo"},
-    "black_longsleeve": {"slot": "shirt", "style": "longsleeve/longsleeve", "variant": "black", "label": "item.black_longsleeve"},
-    "brown_pants": {"slot": "pants", "style": "pants", "variant": "brown", "label": "item.brown_pants"},
-    "navy_cuffed_pants": {"slot": "pants", "style": "cuffed", "variant": "navy", "label": "item.navy_cuffed_pants"},
-    "brown_boots": {"slot": "footwear", "style": "boots/basic", "variant": "brown", "label": "item.brown_boots"},
-    "black_shoes": {"slot": "footwear", "style": "shoes/basic", "variant": "black", "label": "item.black_shoes"},
+    "formal_pants": {"slot": "pants", "style": "formal", "variant": "charcoal", "label": "item.formal_pants", "armor_class": "cloth", "armor_value": 0},
+    "basic_tshirt": {"slot": "shirt", "style": "shortsleeve/tshirt", "variant": "blue", "label": "item.basic_tshirt", "armor_class": "cloth", "armor_value": 0},
+    "white_shirt": {"slot": "shirt", "style": "shortsleeve/shortsleeve", "variant": "white", "label": "item.white_shirt", "armor_class": "cloth", "armor_value": 0},
+    "green_polo": {"slot": "shirt", "style": "shortsleeve/shortsleeve_polo", "variant": "forest", "label": "item.green_polo", "armor_class": "cloth", "armor_value": 0},
+    "black_longsleeve": {"slot": "shirt", "style": "longsleeve/longsleeve", "variant": "black", "label": "item.black_longsleeve", "armor_class": "cloth", "armor_value": 0},
+    "brown_pants": {"slot": "pants", "style": "pants", "variant": "brown", "label": "item.brown_pants", "armor_class": "cloth", "armor_value": 0},
+    "navy_cuffed_pants": {"slot": "pants", "style": "cuffed", "variant": "navy", "label": "item.navy_cuffed_pants", "armor_class": "cloth", "armor_value": 0},
+    "brown_boots": {"slot": "footwear", "style": "boots/basic", "variant": "brown", "label": "item.brown_boots", "armor_class": "cloth", "armor_value": 0},
+    "black_shoes": {"slot": "footwear", "style": "shoes/basic", "variant": "black", "label": "item.black_shoes", "armor_class": "cloth", "armor_value": 0},
 }
+# Armor classes are data, not inferred from garment sprite paths.
+# Future LPC armor pieces will declare their own class and protection
+# value. Class ranks describe the material tier; armor_value is additive.
+const ARMOR_CLASSES := {
+    "cloth": {"rank": 0, "label": "armor.class.cloth"},
+    "light": {"rank": 1, "label": "armor.class.light"},
+    "heavy": {"rank": 2, "label": "armor.class.heavy"},
+}
+
 const TEST_CHEST_ITEMS := [
     "white_shirt",
     "green_polo",
@@ -66,6 +75,61 @@ func get_equipped(slot: String) -> String:
 
 func get_item(item_id: String) -> Dictionary:
     return ITEMS.get(item_id, {})
+
+
+# The right-hand character portrait uses these summaries for the
+# two-line panel below the divider. Currently all owned garments
+# are cloth (+0); armor items can use light/heavy in the same catalog.
+func get_item_armor_class(item_id: String) -> String:
+    var info: Dictionary = get_item(item_id)
+    var result: String = str(info.get("armor_class", "cloth"))
+    return result if ARMOR_CLASSES.has(result) else "cloth"
+
+
+func get_item_armor_value(item_id: String) -> int:
+    var info: Dictionary = get_item(item_id)
+    return maxi(int(info.get("armor_value", 0)), 0)
+
+
+func get_total_armor() -> int:
+    var total: int = 0
+    for slot in _equipped.keys():
+        total += get_item_armor_value(str(_equipped[slot]))
+    return total
+
+
+func get_equipped_armor_class() -> String:
+    var strongest: String = "cloth"
+    var strongest_rank: int = 0
+    for slot in _equipped.keys():
+        var item_id: String = str(_equipped[slot])
+        var armor_class: String = get_item_armor_class(item_id)
+        var rank: int = int(ARMOR_CLASSES[armor_class]["rank"])
+        if rank > strongest_rank:
+            strongest = armor_class
+            strongest_rank = rank
+    return strongest
+
+
+func compare_item_armor(item_id: String) -> Dictionary:
+    # Future armor selection can show candidate vs current protection.
+    # This does NOT equip or add the item and remains safe for old saves.
+    var candidate: Dictionary = get_item(item_id)
+    if candidate.is_empty():
+        return {}
+    var slot: String = str(candidate.get("slot", ""))
+    if not _equipped.has(slot):
+        return {}
+    var old_value: int = get_item_armor_value(get_equipped(slot))
+    var new_value: int = get_item_armor_value(item_id)
+    var total: int = get_total_armor()
+    return {
+        "class": get_item_armor_class(item_id),
+        "value": new_value,
+        "current_total": total,
+        "delta": new_value - old_value,
+        "projected_total": total - old_value + new_value,
+    }
 
 
 func get_save_state() -> Dictionary:
