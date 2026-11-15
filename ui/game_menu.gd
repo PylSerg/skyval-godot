@@ -277,7 +277,7 @@ func _move_selection(direction: int) -> void:
         if not _menu_buttons[next_index].disabled:
             _selected_option = next_index
             _status_message = ""
-            _update_highlight()
+            _refresh_text()
             return
         next_index += direction
 
@@ -390,6 +390,7 @@ func _accept_confirmation() -> void:
 
 func _load_selected_save(path: String) -> bool:
     if not _load_profile(path, true):
+        _list_mode = ""
         _status_message = _tr("save.load_failed")
         _refresh_text()
         return false
@@ -404,6 +405,7 @@ func _delete_selected_profile() -> void:
         return
     var selected: Dictionary = _listed_items[_selected_list]
     if not bool(_save_store.call("delete_profile", str(selected.get("path", "")))):
+        _list_mode = ""
         _status_message = _tr("save.delete_failed")
         return
     _listed_items = _save_store.call("list_profiles")
@@ -414,8 +416,10 @@ func _delete_selected_profile() -> void:
 
 
 func _return_to_main() -> void:
-    # Stay paused and preserve the current checkpoint before clearing state.
-    _save_current_game()
+    # Never discard the live character if writing its checkpoint fails.
+    if not _save_current_game():
+        _status_message = _tr("save.write_failed")
+        return
     _session_started = false
     _active_save_path = ""
     _profile_data.clear()
@@ -674,9 +678,10 @@ func _build_interface() -> void:
     _root.add_child(shade)
 
     var panel := PanelContainer.new()
-    panel.position = Vector2(34, 15)
-    panel.custom_minimum_size = Vector2(252, 210)
-    panel.size = Vector2(252, 210)
+    # Six in-game actions fit inside the 320x240 viewport at >=14px.
+    panel.position = Vector2(34, 8)
+    panel.custom_minimum_size = Vector2(252, 224)
+    panel.size = Vector2(252, 224)
     _root.add_child(panel)
     var panel_style := StyleBoxFlat.new()
     panel_style.bg_color = Color("#202c3c")
@@ -687,7 +692,7 @@ func _build_interface() -> void:
     panel.add_theme_stylebox_override("panel", panel_style)
 
     var stack := VBoxContainer.new()
-    stack.add_theme_constant_override("separation", 6)
+    stack.add_theme_constant_override("separation", 4)
     panel.add_child(stack)
 
     _heading = _label(17)
@@ -701,7 +706,7 @@ func _build_interface() -> void:
     stack.add_child(divider)
 
     _main_panel = VBoxContainer.new()
-    _main_panel.add_theme_constant_override("separation", 3)
+    _main_panel.add_theme_constant_override("separation", 2)
     stack.add_child(_main_panel)
     # Reuse six buttons; hidden options occupy no space.
     for i in range(GAME_OPTIONS.size()):
