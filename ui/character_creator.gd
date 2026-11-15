@@ -563,23 +563,25 @@ func _build_interface() -> void:
         _root.add_child(_appearance_bg)
 
     var shade := ColorRect.new()
-    shade.color = Color(0.02, 0.03, 0.07, 0.12) if appearance_window and _appearance_bg.texture != null else Color(0.03, 0.08, 0.10, 0.76)
+    # Inventory overlays the paused game world. Do not replace it with
+    # creation art or hide it under the old nearly opaque shade.
+    shade.color = Color(0.02, 0.03, 0.07, 0.12) if appearance_window and _appearance_bg.texture != null else Color(0.02, 0.03, 0.07, 0.18) if not appearance_window else Color(0.03, 0.08, 0.10, 0.76)
     shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
     shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     _root.add_child(shade)
 
     var panel := PanelContainer.new()
-    panel.position = Vector2(6, 6) if appearance_window else Vector2(5, 7)
-    panel.custom_minimum_size = Vector2(202, 228) if appearance_window else Vector2(204, 224)
+    panel.position = Vector2(6, 6)
+    panel.custom_minimum_size = Vector2(202, 228)
     panel.size = panel.custom_minimum_size
     _root.add_child(panel)
     var panel_style := StyleBoxFlat.new()
-    panel_style.bg_color = Color(0.055, 0.085, 0.14, 0.88) if appearance_window else Color("#202c3c")
-    panel_style.border_color = Color("#d6b77c") if appearance_window else Color("#7e95ae")
+    panel_style.bg_color = Color(0.055, 0.085, 0.14, 0.86)
+    panel_style.border_color = Color("#d6b77c")
     panel_style.set_border_width_all(1)
     panel_style.set_corner_radius_all(3)
     # Keep text and choice arrows away from the panel frame.
-    panel_style.set_content_margin_all(6 if appearance_window else PANEL_INSET)
+    panel_style.set_content_margin_all(6)
     panel.add_theme_stylebox_override("panel", panel_style)
 
     var stack := VBoxContainer.new()
@@ -588,11 +590,13 @@ func _build_interface() -> void:
 
     # Appearance stays a standalone window. The backpack restores
     # its category strip with automatic horizontal scrolling.
-    _title_label = _label(16 if appearance_window else 18)
-    _title_label.custom_minimum_size.y = 23 if appearance_window else 24
-    if appearance_window:
-        _title_label.add_theme_color_override("font_color", Color("#f9e3af"))
+    _title_label = _label(16)
+    _title_label.custom_minimum_size.y = 23
+    _title_label.add_theme_color_override("font_color", Color("#f9e3af"))
     _title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    # Backpack tabs identify the screen; the redundant "Рюкзак" header
+    # would steal one full row on the tiny 320x240 viewport.
+    _title_label.visible = appearance_window
     stack.add_child(_title_label)
 
     if appearance_window:
@@ -633,54 +637,54 @@ func _build_interface() -> void:
     _page_clip.add_child(_row_scroll)
     _row_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
-    if appearance_window:
-        # Five compact field names are visible together. A single choice
-        # bar beneath them controls the currently highlighted field.
-        _appearance_choice_panel = PanelContainer.new()
-        _appearance_choice_panel.custom_minimum_size.y = 25
-        var choice_style := StyleBoxFlat.new()
-        choice_style.bg_color = Color(0.11, 0.17, 0.25, 0.84)
-        choice_style.border_color = ACTIVE_HIGHLIGHT
-        choice_style.set_border_width_all(1)
-        choice_style.set_corner_radius_all(2)
-        choice_style.set_content_margin_all(2)
-        _appearance_choice_panel.add_theme_stylebox_override("panel", choice_style)
-        stack.add_child(_appearance_choice_panel)
+    # Both the creation editor and inventory use the same compact,
+    # single-value selector, preserving room for five visible fields.
+    _appearance_choice_panel = PanelContainer.new()
+    _appearance_choice_panel.custom_minimum_size.y = 25
+    var choice_style := StyleBoxFlat.new()
+    choice_style.bg_color = Color(0.11, 0.17, 0.25, 0.84)
+    choice_style.border_color = ACTIVE_HIGHLIGHT
+    choice_style.set_border_width_all(1)
+    choice_style.set_corner_radius_all(2)
+    choice_style.set_content_margin_all(2)
+    _appearance_choice_panel.add_theme_stylebox_override("panel", choice_style)
+    stack.add_child(_appearance_choice_panel)
 
-        var choice_row := HBoxContainer.new()
-        choice_row.add_theme_constant_override("separation", 3)
-        _appearance_choice_panel.add_child(choice_row)
+    var choice_row := HBoxContainer.new()
+    choice_row.add_theme_constant_override("separation", 3)
+    _appearance_choice_panel.add_child(choice_row)
 
-        _appearance_prev = _selector_arrow_button()
-        _appearance_prev.text = _tr("ui.previous")
-        _appearance_prev.custom_minimum_size = Vector2(SELECTOR_ARROW_WIDTH, 20)
-        _appearance_prev.pressed.connect(_adjust_selected.bind(-1))
-        choice_row.add_child(_appearance_prev)
+    _appearance_prev = _selector_arrow_button()
+    _appearance_prev.text = _tr("ui.previous")
+    _appearance_prev.custom_minimum_size = Vector2(SELECTOR_ARROW_WIDTH, 20)
+    _appearance_prev.pressed.connect(_adjust_selected.bind(-1))
+    choice_row.add_child(_appearance_prev)
 
-        _appearance_choice_window = Control.new()
-        _appearance_choice_window.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        _appearance_choice_window.custom_minimum_size = Vector2(60, 20)
-        _appearance_choice_window.clip_contents = true
-        _appearance_choice_window.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        choice_row.add_child(_appearance_choice_window)
+    _appearance_choice_window = Control.new()
+    _appearance_choice_window.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    _appearance_choice_window.custom_minimum_size = Vector2(60, 20)
+    _appearance_choice_window.clip_contents = true
+    _appearance_choice_window.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    choice_row.add_child(_appearance_choice_window)
 
-        _appearance_choice_value = _label(MIN_UI_FONT_SIZE)
-        _appearance_choice_value.clip_text = false
-        _appearance_choice_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        _appearance_choice_value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-        _appearance_choice_window.add_child(_appearance_choice_value)
+    _appearance_choice_value = _label(MIN_UI_FONT_SIZE)
+    _appearance_choice_value.clip_text = false
+    _appearance_choice_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    _appearance_choice_value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    _appearance_choice_window.add_child(_appearance_choice_value)
 
-        _appearance_next = _selector_arrow_button()
-        _appearance_next.text = _tr("ui.next")
-        _appearance_next.custom_minimum_size = Vector2(SELECTOR_ARROW_WIDTH, 20)
-        _appearance_next.pressed.connect(_adjust_selected.bind(1))
-        choice_row.add_child(_appearance_next)
+    _appearance_next = _selector_arrow_button()
+    _appearance_next.text = _tr("ui.next")
+    _appearance_next.custom_minimum_size = Vector2(SELECTOR_ARROW_WIDTH, 20)
+    _appearance_next.pressed.connect(_adjust_selected.bind(1))
+    choice_row.add_child(_appearance_next)
 
     # Use the full right column; the portrait itself is drawn at 3×.
     _preview = PreviewScript.new() as Control
-    _preview.position = Vector2(210, 8) if appearance_window else Vector2(212, 8)
-    _preview.size = Vector2(104, 224) if appearance_window else Vector2(103, 224)
+    _preview.position = Vector2(210, 8)
+    _preview.size = Vector2(104, 224)
     _preview.set("scenic_mode", appearance_window)
+    _preview.set("framed_mode", not appearance_window)
     _root.add_child(_preview)
 
     if not appearance_window:
@@ -698,8 +702,8 @@ func _build_interface() -> void:
         _preview.add_child(_armor_value_label)
 
     _missing_label = _label(MIN_UI_FONT_SIZE)
-    _missing_label.position = Vector2(214, 94)
-    _missing_label.size = Vector2(99, 46)
+    _missing_label.position = Vector2(211, 94)
+    _missing_label.size = Vector2(102, 46)
     _missing_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _missing_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     _root.add_child(_missing_label)
