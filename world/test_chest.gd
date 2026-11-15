@@ -238,7 +238,7 @@ func _refresh() -> void:
 
 
 func _update_highlight() -> void:
-    var controls: Array[Button] = _buttons.duplicate()
+    var controls: Array = _buttons.duplicate()
     controls.append(_take)
     for index in range(controls.size()):
         var button: Button = controls[index]
