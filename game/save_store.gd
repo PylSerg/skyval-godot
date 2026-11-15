@@ -24,7 +24,7 @@ func new_profile(name: String) -> Dictionary:
             break
     if FileAccess.file_exists(directory_path().path_join(filename)):
         return {}
-    var now: int = int(Time.get_unix_time_from_system())
+    var now: int = int(Time.get_unix_time_from_system() * 1000.0)
     return {
         "version": VERSION,
         "profile_id": profile_id,
