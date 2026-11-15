@@ -1103,6 +1103,11 @@ func _update_compact_choice() -> void:
     _value_labels.clear()
     _value_windows.clear()
     _compact_choice_value.text = _localized_value(field_key)
+    var pending_change: bool = false
+    if not appearance_window and _inventory != null:
+        var slot: String = str(_inventory.call("get_equipment_slot", field_key))
+        pending_change = _selected_equipment_id(field_key) != str(_inventory.call("get_equipped", slot))
+    _compact_choice_value.add_theme_color_override("font_color", ACTIVE_HIGHLIGHT if pending_change else Color("#f0f1ed"))
     _compact_prev.disabled = not _can_adjust_field(field_key, -1)
     _compact_next.disabled = not _can_adjust_field(field_key, 1)
     _value_labels[field_key] = _compact_choice_value
@@ -1160,8 +1165,7 @@ func _refresh_options() -> void:
     else:
         _preview.queue_redraw()
     _refresh_preview_after_frame()
-    _refresh_armor_status()
-    # _update_compact_choice() schedules exactly one marquee refresh.
+    # _update_compact_choice() updates the +/- preview and schedules the marquee.
     _update_compact_choice()
 
 
@@ -1271,7 +1275,8 @@ func _refresh_armor_status() -> void:
     else:
         # The narrow 104px portrait can fit +5 (+3), not
         # 'Броня +5 (+3)'. Show projected protection and its +/- delta.
-        _armor_value_label.text = "+%d (%+d)" % [projected_armor, difference]
+        var signed_delta: String = ("+" if difference > 0 else "") + str(difference)
+        _armor_value_label.text = "+%d (%s)" % [projected_armor, signed_delta]
         var ink: Color = Color("#99e1ad") if difference > 0 else Color("#ffb5a6")
         _armor_value_label.add_theme_color_override("font_color", ink)
 
@@ -1283,14 +1288,8 @@ func _adjust(key: String, direction: int, index: int = -1) -> void:
         _reveal_selected_row()
 
     if not appearance_window:
-        var changed: bool = false
-        if _inventory != null:
-            changed = bool(_inventory.call("cycle_equipment_field", key, direction, avatar))
-        if changed:
-            _refresh_options()
-            var menu: Node = get_parent().get_node_or_null("GameMenu")
-            if menu != null:
-                menu.call("save_checkpoint")
+        # Equipment can only be committed by _confirm_equipment_selection.
+        # Arrow controls never call the old immediate-equip API.
         return
 
     if avatar.change_lpc_option(key, direction):
