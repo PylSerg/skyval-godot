@@ -4,6 +4,7 @@ extends CanvasLayer
 
 const PreviewScript = preload("res://ui/character_preview.gd")
 const LocaleScript = preload("res://localization/localization.gd")
+const APPEARANCE_BG_PATH := "res://assets/images/create_hero_bg.jpg"
 const APPEARANCE_FIELDS := ["body_type", "skin_variant", "eye_variant", "hair_style", "hair_variant"]
 # Both equipment categories share the same five body areas. Empty
 # categories are shown as None until their items are actually earned.
@@ -72,6 +73,12 @@ var _right_stick_latched: Dictionary = {}
 var _last_navigation_ms: int = -10000
 var _ignore_presses_before_ms: int = 0
 var _root: Control
+var _appearance_bg: TextureRect
+var _appearance_choice_panel: PanelContainer
+var _appearance_choice_window: Control
+var _appearance_choice_value: Label
+var _appearance_prev: Button
+var _appearance_next: Button
 var _title_label: Label
 var _rows: VBoxContainer
 var _preview: Control
@@ -325,6 +332,8 @@ func _move_selection(amount: int) -> void:
         return
     _selected_index = next_index
     _update_row_highlight()
+    if appearance_window:
+        _update_appearance_choice()
     _reveal_selected_row()
 
 func _adjust_selected(direction: int) -> void:
@@ -349,7 +358,7 @@ func _update_row_highlight() -> void:
         style.set_corner_radius_all(2)
         # Equal 12px content padding on all four sides. The highlighted
         # background and border still span the complete available row.
-        style.set_content_margin_all(FIELD_CONTENT_PADDING)
+        style.set_content_margin_all(3 if appearance_window else FIELD_CONTENT_PADDING)
         field_panel.add_theme_stylebox_override("panel", style)
         if index < _row_labels.size():
             var name: Label = _row_labels[index]
@@ -536,24 +545,38 @@ func _build_interface() -> void:
     _root.mouse_filter = Control.MOUSE_FILTER_STOP
     add_child(_root)
 
+    if appearance_window:
+        _appearance_bg = TextureRect.new()
+        _appearance_bg.name = "CreationBackground"
+        _appearance_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+        _appearance_bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+        _appearance_bg.stretch_mode = TextureRect.STRETCH_SCALE
+        _appearance_bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+        _appearance_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        if ResourceLoader.exists(APPEARANCE_BG_PATH):
+            _appearance_bg.texture = load(APPEARANCE_BG_PATH) as Texture2D
+        else:
+            push_warning("Skyval: creation background not bundled: " + APPEARANCE_BG_PATH)
+        _root.add_child(_appearance_bg)
+
     var shade := ColorRect.new()
-    shade.color = Color(0.03, 0.08, 0.10, 0.76)
+    shade.color = Color(0.02, 0.03, 0.07, 0.12) if appearance_window and _appearance_bg.texture != null else Color(0.03, 0.08, 0.10, 0.76)
     shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
     shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     _root.add_child(shade)
 
     var panel := PanelContainer.new()
-    panel.position = Vector2(5, 7)
-    panel.custom_minimum_size = Vector2(204, 224)
-    panel.size = Vector2(204, 224)
+    panel.position = Vector2(6, 6) if appearance_window else Vector2(5, 7)
+    panel.custom_minimum_size = Vector2(202, 228) if appearance_window else Vector2(204, 224)
+    panel.size = panel.custom_minimum_size
     _root.add_child(panel)
     var panel_style := StyleBoxFlat.new()
-    panel_style.bg_color = Color("#202c3c")
-    panel_style.border_color = Color("#7e95ae")
+    panel_style.bg_color = Color(0.055, 0.085, 0.14, 0.88) if appearance_window else Color("#202c3c")
+    panel_style.border_color = Color("#d6b77c") if appearance_window else Color("#7e95ae")
     panel_style.set_border_width_all(1)
     panel_style.set_corner_radius_all(3)
     # Keep text and choice arrows away from the panel frame.
-    panel_style.set_content_margin_all(PANEL_INSET)
+    panel_style.set_content_margin_all(6 if appearance_window else PANEL_INSET)
     panel.add_theme_stylebox_override("panel", panel_style)
 
     var stack := VBoxContainer.new()
@@ -562,8 +585,10 @@ func _build_interface() -> void:
 
     # Appearance stays a standalone window. The backpack restores
     # its category strip with automatic horizontal scrolling.
-    _title_label = _label(18)
-    _title_label.custom_minimum_size.y = 24
+    _title_label = _label(16 if appearance_window else 18)
+    _title_label.custom_minimum_size.y = 23 if appearance_window else 24
+    if appearance_window:
+        _title_label.add_theme_color_override("font_color", Color("#f9e3af"))
     _title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     stack.add_child(_title_label)
 
@@ -607,8 +632,9 @@ func _build_interface() -> void:
 
     # Use the full right column; the portrait itself is drawn at 3×.
     _preview = PreviewScript.new() as Control
-    _preview.position = Vector2(212, 8)
-    _preview.size = Vector2(103, 224)
+    _preview.position = Vector2(210, 8) if appearance_window else Vector2(212, 8)
+    _preview.size = Vector2(104, 224) if appearance_window else Vector2(103, 224)
+    _preview.set("scenic_mode", appearance_window)
     _root.add_child(_preview)
 
     if not appearance_window:
@@ -773,7 +799,7 @@ func _create_page_scroll() -> ScrollContainer:
 
     _rows = VBoxContainer.new()
     _rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    _rows.add_theme_constant_override("separation", FIELD_GROUP_SPACING)
+    _rows.add_theme_constant_override("separation", 2 if appearance_window else FIELD_GROUP_SPACING)
     scroll.add_child(_rows)
     return scroll
 
@@ -833,7 +859,7 @@ func _label(font_size: int) -> Label:
 func _refresh_text() -> void:
     if _title_label == null:
         return
-    _title_label.text = _tr("ui.appearance") if appearance_window else _tr("inventory.title")
+    _title_label.text = _tr("ui.create_hero") if appearance_window and _creation_mode else (_tr("ui.appearance") if appearance_window else _tr("inventory.title"))
     if appearance_window:
         _action_hint.text = _tr("ui.hint_create_x") if _creation_mode else _tr("ui.hint_edit_x")
         _confirmation_message.text = _tr("ui.confirm_create_question") if _creation_mode else _tr("ui.confirm_edit_question")
