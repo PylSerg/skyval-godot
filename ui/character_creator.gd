@@ -52,6 +52,9 @@ var _rows: VBoxContainer
 var _preview: Control
 var _missing_label: Label
 var _value_labels: Dictionary = {}
+var _inventory_buttons: Array[Button] = []
+var _inventory_entries: Array[Dictionary] = []
+var _inventory: Node
 var _locale: Node
 
 func _ready() -> void:
@@ -66,6 +69,7 @@ func _ready() -> void:
         add_child(_locale)
 
     _locale.connect("language_changed", Callable(self, "_refresh_text"))
+    _inventory = get_node_or_null("/root/SkyvalInventory")
     _build_interface()
     _root.hide()
 
@@ -163,6 +167,9 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
                 return
             if appearance_editor != null and bool(appearance_editor.call("is_open")):
                 return
+            var chest: Node = get_parent().get_node_or_null("TestChest")
+            if chest != null and bool(chest.call("is_open")):
+                return
             _set_open(true)
             get_viewport().set_input_as_handled()
         return
@@ -183,7 +190,9 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
             else:
                 _set_open(false)
         JOY_BUTTON_A:
-            if appearance_window and _selected_index == APPEARANCE_FIELDS.size():
+            if not appearance_window:
+                _activate_inventory_selection()
+            elif _selected_index == APPEARANCE_FIELDS.size():
                 _accept_appearance()
             else:
                 _adjust_selected(1)
@@ -192,9 +201,11 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
         JOY_BUTTON_DPAD_DOWN:
             _move_selection(1)
         JOY_BUTTON_DPAD_LEFT:
-            _adjust_selected(-1)
+            if appearance_window:
+                _adjust_selected(-1)
         JOY_BUTTON_DPAD_RIGHT:
-            _adjust_selected(1)
+            if appearance_window:
+                _adjust_selected(1)
         _:
             return
     get_viewport().set_input_as_handled()
@@ -240,7 +251,7 @@ func _handle_joy_axis(event: InputEventJoypadMotion) -> void:
 
     if event.axis == JOY_AXIS_LEFT_Y:
         _move_selection(next_direction)
-    else:
+    elif appearance_window:
         _adjust_selected(next_direction)
     get_viewport().set_input_as_handled()
 
@@ -256,7 +267,7 @@ func _can_navigate() -> bool:
 func _move_selection(amount: int) -> void:
     if not _can_navigate():
         return
-    var option_count: int = _current_fields().size() + (1 if appearance_window else 0)
+    var option_count: int = (APPEARANCE_FIELDS.size() + 1) if appearance_window else _inventory_entries.size()
     if option_count == 0:
         return
     _selected_index = posmod(_selected_index + amount, option_count)
@@ -264,7 +275,7 @@ func _move_selection(amount: int) -> void:
     _reveal_selected_row()
 
 func _adjust_selected(direction: int) -> void:
-    if not _can_navigate():
+    if not appearance_window or not _can_navigate():
         return
     var fields: Array = _current_fields()
     if _selected_index >= 0 and _selected_index < fields.size():
@@ -278,6 +289,18 @@ func _update_row_highlight() -> void:
             label.add_theme_color_override("font_color", Color("#f8d984") if selected else Color("#f0f1ed"))
         if index < _row_values.size() and is_instance_valid(_row_values[index]):
             _row_values[index].add_theme_color_override("font_color", Color("#f8d984") if selected else Color("#f0f1ed"))
+    if not appearance_window:
+        for index in range(_inventory_buttons.size()):
+            var control: Button = _inventory_buttons[index]
+            var selected: bool = index == _selected_index
+            var style := StyleBoxFlat.new()
+            style.bg_color = Color("#597a9b") if selected else Color("#354960")
+            style.border_color = Color("#e7ca86") if selected else Color("#667f9a")
+            style.set_border_width_all(1)
+            style.set_content_margin_all(2)
+            control.add_theme_stylebox_override("normal", style)
+            control.add_theme_color_override("font_color", Color("#fff0c8") if selected else Color("#edf1f5"))
+        return
     if appearance_window and is_instance_valid(_confirm_button):
         var selected_confirm: bool = _selected_index == APPEARANCE_FIELDS.size()
         var style := StyleBoxFlat.new()
@@ -496,7 +519,7 @@ func _label(font_size: int) -> Label:
 func _refresh_text() -> void:
     if _title_label == null:
         return
-    _title_label.text = _tr("ui.appearance") if appearance_window else _tr("ui.clothes")
+    _title_label.text = _tr("ui.appearance") if appearance_window else _tr("inventory.title")
     _missing_label.text = _tr("ui.missing_lpc")
     _missing_label.visible = not avatar.has_lpc_character()
     _preview.set("character", avatar.get_lpc_character())
@@ -512,6 +535,10 @@ func _rebuild_rows() -> void:
         child.queue_free()
 
     _confirm_button = null
+    if not appearance_window:
+        _rebuild_inventory_rows()
+        return
+
     var fields: Array = _current_fields()
     for property_key in fields:
         var index: int = _row_labels.size()
@@ -587,7 +614,10 @@ func _reveal_selected_row() -> void:
         return
     if intended_index != _selected_index:
         return
-    if intended_index >= 0 and intended_index < _rows.get_child_count():
+    if not appearance_window:
+        if intended_index >= 0 and intended_index < _inventory_buttons.size():
+            _row_scroll.ensure_control_visible(_inventory_buttons[intended_index])
+    elif intended_index >= 0 and intended_index < _rows.get_child_count():
         _row_scroll.ensure_control_visible(_rows.get_child(intended_index) as Control)
 
 func _localized_value(key: String) -> String:
@@ -618,4 +648,79 @@ func _adjust(key: String, direction: int, index: int = -1) -> void:
         # immediately when body type changes. Later edits leave clothes alone.
         if appearance_window and _creation_mode and key == "body_type":
             avatar.apply_starter_outfit()
+            if _inventory != null:
+                _inventory.call("set_starter_equipment", avatar.get_lpc_option("body_type"))
         _refresh_options()
+
+
+func _rebuild_inventory_rows() -> void:
+    _inventory_buttons.clear()
+    _inventory_entries.clear()
+    if _inventory == null:
+        return
+
+    var header: Label = _label(13)
+    header.text = _tr("inventory.equipped")
+    _rows.add_child(header)
+
+    for slot in ["shirt", "pants", "footwear"]:
+        var item_id: String = str(_inventory.call("get_equipped", slot))
+        var item_title: String = _tr("inventory.none")
+        if not item_id.is_empty():
+            var info: Dictionary = _inventory.call("get_item", item_id)
+            item_title = _tr(str(info.get("label", "")))
+        var button: Button = _button()
+        button.add_theme_font_size_override("font_size", 13)
+        button.text = _tr("inventory.slot." + slot) + ": " + item_title
+        button.custom_minimum_size.y = 22
+        button.pressed.connect(_inventory_action.bind(_inventory_entries.size()))
+        _rows.add_child(button)
+        _inventory_buttons.append(button)
+        _inventory_entries.append({"kind": "unequip", "slot": slot})
+
+    var bag_header: Label = _label(13)
+    bag_header.text = _tr("inventory.in_bag")
+    _rows.add_child(bag_header)
+    var bag: Array[String] = _inventory.call("get_bag")
+    if bag.is_empty():
+        var empty: Label = _label(12)
+        empty.text = _tr("inventory.empty")
+        _rows.add_child(empty)
+    else:
+        for item_id in bag:
+            var info: Dictionary = _inventory.call("get_item", item_id)
+            var button: Button = _button()
+            button.add_theme_font_size_override("font_size", 13)
+            button.text = "> " + _tr(str(info.get("label", "")))
+            button.custom_minimum_size.y = 23
+            button.pressed.connect(_inventory_action.bind(_inventory_entries.size()))
+            _rows.add_child(button)
+            _inventory_buttons.append(button)
+            _inventory_entries.append({"kind": "equip", "id": item_id})
+
+    _selected_index = mini(_selected_index, maxi(_inventory_entries.size() - 1, 0))
+    _update_row_highlight()
+    _reveal_selected_row()
+
+
+func _activate_inventory_selection() -> void:
+    if not _can_navigate():
+        return
+    _inventory_action(_selected_index)
+
+
+func _inventory_action(index: int) -> void:
+    if appearance_window or _inventory == null or index < 0 or index >= _inventory_entries.size():
+        return
+    var entry: Dictionary = _inventory_entries[index]
+    var succeeded: bool = false
+    if entry["kind"] == "equip":
+        succeeded = bool(_inventory.call("equip", str(entry["id"]), avatar))
+    elif entry["kind"] == "unequip":
+        succeeded = bool(_inventory.call("unequip", str(entry["slot"]), avatar))
+    if succeeded:
+        _rebuild_rows()
+        _preview.queue_redraw()
+        var menu: Node = get_parent().get_node_or_null("GameMenu")
+        if menu != null:
+            menu.call("save_checkpoint")
