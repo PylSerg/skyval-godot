@@ -348,6 +348,9 @@ func _start_new_game() -> void:
     _creation_in_progress = true
     if player.has_method("reset_for_new_game"):
         player.call("reset_for_new_game")
+    var avatar: Node = player.get_node_or_null("CharacterVisual")
+    if avatar != null and avatar.has_method("apply_starter_outfit"):
+        avatar.call("apply_starter_outfit")
     # Claim the modal pause before releasing GameMenu: no active gameplay frame.
     editor.call("begin_creation")
     _set_open(false)
@@ -356,6 +359,12 @@ func _start_new_game() -> void:
 func _on_appearance_confirmed() -> void:
     if not _creation_in_progress:
         return
+    # Apply the final body type's starting outfit before the first save.
+    var player: CharacterBody2D = _get_player()
+    if player != null:
+        var avatar: Node = player.get_node_or_null("CharacterVisual")
+        if avatar != null and avatar.has_method("apply_starter_outfit"):
+            avatar.call("apply_starter_outfit")
     _session_started = true
     _creation_in_progress = false
     _save_current_game()
