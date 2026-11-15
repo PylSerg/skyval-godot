@@ -915,7 +915,7 @@ func _style_menu_layout() -> void:
         var height: float = 8.0 + TITLE_BUTTON_HEIGHT * count + TITLE_BUTTON_GAP * maxi(0, count - 1)
         _panel.custom_minimum_size = Vector2(TITLE_MENU_WIDTH, height)
         _panel.size = Vector2(TITLE_MENU_WIDTH, height)
-        _panel.position = Vector2(320.0 - TITLE_MENU_WIDTH - 9.0, 240.0 - height - 9.0)
+        _panel.position = Vector2((320.0 - TITLE_MENU_WIDTH) / 2.0, 240.0 - height - 9.0)
         # Keep Continue at the top and Quit at the bottom. Only anchor
         # the stack to the lower edge; do not reverse button order.
         for i in range(_menu_buttons.size()):
