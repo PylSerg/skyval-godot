@@ -77,6 +77,8 @@ func _player_nearby() -> bool:
 
 
 func _can_open_from_world() -> bool:
+    if _inventory == null:
+        return false
     var menu: Node = get_parent().get_node_or_null("GameMenu")
     var pause_manager: Node = get_node_or_null("/root/SkyvalUiPause")
     if menu == null or not bool(menu.call("has_started_session")):
