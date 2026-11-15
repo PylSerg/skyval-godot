@@ -14,7 +14,7 @@ const STICK_PRESS := 0.65
 const STICK_RELEASE := 0.42
 const VISIBLE_PROFILES := 4
 const MAIN_OPTIONS := ["menu.continue", "menu.select_character", "menu.new_game", "menu.settings", "menu.quit"]
-const GAME_OPTIONS := ["game.quick_save", "game.quick_load", "game.save", "game.load", "menu.settings", "game.main_menu"]
+const GAME_OPTIONS := ["game.quick_save", "game.quick_load", "game.save", "game.load", "menu.settings", "game.main_menu", "game.quit"]
 
 @onready var _creator: CanvasLayer = get_parent().get_node("CharacterCreator") as CanvasLayer
 
@@ -27,7 +27,7 @@ var _list_mode: String = "" # characters, character_saves or load
 var _selected_character_id: String = ""
 var _selected_character_index: int = 0
 var _pending_manual_save: bool = false
-var _confirm_action: String = "" # load, delete, main
+var _confirm_action: String = "" # load, delete, main, quit
 var _pending_save_path: String = ""
 var _session_started: bool = false
 var _creation_in_progress: bool = false
@@ -323,6 +323,8 @@ func _activate_option(index: int) -> void:
             _open_list("load")
         "game.main_menu":
             _ask_confirmation("main")
+        "game.quit":
+            _ask_confirmation("quit")
     _refresh_text()
 
 
@@ -411,6 +413,11 @@ func _accept_confirmation() -> void:
                 return
         "main":
             _return_to_main()
+        "quit":
+            if _save_current_game():
+                get_tree().quit()
+            else:
+                _status_message = _tr("save.write_failed")
     _refresh_text()
 
 
@@ -734,7 +741,7 @@ func _build_interface() -> void:
     _root.add_child(shade)
 
     var panel := PanelContainer.new()
-    # Six in-game actions fit inside the 320x240 viewport at >=14px.
+    # Seven in-game actions fit inside the 320x240 viewport at 14px.
     panel.position = Vector2(34, 8)
     panel.custom_minimum_size = Vector2(252, 224)
     panel.size = Vector2(252, 224)
@@ -762,12 +769,19 @@ func _build_interface() -> void:
     stack.add_child(divider)
 
     _main_panel = VBoxContainer.new()
-    _main_panel.add_theme_constant_override("separation", 2)
+    _main_panel.add_theme_constant_override("separation", 1)
     stack.add_child(_main_panel)
-    # Reuse six buttons; hidden options occupy no space.
+    # Reuse seven buttons; hidden options occupy no space.
     for i in range(GAME_OPTIONS.size()):
         var option := _button()
-        option.custom_minimum_size.y = 25
+        option.add_theme_font_size_override("font_size", MIN_UI_FONT_SIZE)
+        option.custom_minimum_size.y = 24
+        # Reduce intrinsic button height so seven rows never stretch the panel.
+        for state in ["normal", "hover", "pressed"]:
+            var compact: StyleBoxFlat = option.get_theme_stylebox(state).duplicate() as StyleBoxFlat
+            compact.content_margin_top = 1.0
+            compact.content_margin_bottom = 1.0
+            option.add_theme_stylebox_override(state, compact)
         option.pressed.connect(_activate_option.bind(i))
         _main_panel.add_child(option)
         _menu_buttons.append(option)
@@ -937,6 +951,9 @@ func _refresh_text() -> void:
             "main":
                 _heading.text = _tr("game.main_menu")
                 _confirm_message.text = _tr("game.main_confirm")
+            "quit":
+                _heading.text = _tr("game.quit")
+                _confirm_message.text = _tr("game.quit_confirm")
 
     _language_caption.text = _tr("settings.language")
     _language_value.text = _tr("settings.language.en") if str(_locale.get("language")) == "en" else _tr("settings.language.uk")
