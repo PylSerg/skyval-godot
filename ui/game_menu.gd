@@ -19,6 +19,7 @@ var _opened: bool = false
 var _settings_open: bool = false
 var _confirm_new_game: bool = false
 var _session_started: bool = false
+var _creation_in_progress: bool = false
 var _selected_option: int = 0
 var _root: Control
 var _heading: Label
@@ -63,6 +64,10 @@ func is_open() -> bool:
     return _opened
 
 
+func has_started_session() -> bool:
+    return _session_started and not _creation_in_progress
+
+
 func _tr(key: String) -> String:
     return str(_locale.call("t", key))
 
@@ -87,7 +92,7 @@ func _handle_button(event: InputEventJoypadButton) -> void:
     _held_buttons[button_id] = true
 
     if not _opened:
-        if event.button_index == JOY_BUTTON_START or event.button_index == JOY_BUTTON_RIGHT_STICK:
+        if not _creation_in_progress and (event.button_index == JOY_BUTTON_START or event.button_index == JOY_BUTTON_RIGHT_STICK):
             _set_open(true)
             get_viewport().set_input_as_handled()
         return
@@ -163,10 +168,10 @@ func _can_navigate() -> bool:
 
 
 func _set_open(next_open: bool) -> void:
-    if _opened == next_open or (not next_open and not _session_started):
+    if _opened == next_open or (not next_open and not _session_started and not _creation_in_progress):
         return
-    if next_open and _session_started:
-        _save_current_game() # Checkpoint when opening the in-game menu.
+    if next_open and _session_started and not _creation_in_progress:
+        _save_current_game() # Never overwrite a save with an unfinished character.
     _opened = next_open
     if next_open:
         # Take pause ownership before closing another UI layer.
@@ -313,16 +318,46 @@ func _continue_game() -> void:
 
 
 func _start_new_game() -> void:
-    var player: CharacterBody2D = _get_player()
-    if player == null:
-        push_error("Skyval: Player missing; cannot start a new game.")
+    # Character appearance must be accepted before overwriting the old save.
+    if _creation_in_progress:
         return
+    var player: CharacterBody2D = _get_player()
+    var editor: Node = get_parent().get_node_or_null("AppearanceEditor")
+    if player == null or editor == null or not editor.has_method("begin_creation"):
+        push_error("Skyval: AppearanceEditor or Player missing; cannot start a new game.")
+        return
+
+    var on_confirmed: Callable = Callable(self, "_on_appearance_confirmed")
+    var on_cancelled: Callable = Callable(self, "_on_appearance_cancelled")
+    if not editor.is_connected("confirmed", on_confirmed):
+        editor.connect("confirmed", on_confirmed)
+    if not editor.is_connected("cancelled", on_cancelled):
+        editor.connect("cancelled", on_cancelled)
+
+    _creation_in_progress = true
     if player.has_method("reset_for_new_game"):
         player.call("reset_for_new_game")
-    _session_started = true
-    _confirm_new_game = false
-    _save_current_game()
+    # Claim the modal pause before releasing GameMenu: no active gameplay frame.
+    editor.call("begin_creation")
     _set_open(false)
+
+
+func _on_appearance_confirmed() -> void:
+    if not _creation_in_progress:
+        return
+    _session_started = true
+    _creation_in_progress = false
+    _save_current_game()
+
+
+func _on_appearance_cancelled() -> void:
+    if not _creation_in_progress:
+        return
+    # The last checkpoint remains untouched, including wardrobe and position.
+    _load_saved_game()
+    # Take menu pause ownership while the editor is still open.
+    _set_open(true)
+    _creation_in_progress = false
 
 
 func _change_language(direction: int) -> void:
