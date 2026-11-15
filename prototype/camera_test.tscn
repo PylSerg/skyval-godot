@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://deo6h48v1ephm" path="res://prototype/smart_camera.gd" id="3_smart_camera"]
 [ext_resource type="Script" uid="uid://dhniueootu4gc" path="res://characters/character_visual.gd" id="4_visual"]
 [ext_resource type="Script" uid="uid://t8fkixca3fgm" path="res://ui/character_creator.gd" id="5_creator"]
+[ext_resource type="Script" uid="uid://de5nwuyw8gfjp" path="res://ui/game_menu.gd" id="6_menu"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_player"]
 size = Vector2(10, 8)
@@ -30,3 +31,7 @@ script = ExtResource("3_smart_camera")
 [node name="CharacterCreator" type="CanvasLayer" parent="." unique_id=2137317086]
 layer = 2
 script = ExtResource("5_creator")
+
+[node name="GameMenu" type="CanvasLayer" parent="."]
+layer = 3
+script = ExtResource("6_menu")
