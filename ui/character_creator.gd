@@ -601,8 +601,8 @@ func _set_open(next_open: bool) -> void:
     if _opened == next_open:
         return
     if not next_open and not appearance_window:
-        # Main menu can request a checkpoint immediately after closing
-        # Backpack. Restore trial sprites before the menu saves the avatar.
+        # Restore trial sprites before returning to the world or opening
+        # another menu. A preview must never become the live outfit.
         _restore_equipment_try_on()
     _opened = next_open
     # Invalidate any unfinished layout operation if the window closes
