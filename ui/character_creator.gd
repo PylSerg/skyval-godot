@@ -314,7 +314,8 @@ func _build_interface() -> void:
 
     _rows = VBoxContainer.new()
     _rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    _rows.add_theme_constant_override("separation", 2)
+    # Comfortable breathing room between field groups. Longer lists scroll.
+    _rows.add_theme_constant_override("separation", 6)
     _row_scroll.add_child(_rows)
 
     # Use the full right column; the portrait itself is drawn at 3×.
@@ -399,13 +400,13 @@ func _rebuild_rows() -> void:
 
         # Each property gets its own full-width label and selector row.
         var field_box := VBoxContainer.new()
-        field_box.custom_minimum_size.y = 35
-        field_box.add_theme_constant_override("separation", 1)
+        field_box.custom_minimum_size.y = 40
+        field_box.add_theme_constant_override("separation", 4)
         _rows.add_child(field_box)
 
         var name_label := _label(11)
         name_label.text = _tr("field." + key)
-        name_label.custom_minimum_size.y = 13
+        name_label.custom_minimum_size.y = 14
         field_box.add_child(name_label)
         _row_labels.append(name_label)
 
