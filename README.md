@@ -70,9 +70,11 @@ During gameplay **Start / R3** opens a separate **in-game menu**:
 - **Load / Завантажити** displays saves for the current character, sorted
   by creation time, newest first. Loading a selected save requires A/B
   confirmation.
-- **Settings / Налаштування** and **Main Menu / Головне меню**.
-  Returning to the main menu requires A/B confirmation and writes
-  the current checkpoint before leaving the game session.
+- **Settings / Налаштування**, **Title Screen / Головний екран**,
+  and **Quit Game / Вийти з гри**. Both actions require A/B confirmation.
+  Returning to the title screen keeps the game running in the main menu;
+  Quit Game checkpoints the current character, then closes Skyval.
+  If checkpointing fails, Quit Game leaves the game open.
 
 Quick saves and named manual saves are never overwritten by automatic
 checkpoints, which occur on menu opening, equipment changes, loot and
