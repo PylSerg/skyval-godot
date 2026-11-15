@@ -630,6 +630,49 @@ func _build_interface() -> void:
     _page_clip.add_child(_row_scroll)
     _row_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
+    if appearance_window:
+        # Five compact field names are visible together. A single choice
+        # bar beneath them controls the currently highlighted field.
+        _appearance_choice_panel = PanelContainer.new()
+        _appearance_choice_panel.custom_minimum_size.y = 25
+        var choice_style := StyleBoxFlat.new()
+        choice_style.bg_color = Color(0.11, 0.17, 0.25, 0.84)
+        choice_style.border_color = ACTIVE_HIGHLIGHT
+        choice_style.set_border_width_all(1)
+        choice_style.set_corner_radius_all(2)
+        choice_style.set_content_margin_all(2)
+        _appearance_choice_panel.add_theme_stylebox_override("panel", choice_style)
+        stack.add_child(_appearance_choice_panel)
+
+        var choice_row := HBoxContainer.new()
+        choice_row.add_theme_constant_override("separation", 3)
+        _appearance_choice_panel.add_child(choice_row)
+
+        _appearance_prev = _selector_arrow_button()
+        _appearance_prev.text = _tr("ui.previous")
+        _appearance_prev.custom_minimum_size = Vector2(SELECTOR_ARROW_WIDTH, 20)
+        _appearance_prev.pressed.connect(_adjust_selected.bind(-1))
+        choice_row.add_child(_appearance_prev)
+
+        _appearance_choice_window = Control.new()
+        _appearance_choice_window.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        _appearance_choice_window.custom_minimum_size = Vector2(60, 20)
+        _appearance_choice_window.clip_contents = true
+        _appearance_choice_window.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        choice_row.add_child(_appearance_choice_window)
+
+        _appearance_choice_value = _label(MIN_UI_FONT_SIZE)
+        _appearance_choice_value.clip_text = false
+        _appearance_choice_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        _appearance_choice_value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        _appearance_choice_window.add_child(_appearance_choice_value)
+
+        _appearance_next = _selector_arrow_button()
+        _appearance_next.text = _tr("ui.next")
+        _appearance_next.custom_minimum_size = Vector2(SELECTOR_ARROW_WIDTH, 20)
+        _appearance_next.pressed.connect(_adjust_selected.bind(1))
+        choice_row.add_child(_appearance_next)
+
     # Use the full right column; the portrait itself is drawn at 3×.
     _preview = PreviewScript.new() as Control
     _preview.position = Vector2(210, 8) if appearance_window else Vector2(212, 8)
@@ -904,6 +947,13 @@ func _rebuild_rows() -> void:
         empty_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         placeholder.add_child(empty_text)
 
+    if appearance_window:
+        _build_appearance_field_list(fields)
+        _update_row_highlight()
+        _update_appearance_choice()
+        _reveal_selected_row()
+        return
+
     for property_key in fields:
         var index: int = _row_labels.size()
         var key: String = str(property_key)
@@ -1002,6 +1052,69 @@ func _rebuild_rows() -> void:
     _update_row_highlight()
     call_deferred("_refresh_all_value_marquees")
     _reveal_selected_row()
+
+func _build_appearance_field_list(fields: Array) -> void:
+    for field_key in fields:
+        var index: int = _row_panels.size()
+        var key: String = str(field_key)
+
+        var field_panel := PanelContainer.new()
+        field_panel.name = "Appearance_" + key
+        field_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        field_panel.custom_minimum_size.y = 23
+        field_panel.mouse_filter = Control.MOUSE_FILTER_PASS
+        field_panel.gui_input.connect(_on_appearance_row_input.bind(index))
+        _rows.add_child(field_panel)
+        _row_panels.append(field_panel)
+
+        var line := HBoxContainer.new()
+        line.add_theme_constant_override("separation", 3)
+        field_panel.add_child(line)
+
+        var caption: Label = _label(MIN_UI_FONT_SIZE)
+        caption.text = _tr("field." + key)
+        caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        caption.clip_text = true
+        line.add_child(caption)
+        _row_labels.append(caption)
+
+        var counter: Label = _label(MIN_UI_FONT_SIZE)
+        counter.text = _field_counter(key)
+        counter.custom_minimum_size.x = 36
+        counter.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+        counter.add_theme_color_override("font_color", Color("#cfbf99"))
+        line.add_child(counter)
+        _row_counters[key] = counter
+
+
+func _on_appearance_row_input(event: InputEvent, index: int) -> void:
+    if not appearance_window or not _opened or _confirmation_open:
+        return
+    if event is InputEventMouseButton:
+        var click: InputEventMouseButton = event as InputEventMouseButton
+        if click.button_index == MOUSE_BUTTON_LEFT and click.pressed:
+            _selected_index = index
+            _update_row_highlight()
+            _update_appearance_choice()
+
+
+func _update_appearance_choice() -> void:
+    if not appearance_window or _appearance_choice_value == null:
+        return
+    var fields: Array = _current_fields()
+    if fields.is_empty():
+        return
+    var field_key: String = str(fields[clampi(_selected_index, 0, fields.size() - 1)])
+    _stop_value_marquees()
+    _value_labels.clear()
+    _value_windows.clear()
+    _appearance_choice_value.text = _localized_value(field_key)
+    _appearance_prev.disabled = not _can_adjust_field(field_key, -1)
+    _appearance_next.disabled = not _can_adjust_field(field_key, 1)
+    _value_labels[field_key] = _appearance_choice_value
+    _value_windows[field_key] = _appearance_choice_window
+    call_deferred("_refresh_all_value_marquees")
+
 
 func _reveal_selected_row() -> void:
     # ScrollContainer can reveal newly created children only after layout.
