@@ -47,8 +47,8 @@ Skyval starts paused at 320×240 in the **main menu**.
   The list is ordered by last launch. **A** opens the **selected
   character's complete save list**; **B** returns to the main menu,
   **X** deletes that character and its saves with confirmation.
-  Choose a save with **A**, confirm the load with **A** or cancel with
-  **B**. From the save list **B** returns to the character list.
+  Choose a save with **A** to load it immediately, **without a
+  confirmation**. From the save list **B** returns to the character list.
 - **New Game / Нова гра**, **Settings / Налаштування**, **Quit / Вихід**.
 
 Continue and Select Character are entirely **hidden** if no valid
@@ -57,10 +57,11 @@ characters exist, so the menu begins with New Game.
 During gameplay **Start / R3** opens a separate **in-game menu**:
 
 - **Quick Save / Швидке збереження** overwrites just this character's
-  `quick.json`.
+  `quick.json` and automatically closes the in-game menu after success.
+  On a write failure, the menu remains open and reports the error.
 - **Quick Load / Швидке завантаження** loads that snapshot immediately,
-  **without a confirmation dialog**, and is disabled until a quick save
-  exists for the current character.
+  **without a confirmation dialog**, automatically closes the menu on
+  success, and is disabled until a quick save exists for the character.
 - **Save / Зберегти** opens the same 14px controller keyboard as character
   creation. Enter a **save name** (A: letter, Y: random suggestion,
   X: accept, B: cancel), then confirm it with A/B. Each confirmed name
