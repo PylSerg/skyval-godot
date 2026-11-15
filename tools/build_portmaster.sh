@@ -44,7 +44,7 @@ done
 # The staged build uses the same native-controller code as desktop.
 # GPtoKEYB has no gamepad-to-keyboard mapping in the launcher.
 
-for subdir in prototype characters ui localization; do
+for subdir in prototype characters ui localization inventory world game; do
     cp -R "$ROOT/$subdir" "$STAGE/$subdir"
 done
 
