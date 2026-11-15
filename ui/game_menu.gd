@@ -23,7 +23,10 @@ var _font: FontFile
 var _opened: bool = false
 var _main_mode: bool = true
 var _settings_open: bool = false
-var _list_mode: String = "" # characters or load
+var _list_mode: String = "" # characters, character_saves or load
+var _selected_character_id: String = ""
+var _selected_character_index: int = 0
+var _pending_manual_save: bool = false
 var _confirm_action: String = "" # load, delete, main
 var _pending_save_path: String = ""
 var _session_started: bool = false
@@ -113,6 +116,10 @@ func _tr(key: String) -> String:
 
 
 func _input(event: InputEvent) -> void:
+    # NameEntry is a separate modal above this menu. Do not handle its
+    # X/Y/A/B presses a second time behind the name keyboard.
+    if _name_entry != null and bool(_name_entry.call("is_open")):
+        return
     if event is InputEventJoypadButton:
         var joy_event: InputEventJoypadButton = event as InputEventJoypadButton
         if joy_event.pressed:
@@ -147,8 +154,7 @@ func _handle_button(event: InputEventJoypadButton) -> void:
     elif not _list_mode.is_empty():
         match event.button_index:
             JOY_BUTTON_B:
-                _list_mode = ""
-                _refresh_text()
+                _back_from_list()
             JOY_BUTTON_DPAD_UP:
                 _move_list(-1)
             JOY_BUTTON_DPAD_DOWN:
@@ -290,9 +296,11 @@ func _activate_option(index: int) -> void:
     _status_message = ""
     match _visible_options[index]:
         "menu.continue":
-            var recent: Dictionary = _save_store.call("latest_save")
-            if not recent.is_empty():
-                _load_selected_save(str(recent.get("path", "")))
+            var profile: Dictionary = _save_store.call("last_opened_profile")
+            if not profile.is_empty():
+                var recent: Dictionary = _save_store.call("latest_save", str(profile.get("profile_id", "")))
+                if not recent.is_empty():
+                    _load_selected_save(str(recent.get("path", "")))
         "menu.select_character":
             _open_list("characters")
         "menu.new_game":
@@ -306,10 +314,11 @@ func _activate_option(index: int) -> void:
         "game.quick_load":
             var quick: Dictionary = _save_store.call("quick_save_for", str(_profile_data.get("profile_id", "")))
             if not quick.is_empty():
-                _pending_save_path = str(quick.get("path", ""))
-                _ask_confirmation("load")
+                # Quick Load intentionally skips the confirmation dialog.
+                _load_selected_save(str(quick.get("path", "")))
         "game.save":
-            _write_snapshot("manual")
+            _pending_manual_save = true
+            _name_entry.call("open_save_entry")
         "game.load":
             _open_list("load")
         "game.main_menu":
@@ -325,11 +334,25 @@ func _open_list(mode: String) -> void:
         _listed_items = _save_store.call("list_profiles")
     elif mode == "load":
         _listed_items = _save_store.call("list_saves", str(_profile_data.get("profile_id", "")))
+    elif mode == "character_saves":
+        _listed_items = _save_store.call("list_saves", _selected_character_id)
     if _listed_items.is_empty():
-        _list_mode = ""
-        _status_message = _tr("save.none") if mode == "characters" else _tr("save.no_slots")
+        if mode == "character_saves":
+            _back_from_list()
+        else:
+            _list_mode = ""
+            _status_message = _tr("save.none") if mode == "characters" else _tr("save.no_slots")
     _refresh_text()
 
+
+func _back_from_list() -> void:
+    if _list_mode == "character_saves":
+        _open_list("characters")
+        _selected_list = mini(_selected_character_index, maxi(0, _listed_items.size() - 1))
+        _draw_profiles()
+    else:
+        _list_mode = ""
+        _refresh_text()
 
 func _move_list(direction: int) -> void:
     var next_index: int = _selected_list + direction
@@ -343,16 +366,13 @@ func _choose_list_item() -> void:
         return
     var selected: Dictionary = _listed_items[_selected_list]
     if _list_mode == "characters":
-        # Character list sorts by launch time; choosing one offers its most
-        # recent save (manual, quick or initial profile) for confirmation.
-        var recent: Dictionary = _save_store.call("latest_save", str(selected.get("profile_id", "")))
-        if recent.is_empty():
-            return
-        _pending_save_path = str(recent.get("path", ""))
-    else:
-        _pending_save_path = str(selected.get("path", ""))
+        # Selecting a character opens ALL of that character's save slots.
+        _selected_character_id = str(selected.get("profile_id", ""))
+        _selected_character_index = _selected_list
+        _open_list("character_saves")
+        return
+    _pending_save_path = str(selected.get("path", ""))
     _ask_confirmation("load")
-
 
 func _pick_profile(index: int) -> void:
     if index < 0 or index >= _listed_items.size():
@@ -452,10 +472,11 @@ func _draw_profiles() -> void:
         if _list_mode == "characters":
             button.text = str(data.get("character_name", ""))
         else:
-            button.text = "%s  %s" % [
-                _tr("save.kind." + str(data.get("save_kind", "profile"))),
-                _time_label(int(data.get("saved_at", 0))),
-            ]
+            var label: String = str(data.get("save_name", "")).strip_edges()
+            if label.is_empty():
+                label = _tr("save.kind." + str(data.get("save_kind", "profile")))
+            # Reserve space for the timestamp at 14px on 320x240.
+            button.text = "%s  %s" % [label.substr(0, 13), _time_label(int(data.get("saved_at", 0)))]
         button.pressed.connect(_pick_profile.bind(i))
         var selected: bool = i == _selected_list
         var style := StyleBoxFlat.new()
@@ -490,13 +511,21 @@ func _get_player() -> CharacterBody2D:
 
 
 func _has_valid_save() -> bool:
-    var latest: Dictionary = _save_store.call("latest_save")
-    return not latest.is_empty()
+    var last: Dictionary = _save_store.call("last_opened_profile")
+    if last.is_empty():
+        return false
+    var recent: Dictionary = _save_store.call("latest_save", str(last.get("profile_id", "")))
+    return not recent.is_empty()
 
 
 func _save_current_game() -> bool:
     if _active_save_path.is_empty():
         return false
+    # An older flat profile can be moved to a folder by a listing call.
+    # Refresh the canonical file path before writing another checkpoint.
+    var canonical: Dictionary = _save_store.call("profile_by_id", str(_profile_data.get("profile_id", "")))
+    if not canonical.is_empty():
+        _active_save_path = str(canonical.get("path", _active_save_path))
     var player: CharacterBody2D = _get_player()
     if player == null:
         return false
@@ -518,17 +547,18 @@ func _save_current_game() -> bool:
     return true
 
 
-func _write_snapshot(kind: String) -> void:
+func _write_snapshot(kind: String, save_name: String = "") -> void:
     if not _session_started or not _save_current_game():
         _status_message = _tr("save.write_failed")
         return
-    var path: String = str(_save_store.call("slot_path", _profile_data, kind))
+    var path: String = str(_save_store.call("slot_path", _profile_data, kind, save_name))
     if path.is_empty():
         _status_message = _tr("save.write_failed")
         return
     var data: Dictionary = _profile_data.duplicate(true)
     data["path"] = path
     data["save_kind"] = kind
+    data["save_name"] = save_name.strip_edges() if kind == "manual" else ""
     data["saved_at"] = int(Time.get_unix_time_from_system() * 1000.0)
     if bool(_save_store.call("write_profile", path, data)):
         _status_message = _tr("save.quick_done") if kind == "quick" else _tr("save.manual_done")
@@ -568,7 +598,11 @@ func _load_profile(path: String, touch_launch: bool = true) -> bool:
     _session_started = true
     if touch_launch:
         _profile_data["last_played"] = int(Time.get_unix_time_from_system() * 1000.0)
-    _save_current_game()
+    if not _save_current_game():
+        push_warning("Skyval: could not checkpoint loaded character.")
+    if touch_launch:
+        if not bool(_save_store.call("remember_opened", id)):
+            push_warning("Skyval: could not remember last opened character.")
     return true
 
 func _start_new_game() -> void:
@@ -617,6 +651,12 @@ func _on_appearance_confirmed() -> void:
 
 
 func _on_name_confirmed(character_name: String) -> void:
+    if _pending_manual_save:
+        _pending_manual_save = false
+        _write_snapshot("manual", character_name)
+        _ignore_presses_before_ms = Time.get_ticks_msec() + 200
+        _refresh_text()
+        return
     if not _creation_in_progress:
         return
     var old_path: String = _active_save_path
@@ -638,9 +678,16 @@ func _on_name_confirmed(character_name: String) -> void:
             _session_started = false
             _profile_data.clear()
         _set_open(true)
+    else:
+        _save_store.call("remember_opened", str(data.get("profile_id", "")))
 
 
 func _on_name_cancelled() -> void:
+    if _pending_manual_save:
+        _pending_manual_save = false
+        _ignore_presses_before_ms = Time.get_ticks_msec() + 200
+        _refresh_text()
+        return
     if not _creation_in_progress:
         return
     if not _active_save_path.is_empty():
