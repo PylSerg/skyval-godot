@@ -240,6 +240,20 @@ from deleted sprites are ignored and portrait caches are invalidated
 after every outfit change. This change is based on the reported log
 and video, **not yet verified by launching Godot**.
 
+**Armor preview idle/walk fallback (recording, 2026-11-15):**
+The latest recording shows the leather vest nearly absent on the back,
+while the reinforced and heavy armor look normal from the front.
+The 3× portrait now inspects the central-torso pixels of each authentic
+LPC armor idle frame and compares it with all available walking frames
+for the *same facing*. If a walking frame has substantially more visible
+armor, the portrait displays the clearest matching walking frame instead.
+Other LPC layers (body, face, hair, pants, shoes) continue to show their
+ordinary idle frames. The selected armor frame is static, not animated,
+and cached until the outfit changes. This is preview-only: no changes
+were made to the in-world animation or item stats. If the source sheet
+has no suitable art in either action, there is nothing to recover, and
+the underlying LPC asset needs inspection or replacement.
+
 **Torso exclusivity:** Equipping torso armor sets shirt style to
 `none` and returns the previously equipped shirt to the backpack.
 Equipping any shirt sets armor style to `none` and returns its armor
