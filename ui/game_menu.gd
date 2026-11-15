@@ -69,6 +69,12 @@ func has_started_session() -> bool:
     return _session_started and not _creation_in_progress
 
 
+func save_checkpoint() -> bool:
+    if not has_started_session():
+        return false
+    return _save_current_game()
+
+
 func _tr(key: String) -> String:
     return str(_locale.call("t", key))
 
@@ -181,6 +187,9 @@ func _set_open(next_open: bool) -> void:
         _set_ui_pause(true)
         if _creator != null and _creator.has_method("close_for_menu"):
             _creator.call("close_for_menu")
+        var test_chest: Node = get_parent().get_node_or_null("TestChest")
+        if test_chest != null and bool(test_chest.call("is_open")):
+            test_chest.call("close_for_menu")
         var appearance: Node = get_parent().get_node_or_null("AppearanceEditor")
         # During New Game cancellation, the editor already owns its close
         # sequence; re-entering it here would emit cancelled twice.
@@ -291,6 +300,9 @@ func _save_current_game() -> bool:
     var avatar: Node = player.get_node_or_null("CharacterVisual")
     if avatar != null and avatar.has_method("get_save_state"):
         data["appearance"] = avatar.call("get_save_state")
+    var inventory: Node = get_node_or_null("/root/SkyvalInventory")
+    if inventory != null:
+        data["inventory"] = inventory.call("get_save_state")
     var file: FileAccess = FileAccess.open(SAVE_FILE, FileAccess.WRITE)
     if file == null:
         push_warning("Skyval: could not write save file: %s" % error_string(FileAccess.get_open_error()))
@@ -315,6 +327,9 @@ func _load_saved_game() -> bool:
     var appearance_data: Variant = data.get("appearance", {})
     if avatar != null and avatar.has_method("apply_save_state") and appearance_data is Dictionary:
         avatar.call("apply_save_state", appearance_data)
+    var inventory: Node = get_node_or_null("/root/SkyvalInventory")
+    if inventory != null:
+        inventory.call("load_save_state", data.get("inventory", null), avatar)
     return true
 
 
@@ -346,6 +361,9 @@ func _start_new_game() -> void:
         editor.connect("cancelled", on_cancelled)
 
     _creation_in_progress = true
+    var inventory: Node = get_node_or_null("/root/SkyvalInventory")
+    if inventory != null:
+        inventory.call("reset_for_new_game", "male")
     if player.has_method("reset_for_new_game"):
         player.call("reset_for_new_game")
     var avatar: Node = player.get_node_or_null("CharacterVisual")
@@ -365,6 +383,9 @@ func _on_appearance_confirmed() -> void:
         var avatar: Node = player.get_node_or_null("CharacterVisual")
         if avatar != null and avatar.has_method("apply_starter_outfit"):
             avatar.call("apply_starter_outfit")
+        var inventory: Node = get_node_or_null("/root/SkyvalInventory")
+        if inventory != null and avatar != null and avatar.has_method("get_lpc_option"):
+            inventory.call("set_starter_equipment", avatar.call("get_lpc_option", "body_type"))
     _session_started = true
     _creation_in_progress = false
     _save_current_game()
