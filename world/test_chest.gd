@@ -171,8 +171,12 @@ func _set_open(next_open: bool) -> void:
 
 
 func _move_selection(direction: int) -> void:
-    # One additional navigable row is the take-selected action.
-    _selected_index = posmod(_selected_index + direction, _buttons.size() + 1)
+    # One additional navigable row is the take-selected action. Stop at
+    # the first/last row instead of jumping to the opposite end.
+    var next_index: int = clampi(_selected_index + direction, 0, _buttons.size())
+    if next_index == _selected_index:
+        return
+    _selected_index = next_index
     _update_highlight()
     var selected: Control = _take if _selected_index == _buttons.size() else _buttons[_selected_index]
     _reveal(selected)
