@@ -9,6 +9,10 @@ const STICK_RELEASE := 0.42
 const FONT_PATH := "res://assets/fonts/CascadiaMono-Regular.ttf"
 const MIN_UI_FONT_SIZE := 14
 
+# One shared chest UI, with independent stock and world placement.
+@export_enum("clothes", "armor") var chest_kind: String = "clothes"
+@export var chest_spawn: Vector2 = Vector2(905, 554)
+
 var _opened: bool = false
 var _root: Control
 var _heading: Label
@@ -32,7 +36,7 @@ var _inventory: Node
 func _ready() -> void:
     # The chest overlay must receive input even while the world is paused.
     process_mode = Node.PROCESS_MODE_ALWAYS
-    position = Vector2(905, 554)
+    position = chest_spawn
     _locale = get_node_or_null("/root/SkyvalLocale")
     _inventory = get_node_or_null("/root/SkyvalInventory")
     if ResourceLoader.exists(FONT_PATH):
@@ -116,7 +120,7 @@ func _input(event: InputEvent) -> void:
                     if _selected_index == _buttons.size():
                         _take_selected()
                     else:
-                        var stock: Array[String] = _inventory.call("get_chest")
+                        var stock: Array[String] = _inventory.call("get_chest_items", chest_kind)
                         if _selected_index >= 0 and _selected_index < stock.size():
                             _toggle_item(stock[_selected_index])
                 JOY_BUTTON_X:
@@ -199,7 +203,7 @@ func _toggle_item(item_id: String) -> void:
 
 
 func _take_selected() -> void:
-    var stock: Array[String] = _inventory.call("get_chest")
+    var stock: Array[String] = _inventory.call("get_chest_items", chest_kind)
     var chosen: Array[String] = []
     for item_id in stock:
         if _selection.has(item_id):
@@ -209,7 +213,7 @@ func _take_selected() -> void:
 
 func _take_all() -> void:
     # X ignores checkboxes and transfers every item still in the chest.
-    var stock: Array[String] = _inventory.call("get_chest")
+    var stock: Array[String] = _inventory.call("get_chest_items", chest_kind)
     if stock.is_empty():
         _set_open(false)
         return
@@ -219,7 +223,7 @@ func _take_all() -> void:
 func _take_items(items: Array[String]) -> void:
     if items.is_empty():
         return
-    var taken: int = int(_inventory.call("take_from_chest", items))
+    var taken: int = int(_inventory.call("take_from_chest", items, chest_kind))
     if taken <= 0:
         return
 
@@ -230,7 +234,7 @@ func _take_items(items: Array[String]) -> void:
 
     _selection.clear()
     _selected_index = 0
-    var remaining: Array[String] = _inventory.call("get_chest")
+    var remaining: Array[String] = _inventory.call("get_chest_items", chest_kind)
     if remaining.is_empty():
         # Works for both X -> Take All and A -> Take Selected (all checked).
         _set_open(false)
@@ -241,10 +245,10 @@ func _take_items(items: Array[String]) -> void:
 func _refresh() -> void:
     if _root == null or _inventory == null:
         return
-    _heading.text = _tr("chest.title")
+    _heading.text = _tr("chest.armor_title") if chest_kind == "armor" else _tr("chest.title")
     _hint.text = _tr("chest.hint")
     _empty.text = _tr("chest.empty")
-    var stock: Array[String] = _inventory.call("get_chest")
+    var stock: Array[String] = _inventory.call("get_chest_items", chest_kind)
     for child in _rows.get_children():
         if child == _empty:
             continue
@@ -364,10 +368,14 @@ func _button() -> Button:
 
 
 func _draw() -> void:
-    # Small recognizable brown chest with a gold lock.
-    draw_rect(Rect2(-11, -9, 22, 19), Color("#2b211d"))
-    draw_rect(Rect2(-9, -7, 18, 16), Color("#77482a"))
-    draw_rect(Rect2(-9, -7, 18, 5), Color("#a86b37"))
-    draw_line(Vector2(-9, -2), Vector2(9, -2), Color("#281d1b"), 1.0)
+    # Brown clothes chest and blue-steel armor chest remain distinct.
+    var is_armor: bool = chest_kind == "armor"
+    var edge: Color = Color("#243a4c") if is_armor else Color("#2b211d")
+    var body: Color = Color("#49687e") if is_armor else Color("#77482a")
+    var lid: Color = Color("#779aac") if is_armor else Color("#a86b37")
+    draw_rect(Rect2(-11, -9, 22, 19), edge)
+    draw_rect(Rect2(-9, -7, 18, 16), body)
+    draw_rect(Rect2(-9, -7, 18, 5), lid)
+    draw_line(Vector2(-9, -2), Vector2(9, -2), edge, 1.0)
     draw_rect(Rect2(-2, -4, 4, 8), Color("#e1c06d"))
     draw_rect(Rect2(-1, -1, 2, 2), Color("#52412b"))
