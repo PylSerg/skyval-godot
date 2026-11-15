@@ -5,6 +5,7 @@ const WORLD_SIZE := Vector2(1280, 960)
 const TILE_SIZE := 16
 const GameMenuScript = preload("res://ui/game_menu.gd")
 const CharacterEditorScript = preload("res://ui/character_creator.gd")
+const TestChestScript = preload("res://world/test_chest.gd")
 
 func _ready() -> void:
     # One source of truth for world boundaries.
@@ -23,6 +24,7 @@ func _ready() -> void:
     # accidentally removing GameMenu. Recover it without touching .tscn.
     _ensure_game_menu()
     _ensure_appearance_editor()
+    _ensure_test_chest()
 
 func _ensure_game_menu() -> void:
     if has_node("GameMenu"):
@@ -44,6 +46,14 @@ func _ensure_appearance_editor() -> void:
     editor.layer = 4
     editor.set("appearance_window", true)
     add_child(editor)
+
+
+func _ensure_test_chest() -> void:
+    if has_node("TestChest"):
+        return
+    var chest: Node2D = TestChestScript.new() as Node2D
+    chest.name = "TestChest"
+    add_child(chest)
 
 
 func _draw() -> void:
