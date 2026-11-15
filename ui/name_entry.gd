@@ -74,7 +74,10 @@ func is_open() -> bool:
 
 
 func open_entry(body_type: String = "male") -> void:
-    # Do not rely on _ready having already run for a dynamically added UI.
+    # This must be a live CanvasLayer, not an orphan after a failed add_child.
+    if not is_inside_tree():
+        push_error("Skyval NameEntry: cannot open a detached UI layer.")
+        return
     ensure_initialized()
     _body_type = body_type
     _name = ""
@@ -96,6 +99,9 @@ func _tr(key: String) -> String:
 
 func _set_open(next_open: bool) -> void:
     if _opened == next_open:
+        return
+    if not is_inside_tree():
+        push_error("Skyval NameEntry: cannot change UI visibility before entering SceneTree.")
         return
     _opened = next_open
     _root.visible = next_open
