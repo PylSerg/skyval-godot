@@ -212,11 +212,12 @@ The backpack and standalone appearance editor share the same 3×
 character portrait and single-column full-width selectors. They remain
 **separate windows**; only the backpack has category tabs (Clothing,
 Armor, Weapons), while the appearance creator has none. Fixed panel insets
-(7px), field group spacing (12px), symmetric horizontal inset
-(12px per field), and inner spacing (5px) preserve the 320×240 layout.
-Each selected field's highlighted background is inset equally from both
-edges, matching the vertical gap. Field headings and counters stay at
-14px or larger to fit this compact layout. The clothing list scrolls vertically with a hidden
+(7px), field group spacing (12px), symmetric **inner** horizontal
+padding (12px on both sides of each field), and inner spacing (5px)
+preserve the 320×240 layout. Every field's highlight background and
+border span the **entire available width** of the left scrollable column;
+only its labels, counters and selector arrows are inset. Field headings
+and counters stay at 14px or larger. The clothing list scrolls vertically with a hidden
 scrollbar; the tab strip scrolls horizontally and auto-reveals the active
 tab. L1/R1 switch backpack tabs with a slide transition. Horizontal
 right-stick flick rotates the portrait ±90°. The appearance window
