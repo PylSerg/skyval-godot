@@ -776,12 +776,6 @@ func _build_interface() -> void:
         var option := _button()
         option.add_theme_font_size_override("font_size", MIN_UI_FONT_SIZE)
         option.custom_minimum_size.y = 24
-        # Reduce intrinsic button height so seven rows never stretch the panel.
-        for state in ["normal", "hover", "pressed"]:
-            var compact: StyleBoxFlat = option.get_theme_stylebox(state).duplicate() as StyleBoxFlat
-            compact.content_margin_top = 1.0
-            compact.content_margin_bottom = 1.0
-            option.add_theme_stylebox_override(state, compact)
         option.pressed.connect(_activate_option.bind(i))
         _main_panel.add_child(option)
         _menu_buttons.append(option)
@@ -887,7 +881,8 @@ func _update_highlight() -> void:
         style.bg_color = Color("#293748") if unavailable else (Color("#597a9b") if selected else Color("#354960"))
         style.border_color = Color("#52657a") if unavailable else (ACTIVE_HIGHLIGHT if selected else Color("#667f9a"))
         style.set_border_width_all(1)
-        style.set_content_margin_all(3)
+        # Seven 14px rows should remain within the 320x240 menu panel.
+        style.set_content_margin_all(1)
         button.add_theme_stylebox_override("normal", style)
         button.add_theme_stylebox_override("disabled", style)
         button.add_theme_color_override("font_disabled_color", Color("#8493a5"))
