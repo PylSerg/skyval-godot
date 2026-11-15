@@ -177,7 +177,9 @@ func _move(dx: int, dy: int) -> void:
 
 
 func _rebuild_keyboard() -> void:
+    var grid: GridContainer = _root.get_node("Panel/Stack/Grid") as GridContainer
     for button in _key_buttons:
+        grid.remove_child(button)
         button.queue_free()
     _key_buttons.clear()
     _keys.clear()
@@ -188,7 +190,6 @@ func _rebuild_keyboard() -> void:
         _keys.append(alphabet.substr(i, 1))
     _keys.append(" ")
     _keys.append("<")
-    var grid: GridContainer = _root.get_node("Panel/Stack/Grid") as GridContainer
     for i in range(_keys.size()):
         var button := Button.new()
         button.focus_mode = Control.FOCUS_NONE
