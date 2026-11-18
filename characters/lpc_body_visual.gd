@@ -749,10 +749,8 @@ func _apply_animation(restart_attack: bool = false) -> void:
         var is_weapon: bool = str(sprite.name).begins_with("Weapon")
         var slash_weapon: bool = str(sprite.name).begins_with("WeaponSlash")
         var regular_weapon: bool = is_weapon and not slash_weapon
-        # Universal LPC weapon FG/BG atlases use the same direction rows
-        # and pivot as the body. Do not mirror or swap W/E: it places the
-        # grip on the other arm and makes the north sprite disappear.
-        var source_direction: int = _direction
+        # All character and sword layers use the same native LPC direction.
+        # Mirroring W/E displaced the handle and hid the sword from behind.
         sprite.flip_h = false
         var use_oversize: bool = _attacking and _sword_slash_available
         if slash_weapon:
@@ -762,10 +760,11 @@ func _apply_animation(restart_attack: bool = false) -> void:
         if not sprite.visible:
             sprite.pause()  # Invisible sword frames must not drift out of sync.
             continue
-        var chosen_animation: String = "%s-%s" % [action, DIRECTIONS[source_direction]] if is_weapon else animation
-        # Arming Sword's universal atlas has idle/walk, not slash frames.
+        var chosen_animation: String = animation
+        # Standard arming sword atlas has idle/walk; the 128px overlays
+        # provide slash frames when available.
         if regular_weapon and _attacking:
-            chosen_animation = "idle-%s" % DIRECTIONS[source_direction]
+            chosen_animation = "idle-%s" % DIRECTIONS[_direction]
         # Don't restart the six-frame slash every physics frame.
         if restart_attack or sprite.animation != StringName(chosen_animation):
             sprite.play(chosen_animation)
