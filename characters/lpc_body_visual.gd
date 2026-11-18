@@ -14,11 +14,11 @@ const SLASH_FPS := 24.0
 const SLASH_FRAMES := [0, 1, 2, 3, 4, 5]
 const DIRECTIONS := ["s", "w", "e", "n"]
 const ROW_INDEX := [2, 1, 3, 0]
-# Camera-relative body turn during a sword swing:
-# SOUTH -> EAST (right on screen), NORTH -> WEST (left),
-# WEST -> SOUTH (towards the camera), EAST -> NORTH (away).
+# Camera-relative body turn during a sword swing (reversed turn):
+# SOUTH -> WEST (screen-left), NORTH -> EAST (screen-right),
+# WEST -> NORTH (away from camera), EAST -> SOUTH (towards camera).
 # Indices use the shared character Facing order: S=0, W=1, E=2, N=3.
-const ATTACK_TURN_DIRECTION := [2, 0, 3, 1]
+const ATTACK_TURN_DIRECTION := [1, 3, 0, 2]
 const ATTACK_TURN_FRAME := 2  # Turn just before the existing melee contact.
 # East-facing right hand is on the near side of the body sprite. The
 # generic iron sword atlas seats its grip too far forward in this pose.
