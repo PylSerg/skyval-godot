@@ -415,8 +415,8 @@ func _restore_equipment_try_on() -> void:
             push_warning("Skyval: couldn't restore the original outfit after preview.")
     _try_on_original_lpc.clear()
     _try_on_visual_key = ""
-    if is_instance_valid(_preview) and _preview.has_method("clear_frame_cache"):
-        _preview.call("clear_frame_cache")
+    if is_instance_valid(_preview) and _preview.has_method("notify_layers_changed"):
+        _preview.call("notify_layers_changed")
 
 
 func _preview_equipment_on_character(field: String) -> void:
@@ -473,14 +473,14 @@ func _preview_equipment_on_character(field: String) -> void:
                 desired["boots_variant"] = str(item.get("variant", desired.get("boots_variant", "brown")))
 
     # Rendering only: no InventoryState mutation, changed signal or save.
-    # The LPC renderer validates all required atlas files before swapping
-    # sprites, so a missing armor sheet won't corrupt the existing outfit.
+    # The LPC renderer validates any new layers before committing the
+    # swap, leaving the previous outfit untouched on missing artwork.
     if not bool(lpc.call("apply_appearance_state", desired)):
         _restore_equipment_try_on()
         return
     _try_on_visual_key = key
-    if is_instance_valid(_preview) and _preview.has_method("clear_frame_cache"):
-        _preview.call("clear_frame_cache")
+    if is_instance_valid(_preview) and _preview.has_method("notify_layers_changed"):
+        _preview.call("notify_layers_changed")
 
 
 func _confirm_equipment_selection() -> void:
@@ -1329,10 +1329,10 @@ func _refresh_options() -> void:
         var counter: Label = _row_counters[option_key] as Label
         if is_instance_valid(counter):
             counter.text = _field_counter(str(option_key))
-    # Drop cropped frames from the previous equipment set immediately.
-    # The preview creates fresh 64x64 textures for the new LPC nodes.
-    if _preview != null and _preview.has_method("clear_frame_cache"):
-        _preview.call("clear_frame_cache")
+    # Cached 64x64 frames for unchanged layers stay valid. Refresh the
+    # displayed node list without discarding those prepared textures.
+    if _preview != null and _preview.has_method("notify_layers_changed"):
+        _preview.call("notify_layers_changed")
     else:
         _preview.queue_redraw()
     _refresh_preview_after_frame()
@@ -1341,9 +1341,8 @@ func _refresh_options() -> void:
 
 
 func _refresh_preview_after_frame() -> void:
-    # _load_appearance() retires old AnimatedSprite2D layers using
-    # queue_free(). Repaint after the next scene-tree frame so a paused
-    # portrait cannot cache a stale/invalid atlas between rapid gear swaps.
+    # _load_appearance() reuses unchanged sprites and retires only changed
+    # ones. Repaint after the next scene-tree frame for rapid gear swaps.
     if _preview_refresh_pending:
         return
     _preview_refresh_pending = true
