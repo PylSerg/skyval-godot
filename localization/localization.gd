@@ -1,7 +1,7 @@
 extends Node
 ## Skyval language and gamepad-layout preferences. Shared by every UI scene.
 ## Button captions always show the Nintendo action letters A/B/X/Y.
-## Only physical joypad input is translated under the selected layout.
+## Physical input is normalized in SkyvalInput, not in UI scenes.
 
 signal language_changed
 signal layout_changed
@@ -76,18 +76,3 @@ func set_input_layout(next_layout: String) -> void:
     layout_changed.emit()
 
 
-func map_joy_button(physical_button: int) -> int:
-    # Map only the face buttons. D-pad, analog sticks, shoulders, Start,
-    # Select/L3 and R3 always retain their physical assignments.
-    if input_layout != "nintendo":
-        return physical_button
-    match physical_button:
-        JOY_BUTTON_A:
-            return JOY_BUTTON_B
-        JOY_BUTTON_B:
-            return JOY_BUTTON_A
-        JOY_BUTTON_X:
-            return JOY_BUTTON_Y
-        JOY_BUTTON_Y:
-            return JOY_BUTTON_X
-    return physical_button
