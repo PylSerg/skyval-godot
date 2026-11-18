@@ -141,6 +141,8 @@ func _physics_process(delta: float) -> void:
     _invulnerability = maxf(_invulnerability - delta, 0.0)
     if _swing_left > 0.0:
         _swing_left = maxf(_swing_left - delta, 0.0)
+        if _appearance != null and _appearance.has_method("set_attack_progress"):
+            _appearance.call("set_attack_progress", 1.0 - _swing_left / SWING_DURATION)
         if _swing_hit_pending and _swing_left <= SWING_DURATION - HIT_DELAY:
             _swing_hit_pending = false
             _hit_enemies()
