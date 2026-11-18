@@ -11,16 +11,23 @@ STAGE="$(mktemp -d "${TMPDIR:-/tmp}/skyval-port-XXXXXX")"
 trap 'rm -rf "$STAGE"' EXIT
 
 MODE="full"
-case "${1:-}" in
-    ""|--full-assets) MODE="full" ;;
-    --code-only|--no-assets) MODE="code" ;;
-    *)
-        echo "Usage: bash tools/build_portmaster.sh [--full-assets|--code-only]"
-        echo "  (default) --full-assets: ship only currently used LPC PNGs"
-        echo "            --code-only: update PCK/launcher without recopying art"
-        exit 2
-        ;;
-esac
+CREATE_ZIP=true
+# Multiple options are supported so the SD deployment wrapper can suppress
+# archives without duplicating the Godot staging/export implementation.
+for option in "$@"; do
+    case "$option" in
+        --full-assets) MODE="full" ;;
+        --code-only|--no-assets) MODE="code" ;;
+        --no-zip) CREATE_ZIP=false ;;
+        *)
+            echo "Usage: bash tools/build_portmaster.sh [--full-assets|--code-only] [--no-zip]"
+            echo "  (default) --full-assets: ship only currently used LPC PNGs"
+            echo "            --code-only: update PCK/launcher without recopying art"
+            echo "            --no-zip: create loose files only (for direct SD updates)"
+            exit 2
+            ;;
+    esac
+done
 
 # Never reuse the FULL install's large asset folder for code-only builds.
 # This dedicated UPDATE directory contains just three small files,
@@ -215,10 +222,13 @@ Source: https://github.com/PylSerg/skyval-godot
 Log after launching: roms/ports/skyval/log.txt
 EOF
 
-# Delete the old 14-sprite smoke-test archive so nobody installs it by
-# mistake after producing the new complete/full/update packages.
-rm -f "$DIST/Skyval_PortMaster_Test.zip"
-if command -v zip >/dev/null 2>&1; then
+# The direct-to-SD script requests --no-zip; avoid ALL archive work in
+# that mode. Old local archives are not read or copied to the card.
+if [ "$CREATE_ZIP" = "false" ]; then
+    echo "ZIP disabled: only loose PortMaster files were built."
+elif command -v zip >/dev/null 2>&1; then
+    # Remove the old 14-sprite test ZIP only when actually making ZIPs.
+    rm -f "$DIST/Skyval_PortMaster_Test.zip"
     # ZIP stores already-compressed PNGs without another expensive pass.
     # Each build removes the previous named archive to avoid stale files.
     if [ "$MODE" = "full" ]; then
