@@ -26,6 +26,7 @@ func _ready() -> void:
     _ensure_appearance_editor()
     _ensure_test_chest()
     _ensure_armor_chest()
+    _ensure_weapon_chest()
 
 func _ensure_game_menu() -> void:
     if has_node("GameMenu"):
@@ -65,6 +66,18 @@ func _ensure_armor_chest() -> void:
     chest.set("chest_kind", "armor")
     # Opposite side of the house from the existing clothes chest.
     chest.set("chest_spawn", Vector2(745, 554))
+    add_child(chest)
+
+
+func _ensure_weapon_chest() -> void:
+    if has_node("WeaponChest"):
+        return
+    var chest: Node2D = TestChestScript.new() as Node2D
+    chest.name = "WeaponChest"
+    chest.set("chest_kind", "weapon")
+    # The weapon chest sits south of the prototype house, away from
+    # the already-existing clothing and armor chests on either side.
+    chest.set("chest_spawn", Vector2(835, 620))
     add_child(chest)
 
 
