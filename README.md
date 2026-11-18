@@ -524,6 +524,20 @@ the current renderer and inventory code by `tools/collect_lpc_assets.py`.
 Skyval loads the selected PNGs on demand via `SKYVAL_LPC_ROOT`.
 Do not distribute this bundle publicly without reviewing LPC licenses.
 
+**R36H quit/load/return confirmation visibility (2026-11-18):**
+The shared game-menu confirmation no longer lives inside the dynamically
+resized seven-row `PanelContainer`. On the handheld a previously observed
+confirmation view showed the shaded game world and a large blue panel
+with none of the heading, warning or A/B options visible, although A
+still executed Quit. `ui/game_menu.gd` now mounts a separate fixed
+280×162 `Panel` directly under the 320×240 root, with its own centered
+heading, wrapped message, and original Nintendo-colored A/B choices.
+While confirming, the general list/settings panel is hidden and its
+deferred content-size fitting is skipped. All existing confirmation
+actions, keyboard/controller input and save behavior are unchanged.
+This is a targeted structural correction; on-device visual verification
+is still required.
+
 ## Pause and Back navigation
 
 The autoload `SkyvalUiPause` (`ui/pause_manager.gd`) tracks every blocking UI
