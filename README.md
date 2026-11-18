@@ -10,7 +10,14 @@ scenes; the UI is designed for this size.
 
 **Skyval has no keyboard gameplay bindings.** Godot processes joystick
 buttons and analog axes directly on desktop and on R36H. The same code path
-is used for both targets.
+is used for both targets. The first **Settings** entry now chooses the
+controller's face-button layout: **Nintendo (default)** maps physical
+A↔B and X↔Y to Skyval's logical actions; **Standard** leaves Godot's
+JOY_BUTTON_A/B/X/Y input unchanged. D-pad, analog sticks, shoulders,
+Start/Select and L3/R3 are never remapped. A/B/X/Y on-screen Nintendo
+colored badges keep their original action labels in either layout.
+The chosen layout persists in `user://skyval_settings.cfg`, alongside
+the language, and pre-existing configs default to Nintendo.
 
 | Control | World | Wardrobe/backpack |
 |---|---|---|
@@ -144,9 +151,13 @@ confirmation choices. **Instructional chips never highlight**; item
 lists, the keyboard cursor and other navigable selections retain their
 original functional selection indicators.
 
-The language selector is unchanged from its original layout:
-**‹ Українська ›** / **‹ Англійська ›**, with D-pad or left-stick
-left/right to change it (A also advances to the other language).
+The Settings panel has **Layout / Розкладка** first (‹ Nintendo › /
+‹ Стандартна ›), then the original horizontal **Language / Мова**
+selector (‹ Українська › / ‹ Англійська ›). D-pad up/down or left-stick
+up/down chooses the setting; left/right changes its value, and A advances
+the selected setting. B leaves Settings. The main-panel confirmation
+rows remain unhighlighted, while the active settings value uses the
+standard gold emphasis so the controller focus is visible.
 The name-entry **keyboard** intentionally remains an eight-column grid,
 and item/appearance variations retain their compact left/right selectors.
 
@@ -598,8 +609,13 @@ avatar remains as a missing-assets fallback.
 
 All in-game strings are in
 [localization/strings.json](localization/strings.json), currently Ukrainian
-and English. The `SkyvalLocale` service loads it. Language selection lives in the global **Settings** menu; the preference is
-persisted in `user://skyval_settings.cfg`.
+and English. The `SkyvalLocale` service also owns the persistently saved
+`input_layout` preference. Both Layout (default Nintendo) and Language
+are available in the global Settings menu and stored in
+`user://skyval_settings.cfg`. Every UI action handler uses
+`SkyvalLocale.map_joy_button()` after raw gamepad press/release latching,
+so the same mappings apply to the title/pause menu, character/save lists,
+name entry, inventory, appearance editor and both chests.
 
 The LPC sprites remain outside Git in the user's local resource library.
 The initial PortMaster package copies only the LPC sprites currently
