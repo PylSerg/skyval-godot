@@ -18,6 +18,7 @@ config/icon="res://icon.svg"
 [autoload]
 
 SkyvalLocale="*res://localization/localization.gd"
+SkyvalInput="*res://ui/input_manager.gd"
 SkyvalUiPause="*res://ui/pause_manager.gd"
 SkyvalInventory="*res://inventory/inventory_state.gd"
 
