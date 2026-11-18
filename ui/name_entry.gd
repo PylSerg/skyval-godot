@@ -84,6 +84,7 @@ func ensure_initialized() -> void:
     _max_length = maxi(1, int(floor((NAME_WIDTH + NAME_SPACING) / (_slot_width + NAME_SPACING))))
     _build_interface()
     _root.hide()
+    get_node("/root/SkyvalInput").call("register_listener", self, 500)
 
 
 func is_open() -> bool:
@@ -157,7 +158,11 @@ func _set_open(next_open: bool) -> void:
         get_tree().paused = next_open
 
 
-func _input(event: InputEvent) -> void:
+func skyval_accepts_input(_event: InputEvent) -> bool:
+    return _opened
+
+
+func handle_skyval_input(event: InputEvent) -> void:
     if not _opened:
         return
     if event is InputEventJoypadButton:
@@ -172,8 +177,8 @@ func _input(event: InputEvent) -> void:
         if Time.get_ticks_msec() < _ignore_buttons_until:
             get_viewport().set_input_as_handled()
             return
-        # Translate face buttons AFTER tracking the raw press/release.
-        var action_button: int = int(_locale.call("map_joy_button", button.button_index))
+        # Face buttons have already been translated by SkyvalInput.
+        var action_button: int = button.button_index
         if not _confirmation.is_empty():
             if action_button == JOY_BUTTON_A:
                 _complete_confirmation()
