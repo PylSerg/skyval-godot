@@ -145,9 +145,14 @@ func skyval_accepts_input(event: InputEvent) -> bool:
 
 
 func handle_skyval_input(event: InputEvent) -> void:
-    # NameEntry is a separate modal above this menu. Do not handle its
-    # X/Y/A/B presses a second time behind the name keyboard.
+    # NameEntry is a separate modal. Still clear any held GameMenu latch
+    # on release while it is open (the press may have opened NameEntry);
+    # otherwise A/X could remain stuck after closing the keyboard.
     if _name_entry != null and bool(_name_entry.call("is_open")):
+        if event is InputEventJoypadButton:
+            var released: InputEventJoypadButton = event as InputEventJoypadButton
+            if not released.pressed:
+                _held_buttons.erase("%s:%s" % [released.device, released.button_index])
         return
     if event is InputEventJoypadButton:
         var joy_event: InputEventJoypadButton = event as InputEventJoypadButton
