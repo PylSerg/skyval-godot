@@ -61,6 +61,7 @@ func _ready() -> void:
     _root.hide()
     if _locale != null:
         _locale.connect("language_changed", Callable(self, "_refresh"))
+    get_node("/root/SkyvalInput").call("register_listener", self, 100)
 
 
 func _tr(key: String) -> String:
@@ -99,7 +100,16 @@ func _process(_delta: float) -> void:
     _prompt.visible = not _opened and _can_open_from_world()
 
 
-func _input(event: InputEvent) -> void:
+func skyval_accepts_input(event: InputEvent) -> bool:
+    if _opened:
+        return true
+    if event is InputEventJoypadButton:
+        var button: InputEventJoypadButton = event as InputEventJoypadButton
+        return button.pressed and button.button_index == JOY_BUTTON_A and _can_open_from_world()
+    return false
+
+
+func handle_skyval_input(event: InputEvent) -> void:
     if event is InputEventJoypadButton:
         var joy: InputEventJoypadButton = event as InputEventJoypadButton
         var key: String = "%s:%s" % [joy.device, joy.button_index]
@@ -109,9 +119,8 @@ func _input(event: InputEvent) -> void:
         if _pressed.has(key):
             return
         _pressed[key] = true
-        # Face-button actions use the selected layout; debounce and
-        # release tracking continue to use the physical button ID.
-        var action_button: int = int(_locale.call("map_joy_button", joy.button_index))
+        # All actions arrive as logical buttons from SkyvalInput.
+        var action_button: int = joy.button_index
         if _opened:
             # Let GameMenu own Start/R3, even while chest loot is visible.
             if action_button == JOY_BUTTON_START or action_button == JOY_BUTTON_RIGHT_STICK:
