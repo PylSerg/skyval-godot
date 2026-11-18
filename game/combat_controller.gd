@@ -168,7 +168,12 @@ func _hit_enemies() -> void:
 
 
 func _receive_damage(damage: int, source_position: Vector2) -> void:
-    _health = maxi(_health - damage, 0)
+    # Reuse existing physical armor: each two points of protection absorb
+    # one point from a slime hit (up to 2), never making the player immune.
+    var protection: int = int(_inventory.call("get_total_armor")) if _inventory != null else 0
+    var blocked: int = mini(2, protection / 2)
+    var received: int = maxi(1, damage - blocked)
+    _health = maxi(_health - received, 0)
     _invulnerability = 0.9
     var away: Vector2 = (_player.global_position - source_position).normalized()
     var bounds: Rect2 = _player.get("world_bounds")
