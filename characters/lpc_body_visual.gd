@@ -84,6 +84,9 @@ var _lining_path_cache: Dictionary = {}
 var _direction: int = 0
 var _walking: bool = false
 var _attacking: bool = false
+var _sword_slash_available: bool = false
+var _attack_progress: float = 0.0
+var _reported_sword_fallback: bool = false
 
 func _ready() -> void:
     texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -322,6 +325,12 @@ func _load_appearance(skin: String) -> bool:
         add_child(sprite)
     _sprites = replacements
     _layer_paths = next_paths
+    # Never hide the existing sword unless BOTH oversize slash sprites
+    # were really loaded from the user's LPC library.
+    _sword_slash_available = next_paths.has("WeaponSlashBack") and next_paths.has("WeaponSlashFront")
+    if weapon_style == "arming_iron" and not _sword_slash_available and not _reported_sword_fallback:
+        push_warning("Skyval LPC: sword attack_slash/bg + fg missing or invalid; using animated equipped-sword fallback.")
+        _reported_sword_fallback = true
 
     skin_variant = skin
     _apply_animation()
@@ -652,13 +661,36 @@ func start_attack(facing_direction: int) -> void:
         return
     _direction = clampi(facing_direction, 0, 3)
     _attacking = true
+    _attack_progress = 0.0
     _apply_animation(true)
 
 func end_attack() -> void:
     if not _attacking:
         return
     _attacking = false
+    _attack_progress = 0.0
+    _reset_sword_pose()
     _apply_animation()
+
+# A geometry-only fallback for LPC installations without 128px slash assets.
+# Reuse the already loaded weapon sprites, so an attack never looks unarmed.
+func set_attack_progress(progress: float) -> void:
+    if not _attacking or _sword_slash_available:
+        return
+    _attack_progress = clampf(progress, 0.0, 1.0)
+    var sweep: float = sin(_attack_progress * PI)
+    var sign_x: float = -1.0 if _direction == 1 else 1.0
+    var angle: float = lerpf(-0.55, 0.85, _attack_progress) * sign_x
+    for sprite in _sprites:
+        if str(sprite.name) == "WeaponBack" or str(sprite.name) == "WeaponFront":
+            sprite.rotation = angle
+            sprite.position = Vector2(sign_x * 5.0 * sweep, -4.0 * sweep)
+
+func _reset_sword_pose() -> void:
+    for sprite in _sprites:
+        if str(sprite.name) == "WeaponBack" or str(sprite.name) == "WeaponFront":
+            sprite.rotation = 0.0
+            sprite.position = Vector2.ZERO
 
 func set_motion(direction: Vector2) -> void:
     if _attacking:
@@ -679,19 +711,27 @@ func _apply_animation(restart_attack: bool = false) -> void:
     for sprite in _sprites:
         var slash_weapon: bool = str(sprite.name).begins_with("WeaponSlash")
         var regular_weapon: bool = str(sprite.name).begins_with("Weapon") and not slash_weapon
+        var use_oversize: bool = _attacking and _sword_slash_available
         if slash_weapon:
-            sprite.visible = _attacking
+            sprite.visible = use_oversize
         elif regular_weapon:
-            sprite.visible = not _attacking
-        if (slash_weapon and not _attacking) or (regular_weapon and _attacking):
+            sprite.visible = not use_oversize
+        if not sprite.visible:
             continue
-        # A completed non-looping slash must never be restarted by motion updates.
-        if restart_attack or sprite.animation != StringName(animation):
-            sprite.play(animation)
-            if _attacking:
+        var chosen_animation: String = animation
+        # Arming Sword's universal atlas has idle/walk, not slash frames.
+        if regular_weapon and _attacking:
+            chosen_animation = "idle-%s" % DIRECTIONS[_direction]
+        # Don't restart the six-frame slash every physics frame.
+        if restart_attack or sprite.animation != StringName(chosen_animation):
+            sprite.play(chosen_animation)
+            if _attacking and not regular_weapon:
                 sprite.set_frame_and_progress(0, 0.0)
         elif not _attacking and not sprite.is_playing():
-            sprite.play(animation)
+            sprite.play(chosen_animation)
+    if not _attacking:
+        _reset_sword_pose()
+
 
 func cycle_skin() -> void:
     if not available:
