@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Build Skyval on the laptop and deploy over SSH to an already installed ArkOS/PortMaster.
-# One SSH session carries ONLY Skyval.sh and skyval.pck; no archive files or LPC sprites.
+# Normal mode sends only Skyval.sh and skyval.pck. --sword-assets
+# additionally ships the two real LPC iron sword sheets ONCE, if needed.
 #
 # Examples:
 #   bash tools/build_to_ssh.sh 192.168.1.42
-#   bash tools/build_to_ssh.sh ark@192.168.1.42
+#   bash tools/build_to_ssh.sh --sword-assets  # first iron sword install
+#   bash tools/build_to_ssh.sh ark@192.168.0.162
 #   SKYVAL_SSH_TARGET=ark@192.168.0.162 bash tools/build_to_ssh.sh
 #
 # The user must quit Skyval on the console before running this update.
@@ -13,18 +15,29 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_PORTS="$ROOT/dist/portmaster/update/roms/ports"
 
-if [ "$#" -gt 1 ]; then
-    echo "Usage: bash tools/build_to_ssh.sh [host-or-ark@host]" >&2
-    exit 2
-fi
-
 TARGET="${SKYVAL_SSH_TARGET:-ark@192.168.0.162}"
-if [ "$#" -eq 1 ]; then
-    case "$1" in
-        *@*) TARGET="$1" ;;
-        *) TARGET="ark@$1" ;;
+SWORD_ASSETS=false
+HOST_SET=false
+for option in "$@"; do
+    case "$option" in
+        --sword-assets) SWORD_ASSETS=true ;;
+        -*)
+            echo "Usage: bash tools/build_to_ssh.sh [host-or-ark@host] [--sword-assets]" >&2
+            exit 2
+            ;;
+        *)
+            if [ "$HOST_SET" = "true" ]; then
+                echo "ERROR: supply only one SSH target." >&2
+                exit 2
+            fi
+            HOST_SET=true
+            case "$option" in
+                *@*) TARGET="$option" ;;
+                *) TARGET="ark@$option" ;;
+            esac
+            ;;
     esac
-fi
+done
 case "$TARGET" in
     ""|-*|*@-*)
         echo "ERROR: invalid SSH target. Use a hostname, IP or ark@hostname." >&2
@@ -47,6 +60,39 @@ bash "$ROOT/tools/build_portmaster.sh" --code-only --no-zip
 if [ ! -s "$BUILD_PORTS/skyval/skyval.pck" ] || [ ! -s "$BUILD_PORTS/Skyval.sh" ]; then
     echo "ERROR: build did not produce Skyval.sh and skyval.pck." >&2
     exit 1
+fi
+
+PACKAGE_FILES=(Skyval.sh skyval/skyval.pck)
+if [ "$SWORD_ASSETS" = "true" ]; then
+    # Only these TWO authentic Universal LPC atlas PNGs are required;
+    # do not send the entire 45,000-file artwork library via SSH.
+    LPC_ROOT="${LPC_SPRITES_ROOT:-}"
+    if [ -z "$LPC_ROOT" ]; then
+        for candidate in \
+            "$HOME/Godot/res/addons/Universal_LPC/resources/spritesheets" \
+            "$HOME/Godot/res/addons/universal_lpc/resources/spritesheets" \
+            "$HOME/Godot/res/assets/lpc_sprites/resources/spritesheets" \
+            "$HOME/Godot/res/assets/lpc_sprites"; do
+            if [ -s "$candidate/weapon/sword/arming/universal/fg/iron.png" ]; then
+                LPC_ROOT="$candidate"
+                break
+            fi
+        done
+    fi
+    for part in bg fg; do
+        rel="weapon/sword/arming/universal/$part/iron.png"
+        src="$LPC_ROOT/$rel"
+        if [ ! -s "$src" ]; then
+            echo "ERROR: missing LPC sword sprite: $src" >&2
+            echo "Set LPC_SPRITES_ROOT to your full Universal LPC spritesheets directory." >&2
+            exit 1
+        fi
+        dest="skyval/resources/lpc/$rel"
+        mkdir -p "$BUILD_PORTS/$(dirname "$dest")"
+        cp -- "$src" "$BUILD_PORTS/$dest"
+        PACKAGE_FILES+=("$dest")
+    done
+    echo "First-install sword assets: 2 iron sword PNGs added to SSH transfer."
 fi
 
 # The remote script is passed as an SSH command. Standard input remains
@@ -87,13 +133,38 @@ cleanup() {
 }
 trap cleanup EXIT
 stage="$(mktemp -d "$ports/skyval/.ssh-update.XXXXXXXX")"
-# Only the two explicitly named build files are accepted.
-tar -xf - -C "$stage" Skyval.sh skyval/skyval.pck
+# Extract the locally constructed tar stream. Only paths from the
+# fixed PACKAGE_FILES array can enter it (two files, or four with sword).
+tar -xf - -C "$stage"
 if [ ! -s "$stage/Skyval.sh" ] || [ ! -s "$stage/skyval/skyval.pck" ]; then
     echo "ERROR: incomplete transfer; installed game was not modified." >&2
     exit 1
 fi
 chmod 755 "$stage/Skyval.sh" 2>/dev/null || true
+
+# Optional first-install weapon assets: install both BEFORE switching
+# to the newly built PCK. If the transfer was incomplete, keep old game.
+if [ -d "$stage/skyval/resources/lpc/weapon/sword/arming/universal" ]; then
+    for part in bg fg; do
+        rel="weapon/sword/arming/universal/$part/iron.png"
+        if [ ! -s "$stage/skyval/resources/lpc/$rel" ]; then
+            echo "ERROR: sword asset transfer missing $rel; game not updated." >&2
+            exit 1
+        fi
+    done
+    for part in bg fg; do
+        rel="weapon/sword/arming/universal/$part/iron.png"
+        src="$stage/skyval/resources/lpc/$rel"
+        dest="$ports/skyval/resources/lpc/$rel"
+        mkdir -p "$(dirname "$dest")"
+        if cmp -s "$src" "$dest"; then
+            echo "Sword $part unchanged."
+        else
+            mv -f -- "$src" "$dest"
+            echo "Installed sword sheet: $rel"
+        fi
+    done
+fi
 
 # Rename from staging ON THE SAME SD FILESYSTEM: no partial PCK ever
 # replaces the known-good game. Skip identical files when possible.
@@ -114,11 +185,15 @@ echo "READY: Skyval deployed via SSH. Existing resources/lpc, saves and conf pre
 REMOTE_SH
 )"
 
-echo "Uploading only the launcher and PCK in a single SSH connection..."
+if [ "$SWORD_ASSETS" = "true" ]; then
+    echo "Uploading launcher, PCK and only the two required sword sheets..."
+else
+    echo "Uploading only the launcher and PCK in a single SSH connection..."
+fi
 # Do not allocate a PTY: SSH stdin is a binary tar stream.
 # Pipeline failure propagates (pipefail), and a failed transfer leaves the
 # original game installed; temporary partial uploads are removed remotely.
-tar -C "$BUILD_PORTS" -cf - Skyval.sh skyval/skyval.pck |
+tar -C "$BUILD_PORTS" -cf - "${PACKAGE_FILES[@]}" |
     ssh -T -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 "$TARGET" "$REMOTE_INSTALL"
 
 echo "Done. No SD card removal needed."
