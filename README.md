@@ -261,9 +261,11 @@ loading new atlases; a forward cone/circle hurtbox resolves impact
 
 Unarmed attacks deal **1 damage**, reach **23 px**; the previously found
 **iron sword** deals **3 damage**, reaches **36 px**. Each slime has
-**9 HP**, approaches the player when close, delivers **1 damage** on
-contact with its own cooldown, reacts to hits, and reappears after
-**7 seconds**. The player has **20 HP** with a brief invulnerability
+**9 HP**, approaches the player when close, deals **3 base
+damage** on contact (reduced by equipped armor to a minimum of 1),
+reacts to hits, and reappears after **7 seconds**. Clothing armor
+values of +2/+3/+5 now mitigate damage: 2/2/1 HP received per
+slime hit, respectively. The player has **20 HP** with a brief invulnerability
 window after each hit. A training knockout returns the player to the
 original spawn point at full health **without losing equipment**.
 
