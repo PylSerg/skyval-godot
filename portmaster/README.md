@@ -21,6 +21,51 @@ support gamepads. Native controller input has now been tested successfully
 on a physical R36H. Left-stick analog movement no longer competes with
 D-pad input; partial-tilt walking speed is verified on ArkOS/R36H.
 
+## Direct build to the EASYROMS SD card (recommended)
+
+When the card is inserted in your Kubuntu laptop, use **one command**:
+
+```bash
+bash tools/build_to_sd.sh
+```
+
+Default deployment target: `/run/media/serhii/EASYROMS/ports/`.
+
+This script verifies the EASYROMS mountpoint before building, runs the
+existing PortMaster Godot exporter with `--code-only --no-zip`, then
+copies **only two files** straight onto the SD card:
+
+- `/run/media/serhii/EASYROMS/ports/Skyval.sh`
+- `/run/media/serhii/EASYROMS/ports/skyval/skyval.pck`
+
+It makes no ZIP files. A temporary PCK is copied onto the SD card first
+and renamed into place only when the copy finishes successfully.
+**The existing `skyval/resources/lpc/`, `skyval/saves/` and `skyval/conf/`
+are never deleted or recopied in this default mode.**
+No manual copy through Dolphin is needed. Safely unmount/eject the card
+after the script finishes.
+
+When new equipment art needs to be installed for the first time,
+explicitly request:
+
+```bash
+bash tools/build_to_sd.sh --full-assets
+```
+
+That mode builds the selected game-art set and uses `rsync --checksum`
+to transfer **only new/changed sprites** without deleting existing art.
+It needs `rsync` installed on the laptop. The source LPC library does
+not need to be copied to the SD every time.
+
+If your card is mounted at a different directory, override the mountpoint:
+
+```bash
+SKYVAL_SD_MOUNT="/run/media/$USER/EASYROMS" bash tools/build_to_sd.sh
+```
+
+The script rejects unmounted destinations, so it cannot silently write
+a fake `EASYROMS` folder onto the internal drive.
+
 ## One-time game-assets build on Kubuntu
 
 From the cloned `skyval-godot` directory:
