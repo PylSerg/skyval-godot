@@ -8,7 +8,7 @@ extends Node2D
 const CELL := 64
 const IDLE_Y := 1408
 const WALK_Y := 512
-const SLASH_Y := 704  # LPC standard slash rows: N=11, W=12, S=13, E=14
+const SLASH_Y := 768  # Universal LPC slash: rows 12-15 (N, W, S, E)
 const OVERSIZE_CELL := 128
 const SLASH_FPS := 24.0
 const SLASH_FRAMES := [0, 1, 2, 3, 4, 5]
@@ -672,10 +672,10 @@ func set_armor_style(new_style: String) -> bool:
 # fixed, so hit detection and the resting direction are unaffected.
 func _attack_visual_direction() -> int:
     if _attacking and _direction == 0 and _attack_frame >= SOUTH_TURN_START_FRAME and _attack_frame < SOUTH_TURN_END_FRAME:
-        # The actual LPC attack sheet displays the intended east-facing
-        # pose from direction index 1 on the console (index 2 looked west).
-        # This correction is ONLY for the SOUTH-facing attack test.
-        return 1
+        # Use the actual east-facing LPC row. Slash begins at Y=768,
+        # not Y=704; the old offset made east/west appear swapped.
+        # Keep this turn exclusive to the south-facing test.
+        return 2
     return _direction
 
 func start_attack(facing_direction: int) -> void:
