@@ -753,10 +753,12 @@ func _apply_animation(restart_attack: bool = false) -> void:
         var is_weapon: bool = str(sprite.name).begins_with("Weapon")
         var slash_weapon: bool = str(sprite.name).begins_with("WeaponSlash")
         var regular_weapon: bool = is_weapon and not slash_weapon
-        # All layers follow the same native LPC direction (no mirroring).
-        # The east grip needs a local translation to the visible right hand;
-        # the other three directions keep their authored LPC offsets.
-        sprite.flip_h = false
+        # Keep LPC's native frame direction for every character layer.
+        # Only the south-facing iron sword is mirrored: when the avatar
+        # faces the camera, its right hand is on screen-left. Mirroring both
+        # fg/bg weapon layers together preserves the grip and the depth split.
+        # W/E and north sword sprites must remain unflipped.
+        sprite.flip_h = is_weapon and _direction == 0
         var sword_base_offset: Vector2 = Vector2(-64, -86) if slash_weapon else Vector2(-32, -54)
         if is_weapon:
             sprite.offset = sword_base_offset + (EAST_SWORD_GRIP_OFFSET if _direction == 2 else Vector2.ZERO)
