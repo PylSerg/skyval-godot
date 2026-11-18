@@ -138,6 +138,10 @@ def main() -> int:
     # positions as the base body; both halves are REQUIRED for equipping.
     for part in ("bg", "fg"):
         add(f"weapon/sword/arming/universal/{part}/iron.png", "weapon")
+        # The arming sword slash uses separate 128px custom animation
+        # sheets. Optional for older LPC source trees, but included in any
+        # new full install when the originals are available.
+        add(f"weapon/sword/arming/attack_slash/{part}/iron.png", "weapon_slash")
 
     missing = []
     copied = Counter()
