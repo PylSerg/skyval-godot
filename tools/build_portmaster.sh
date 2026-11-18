@@ -6,6 +6,10 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Build outputs aren't Godot source assets. Prevent editor import scans of
+# the large LPC copy stored under dist/ even after a fresh full build.
+mkdir -p "$ROOT/dist"
+touch "$ROOT/dist/.gdignore"
 DIST="$ROOT/dist/portmaster"
 STAGE="$(mktemp -d "${TMPDIR:-/tmp}/skyval-port-XXXXXX")"
 trap 'rm -rf "$STAGE"' EXIT
