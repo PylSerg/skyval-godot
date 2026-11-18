@@ -109,6 +109,7 @@ func _ready() -> void:
     _build_interface()
     _locale.connect("language_changed", Callable(self, "_refresh_text"))
     _locale.connect("layout_changed", Callable(self, "_refresh_text"))
+    get_node("/root/SkyvalInput").call("register_listener", self, 400)
     _root.hide()
     print("Skyval GameMenu: READY (Start=", JOY_BUTTON_START, ", R3=", JOY_BUTTON_RIGHT_STICK, ")")
     # A fresh launch always shows a paused main menu before gameplay.
@@ -130,7 +131,20 @@ func _tr(key: String) -> String:
     return str(_locale.call("t", key))
 
 
-func _input(event: InputEvent) -> void:
+# Only SkyvalInput sees physical joypad events. The menu receives one
+# already-normalized event when it owns focus, or Start/R3 globally.
+func skyval_accepts_input(event: InputEvent) -> bool:
+    if _name_entry != null and bool(_name_entry.call("is_open")):
+        return false
+    if _opened:
+        return true
+    if event is InputEventJoypadButton:
+        var button: InputEventJoypadButton = event as InputEventJoypadButton
+        return button.pressed and _session_started and not _creation_in_progress and button.button_index in [JOY_BUTTON_START, JOY_BUTTON_RIGHT_STICK]
+    return false
+
+
+func handle_skyval_input(event: InputEvent) -> void:
     # NameEntry is a separate modal above this menu. Do not handle its
     # X/Y/A/B presses a second time behind the name keyboard.
     if _name_entry != null and bool(_name_entry.call("is_open")):
@@ -138,7 +152,7 @@ func _input(event: InputEvent) -> void:
     if event is InputEventJoypadButton:
         var joy_event: InputEventJoypadButton = event as InputEventJoypadButton
         if joy_event.pressed:
-            print("Skyval GameMenu: BUTTON device=", joy_event.device, " index=", joy_event.button_index)
+            print("Skyval GameMenu: LOGICAL BUTTON device=", joy_event.device, " index=", joy_event.button_index)
         _handle_button(joy_event)
     elif event is InputEventJoypadMotion:
         _handle_axis(event as InputEventJoypadMotion)
@@ -161,9 +175,8 @@ func _handle_button(event: InputEventJoypadButton) -> void:
             get_viewport().set_input_as_handled()
         return
 
-    # Raw button IDs are used for press/release tracking above. Translate
-    # physical Nintendo face buttons only after the latch is accepted.
-    var action_button: int = int(_locale.call("map_joy_button", event.button_index))
+    # SkyvalInput already mapped A/B/X/Y. No layout knowledge in menus.
+    var action_button: int = event.button_index
     if not _confirm_action.is_empty():
         if action_button == JOY_BUTTON_A:
             _accept_confirmation()
