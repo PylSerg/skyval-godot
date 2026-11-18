@@ -467,6 +467,34 @@ equipment behavior and armor stats remain unchanged. No new artwork
 is generated. If neither action contains an appropriate frame,
 the corresponding source LPC sheet still needs correction.
 
+**Incremental LPC equipment rendering (R36H):** The LPC character no
+longer rebuilds the entire stack of AnimatedSprite2D nodes for every
+try-on. `characters/lpc_body_visual.gd` tracks each layer's source
+texture path and keeps unchanged sprites, their synchronized walk/idle
+animations, and the underlying decoded atlases intact. A changed
+garment creates just its replacement layer; all new layers are validated
+before any old nodes are retired. Missing art cannot partially destroy
+the existing outfit or commit an unconfirmed preview to inventory.
+
+The six-entry LRU cache for processed armor/lining `SpriteFrames`
+retains both decoded textures and their corrected directional idle frames
+for the recently browsed armor styles. It avoids repeated decoding and
+costly per-facing pixel checks after the first successful preparation.
+The normal texture cache remains bounded to 10 atlases; no full-library
+preload is performed. `ui/character_preview.gd` separately keeps at most
+48 cropped 64×64 images and 24 armor facing choices, keyed by the
+reused animation-frame resource rather than a throwaway sprite node.
+Opening a new backpack session can clear the preview cache, but ordinary
+item browsing/restoration does not. These limits keep memory growth
+bounded even as new inventory slots are implemented.
+
+If an LPC rebuild takes at least 120 ms, the game prints a diagnostic
+entry such as `Skyval LPC: swapped 1/8 layers in 180 ms` to the
+PortMaster `roms/ports/skyval/log.txt`. This is a structural
+optimization only; its actual latency on R36H must be remeasured after
+building `--code-only`. Head, hand, weapon, and shield slots without
+implemented artwork remain reserved, not silently activated.
+
 **Torso exclusivity:** Equipping torso armor sets shirt style to
 `none` and returns the previously equipped shirt to the backpack.
 Equipping any shirt sets armor style to `none` and returns its armor
