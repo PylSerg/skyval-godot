@@ -1,6 +1,6 @@
 extends Node2D
 ## Skyval LPC renderer: synchronized body, human head, face, eyes, and hair.
-## All layers use the SAME 64x64 LPC cells and animation timeline.
+## Standard layers use 64px LPC cells; arming sword slashes use native 128px overlays.
 ## On desktop it discovers the user's local sprite library; PortMaster can
 ## load the full LPC PNG tree from SKYVAL_LPC_ROOT beside skyval.pck.
 ## The previous small res://assets/characters/lpc/ fallback remains valid.
@@ -8,6 +8,10 @@ extends Node2D
 const CELL := 64
 const IDLE_Y := 1408
 const WALK_Y := 512
+const SLASH_Y := 768
+const OVERSIZE_CELL := 128
+const SLASH_FPS := 24.0
+const SLASH_FRAMES := [0, 1, 2, 3, 4, 5]
 const DIRECTIONS := ["s", "w", "e", "n"]
 const ROW_INDEX := [2, 1, 3, 0]
 const IDLE_FRAMES := [0, 0, 1]
@@ -79,6 +83,7 @@ var _armor_path_cache: Dictionary = {}
 var _lining_path_cache: Dictionary = {}
 var _direction: int = 0
 var _walking: bool = false
+var _attacking: bool = false
 
 func _ready() -> void:
     texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -241,6 +246,10 @@ func _load_appearance(skin: String) -> bool:
         var sword_root: String = root.path_join("weapon/sword/arming/universal")
         layers.append({"name": "WeaponBack", "path": sword_root.path_join("bg/iron.png"), "z": 9, "required": true})
         layers.append({"name": "WeaponFront", "path": sword_root.path_join("fg/iron.png"), "z": 140, "required": true})
+        # The arming sword has a separate 128px slash, split front/back.
+        var attack_root: String = root.path_join("weapon/sword/arming/attack_slash")
+        layers.append({"name": "WeaponSlashBack", "path": attack_root.path_join("bg/iron.png"), "z": 8, "required": false})
+        layers.append({"name": "WeaponSlashFront", "path": attack_root.path_join("fg/iron.png"), "z": 150, "required": false})
 
     # Stage and validate only the changed layers. Existing sprites are
     # reused untouched, including their playing animation and atlas.
@@ -272,7 +281,10 @@ func _load_appearance(skin: String) -> bool:
             continue
 
         var atlas: Texture2D = _load_texture(path)
-        if atlas == null or atlas.get_width() < 9 * CELL or atlas.get_height() < IDLE_Y + 4 * CELL:
+        var oversized: bool = layer_name.begins_with("WeaponSlash")
+        var min_width: int = SLASH_FRAMES.size() * OVERSIZE_CELL if oversized else 9 * CELL
+        var min_height: int = 4 * OVERSIZE_CELL if oversized else IDLE_Y + 4 * CELL
+        if atlas == null or atlas.get_width() < min_width or atlas.get_height() < min_height:
             if bool(layer["required"]):
                 push_warning("Skyval LPC: invalid character sheet: %s" % path)
                 return false
@@ -331,7 +343,9 @@ func _build_layer(label: String, layer_z: int, atlas: Texture2D, path: String, c
     var sprite := AnimatedSprite2D.new()
     sprite.name = label
     sprite.centered = false
-    sprite.offset = Vector2(-32, -54)
+    var oversized: bool = label.begins_with("WeaponSlash")
+    # Align the larger attack sprites with the same character pivot.
+    sprite.offset = Vector2(-64, -86) if oversized else Vector2(-32, -54)
     sprite.z_index = layer_z
     sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
@@ -340,8 +354,12 @@ func _build_layer(label: String, layer_z: int, atlas: Texture2D, path: String, c
         frames = SpriteFrames.new()
         if frames.has_animation("default"):
             frames.remove_animation("default")
-        _add_action(frames, atlas, "idle", IDLE_Y, IDLE_FRAMES, 3.0)
-        _add_action(frames, atlas, "walk", WALK_Y, WALK_FRAMES, 9.0)
+        if oversized:
+            _add_oversize_slash(frames, atlas)
+        else:
+            _add_action(frames, atlas, "idle", IDLE_Y, IDLE_FRAMES, 3.0)
+            _add_action(frames, atlas, "walk", WALK_Y, WALK_FRAMES, 9.0)
+            _add_action(frames, atlas, "slash", SLASH_Y, SLASH_FRAMES, SLASH_FPS)
         if label == "Armor" or label == "ArmorVestFront":
             _repair_armor_idle_frames(frames, atlas)
             _remember_armor_frames(label, path, frames)
@@ -353,13 +371,26 @@ func _add_action(frames: SpriteFrames, atlas: Texture2D, action: String, start_y
     for direction_index in range(4):
         var animation: String = "%s-%s" % [action, DIRECTIONS[direction_index]]
         frames.add_animation(animation)
-        frames.set_animation_loop(animation, true)
+        frames.set_animation_loop(animation, action != "slash")
         frames.set_animation_speed(animation, fps)
         var row_y: int = start_y + ROW_INDEX[direction_index] * CELL
         for frame_number in indices:
             var cell := AtlasTexture.new()
             cell.atlas = atlas
             cell.region = Rect2(int(frame_number) * CELL, row_y, CELL, CELL)
+            frames.add_frame(animation, cell)
+
+func _add_oversize_slash(frames: SpriteFrames, atlas: Texture2D) -> void:
+    for direction_index in range(4):
+        var animation: String = "slash-%s" % DIRECTIONS[direction_index]
+        frames.add_animation(animation)
+        frames.set_animation_loop(animation, false)
+        frames.set_animation_speed(animation, SLASH_FPS)
+        var row_y: int = ROW_INDEX[direction_index] * OVERSIZE_CELL
+        for frame_number in SLASH_FRAMES:
+            var cell := AtlasTexture.new()
+            cell.atlas = atlas
+            cell.region = Rect2(frame_number * OVERSIZE_CELL, row_y, OVERSIZE_CELL, OVERSIZE_CELL)
             frames.add_frame(animation, cell)
 
 # Some Universal LPC armor atlases have complete walk frames but
@@ -616,7 +647,22 @@ func set_armor_style(new_style: String) -> bool:
     return false
 
 
+func start_attack(facing_direction: int) -> void:
+    if not available:
+        return
+    _direction = clampi(facing_direction, 0, 3)
+    _attacking = true
+    _apply_animation(true)
+
+func end_attack() -> void:
+    if not _attacking:
+        return
+    _attacking = false
+    _apply_animation()
+
 func set_motion(direction: Vector2) -> void:
+    if _attacking:
+        return  # Hold the attack facing until the swing finishes.
     _walking = direction.length_squared() > 0.0001
     if _walking:
         if absf(direction.x) > absf(direction.y):
@@ -625,13 +671,26 @@ func set_motion(direction: Vector2) -> void:
             _direction = 0 if direction.y > 0.0 else 3
     _apply_animation()
 
-func _apply_animation() -> void:
+func _apply_animation(restart_attack: bool = false) -> void:
     if _sprites.is_empty():
         return
-    var action: String = "walk" if _walking else "idle"
+    var action: String = "slash" if _attacking else ("walk" if _walking else "idle")
     var animation: String = "%s-%s" % [action, DIRECTIONS[_direction]]
     for sprite in _sprites:
-        if sprite.animation != StringName(animation) or not sprite.is_playing():
+        var slash_weapon: bool = str(sprite.name).begins_with("WeaponSlash")
+        var regular_weapon: bool = str(sprite.name).begins_with("Weapon") and not slash_weapon
+        if slash_weapon:
+            sprite.visible = _attacking
+        elif regular_weapon:
+            sprite.visible = not _attacking
+        if (slash_weapon and not _attacking) or (regular_weapon and _attacking):
+            continue
+        # A completed non-looping slash must never be restarted by motion updates.
+        if restart_attack or sprite.animation != StringName(animation):
+            sprite.play(animation)
+            if _attacking:
+                sprite.set_frame_and_progress(0, 0.0)
+        elif not _attacking and not sprite.is_playing():
             sprite.play(animation)
 
 func cycle_skin() -> void:
