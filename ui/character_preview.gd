@@ -99,13 +99,22 @@ func _draw() -> void:
         return a.z_index < b.z_index
     )
 
-    var animation: StringName = StringName("idle-" + DIRECTIONS[facing])
     # Center the full-height LPC figure in the creation portrait.
     # Backpack retains the original raised position above armor statistics.
     var vertical_anchor: float = 0.72 if scenic_mode else 0.57
     var origin: Vector2 = Vector2(roundf(size.x * 0.5), roundf(size.y * vertical_anchor))
     draw_set_transform(origin, 0.0, Vector2(PREVIEW_SCALE, PREVIEW_SCALE))
     for sprite in layers:
+        # Match the in-world right-handed sword: mirror its pixels and swap
+        # W/E source animation rows. The portrait must agree with gameplay.
+        var is_weapon: bool = str(sprite.name).begins_with("Weapon")
+        var source_direction: String = DIRECTIONS[facing]
+        if is_weapon:
+            if source_direction == "w":
+                source_direction = "e"
+            elif source_direction == "e":
+                source_direction = "w"
+        var animation: StringName = StringName("idle-" + source_direction)
         if sprite.sprite_frames == null or not sprite.sprite_frames.has_animation(animation):
             continue
         if sprite.sprite_frames.get_frame_count(animation) < 1:
@@ -153,7 +162,13 @@ func _draw() -> void:
                 display = ImageTexture.create_from_image(image)
                 _remember_frame(key, display)
         if display != null:
+            if is_weapon:
+                # Mirroring the canvas around the avatar's central axis
+                # also mirrors the atlas frame, not just its displacement.
+                draw_set_transform(origin, 0.0, Vector2(-PREVIEW_SCALE, PREVIEW_SCALE))
             draw_texture(display, sprite.offset)
+            if is_weapon:
+                draw_set_transform(origin, 0.0, Vector2(PREVIEW_SCALE, PREVIEW_SCALE))
 
     draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
