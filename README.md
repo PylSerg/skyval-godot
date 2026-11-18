@@ -659,6 +659,26 @@ code-only archives skip the already installed art. Rebuild the asset
 package after adding a new item/style that needs a new sprite. Inspect
 original LPC licensing/credits before distributing anything.
 
+## Build to R36H over SSH (no card removal)
+
+With ArkOS SSH enabled, Skyval already installed and the game **closed**
+on the console, build and deploy from the laptop with:
+
+```bash
+bash tools/build_to_ssh.sh 192.168.1.42
+```
+
+Replace the sample IP with the console IP from `ssh ark@IP`.
+Alternatively, run `bash tools/build_to_ssh.sh` if the ArkOS host is
+reachable as `rg351mp.local`. This independent script reuses the same
+Godot PortMaster exporter, creates **no ZIP**, and sends **only** the
+launcher and `skyval.pck` in one SSH session. It automatically locates
+`/roms/ports` or `/roms2/ports` on ArkOS, checks the existing install,
+then atomically replaces the finished files. It does not touch LPC
+resources, saves or configuration. For new art, use the separate
+`build_to_sd.sh --full-assets` workflow. Full details:
+[portmaster/README.md](portmaster/README.md).
+
 ## Build directly to the EASYROMS SD card
 
 With the card mounted at `/run/media/serhii/EASYROMS`, run:
