@@ -119,7 +119,7 @@ All windows use `ui/skyval_theme.gd` for translucent midnight-blue
 panels, thin warm-gold borders, gold active-item outlines, readable
 Cascadia text (minimum 14px), and common button states. The shared style
 covers in-game menus, settings, character/save lists, confirmation
-dialogs, both loot chests, the name-entry keyboard, manual-save naming,
+dialogs, all three loot chests, the name-entry keyboard, manual-save naming,
 character appearance and equipment screens. Window proportions
 are now adapted per purpose at 320×240 rather than stretching all
 submenus to a single fixed height. The title menu retains its original
@@ -142,7 +142,7 @@ choices start with capital letters in Ukrainian and English.
 
 The same circular markers now appear in **every on-screen A/B/X/Y
 instruction**: appearance creation/editing, inventory equip prompt,
-both loot chests, character/save lists and the two-line name/Save
+all three loot chests, character/save lists and the two-line name/Save
 keyboard instructions. The shared `ui/nintendo_hints.gd` parses the
 existing localized hint strings, preserves their line breaks and uses
 compact 17px circles where several actions share one 320px row.
@@ -549,7 +549,7 @@ ordinary animations and Timer nodes. For future gameplay timers created via
 `get_tree().create_timer()`, pass `process_always=false` so they also pause.
 Nodes explicitly set to always-process remain active. The last closing
 interface restores the pause state from before the first UI was opened.
-Transitions between the backpack, both test chests, main menu and standalone
+Transitions between the backpack, all three test chests, main menu and standalone
 appearance window transfer pause ownership **before** closing the previous
 layer, preventing an unpaused frame during the transition.
 
