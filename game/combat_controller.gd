@@ -32,7 +32,9 @@ var _attack_label: Label
 
 
 func _ready() -> void:
-    process_mode = Node.PROCESS_MODE_PAUSABLE
+    # Keep the tiny HUD in sync even while a menu pauses the world.
+    # Combat/enemy simulation below still refuses to advance when paused.
+    process_mode = Node.PROCESS_MODE_ALWAYS
     z_index = 50
     _player = get_parent().get_node_or_null("Player") as CharacterBody2D
     if _player == null:
@@ -128,9 +130,7 @@ func _facing_vector() -> Vector2:
 
 func _physics_process(delta: float) -> void:
     if _hud != null:
-        _hud.visible = _session_active()
-    if not _session_active() or bool(_menu.call("is_open")):
-        return
+        _hud.visible = _can_fight()
     if not _can_fight():
         return
 
