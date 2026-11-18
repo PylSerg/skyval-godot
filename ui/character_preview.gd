@@ -155,7 +155,15 @@ func _draw() -> void:
                 display = ImageTexture.create_from_image(image)
                 _remember_frame(key, display)
         if display != null:
-            draw_texture(display, sprite.offset)
+            # Match the world renderer's east-only right-hand adjustment.
+            # Preview turns independently, so use a direction-specific base
+            # instead of the in-world sprite.offset (which may face elsewhere).
+            var draw_offset: Vector2 = sprite.offset
+            if str(sprite.name).begins_with("Weapon"):
+                draw_offset = Vector2(-32, -54)
+                if DIRECTIONS[facing] == "e":
+                    draw_offset += Vector2(-14, 0)
+            draw_texture(display, draw_offset)
 
     draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
