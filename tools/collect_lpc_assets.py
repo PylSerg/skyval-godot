@@ -142,6 +142,9 @@ def main() -> int:
         # sheets. Optional for older LPC source trees, but included in any
         # new full install when the originals are available.
         add(f"weapon/sword/arming/attack_slash/{part}/iron.png", "weapon_slash")
+        # Revised 1H Slash is backed by the first seven backslash frames.
+        # Keep its 128px sword layers in future full builds as well.
+        add(f"weapon/sword/arming/attack_backslash/{part}/iron.png", "weapon_onehand_slash")
 
     missing = []
     copied = Counter()
