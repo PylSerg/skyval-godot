@@ -27,6 +27,7 @@ var is_walking: bool = false
 var outfit_index: int = 0
 var hair_index: int = 0
 var weapon_equipped: bool = false
+var _attack_active: bool = false
 
 var _walk_clock: float = 0.0
 var _walk_frame: int = 0
@@ -50,6 +51,8 @@ func _process(delta: float) -> void:
         queue_redraw()
 
 func set_motion(direction: Vector2) -> void:
+    if _attack_active:
+        return  # Don't interrupt the slash or rotate the avatar mid-swing.
     var next_walking: bool = direction.length_squared() > 0.0001
     var next_facing: Facing = facing
     if next_walking:
@@ -71,6 +74,24 @@ func set_motion(direction: Vector2) -> void:
             _apply_lpc_animation()
         else:
             queue_redraw()
+
+func begin_attack() -> void:
+    _attack_active = true
+    if has_lpc_character() and _external_body.visible:
+        _external_body.call("start_attack", int(facing))
+    elif _lpc_renderer != null:
+        _apply_lpc_animation()
+    queue_redraw()
+
+func end_attack() -> void:
+    if not _attack_active:
+        return
+    _attack_active = false
+    if has_lpc_character():
+        _external_body.call("end_attack")
+    if _lpc_renderer != null:
+        _apply_lpc_animation()
+    queue_redraw()
 
 func cycle_outfit() -> void:
     if _external_body != null and _external_body.visible:
@@ -270,9 +291,9 @@ func _apply_lpc_animation() -> void:
     if _lpc_renderer == null:
         return
     var direction_name: String = ["s", "w", "e", "n"][int(facing)]
-    var base_name: String = "walk" if is_walking else "idle"
+    var base_name: String = "slash" if _attack_active else ("walk" if is_walking else "idle")
     _lpc_renderer.set("animation_name", "%s-%s" % [base_name, direction_name])
-    _lpc_renderer.set("is_playing", is_walking)
+    _lpc_renderer.set("is_playing", is_walking or _attack_active)
 
 func _draw() -> void:
     if _lpc_renderer != null or (_external_body != null and _external_body.visible):
