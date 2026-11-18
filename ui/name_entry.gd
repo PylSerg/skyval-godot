@@ -172,13 +172,15 @@ func _input(event: InputEvent) -> void:
         if Time.get_ticks_msec() < _ignore_buttons_until:
             get_viewport().set_input_as_handled()
             return
+        # Translate face buttons AFTER tracking the raw press/release.
+        var action_button: int = int(_locale.call("map_joy_button", button.button_index))
         if not _confirmation.is_empty():
-            if button.button_index == JOY_BUTTON_A:
+            if action_button == JOY_BUTTON_A:
                 _complete_confirmation()
-            elif button.button_index == JOY_BUTTON_B:
+            elif action_button == JOY_BUTTON_B:
                 _close_confirmation()
         else:
-            match button.button_index:
+            match action_button:
                 JOY_BUTTON_DPAD_LEFT:
                     _move(-1, 0)
                 JOY_BUTTON_DPAD_RIGHT:
