@@ -14,6 +14,10 @@ const SLASH_FPS := 24.0
 const SLASH_FRAMES := [0, 1, 2, 3, 4, 5]
 const DIRECTIONS := ["s", "w", "e", "n"]
 const ROW_INDEX := [2, 1, 3, 0]
+# The LPC iron arming sword artwork is rendered for the opposite hand.
+# Horizontally mirror all weapon layers, swapping W/E source directions,
+# to hold the sword in the character's RIGHT hand in every facing.
+const RIGHT_HAND_WEAPON_SOURCE := [0, 2, 1, 3]
 const IDLE_FRAMES := [0, 0, 1]
 const WALK_FRAMES := [1, 2, 3, 4, 5, 6, 7, 8]
 const MAX_CACHED_ATLASES := 10
@@ -357,6 +361,7 @@ func _build_layer(label: String, layer_z: int, atlas: Texture2D, path: String, c
     # Align the larger attack sprites with the same character pivot.
     sprite.offset = Vector2(-64, -86) if oversized else Vector2(-32, -54)
     sprite.z_index = layer_z
+    sprite.flip_h = label.begins_with("Weapon")
     sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
     var frames: SpriteFrames = cached_frames
@@ -697,10 +702,11 @@ func set_attack_progress(progress: float) -> void:
         SLASH_FRAMES.size() - 1)
     if frame_index != _attack_frame:
         _attack_frame = frame_index
-        var slash_name: StringName = StringName("slash-%s" % DIRECTIONS[_direction])
         for sprite in _sprites:
             if not sprite.visible or sprite.sprite_frames == null:
                 continue
+            var source_index: int = RIGHT_HAND_WEAPON_SOURCE[_direction] if str(sprite.name).begins_with("Weapon") else _direction
+            var slash_name: StringName = StringName("slash-%s" % DIRECTIONS[source_index])
             if sprite.animation != slash_name:
                 continue
             if sprite.sprite_frames.get_frame_count(slash_name) > frame_index:
@@ -710,18 +716,13 @@ func set_attack_progress(progress: float) -> void:
     if _sword_slash_available:
         return
 
-    # Without authentic slash sword sheets the normal sword has only
-    # idle/walk poses. Keep its grip on the character's RIGHT side instead
-    # of sliding the idle image across the torso (which looked like a
-    # transfer between hands).
-    var facing_vector: Vector2 = [Vector2.DOWN, Vector2.LEFT,
-        Vector2.RIGHT, Vector2.UP][_direction]
-    var right_hand_side: Vector2 = facing_vector.rotated(PI / 2.0)
+    # Missing authentic slash art: keep the same mirrored right-hand grip
+    # as idle/walk. A tiny vertical bob is safe; lateral movement isn't.
     var lift: float = sin(_attack_progress * PI) * 2.0
     for sprite in _sprites:
         if str(sprite.name) == "WeaponBack" or str(sprite.name) == "WeaponFront":
             sprite.rotation = 0.0
-            sprite.position = right_hand_side * 2.0 + Vector2.UP * lift
+            sprite.position = Vector2.UP * lift
 
 func _reset_sword_pose() -> void:
     for sprite in _sprites:
@@ -749,8 +750,13 @@ func _apply_animation(restart_attack: bool = false) -> void:
     var action: String = "slash" if _attacking else ("walk" if _walking else "idle")
     var animation: String = "%s-%s" % [action, DIRECTIONS[_direction]]
     for sprite in _sprites:
+        var is_weapon: bool = str(sprite.name).begins_with("Weapon")
         var slash_weapon: bool = str(sprite.name).begins_with("WeaponSlash")
-        var regular_weapon: bool = str(sprite.name).begins_with("Weapon") and not slash_weapon
+        var regular_weapon: bool = is_weapon and not slash_weapon
+        # Weapon frames are drawn left-handed in LPC: flip the pixels AND
+        # use the opposite side-facing row, never one without the other.
+        var source_direction: int = RIGHT_HAND_WEAPON_SOURCE[_direction] if is_weapon else _direction
+        sprite.flip_h = is_weapon
         var use_oversize: bool = _attacking and _sword_slash_available
         if slash_weapon:
             sprite.visible = use_oversize
@@ -759,10 +765,10 @@ func _apply_animation(restart_attack: bool = false) -> void:
         if not sprite.visible:
             sprite.pause()  # Invisible sword frames must not drift out of sync.
             continue
-        var chosen_animation: String = animation
+        var chosen_animation: String = "%s-%s" % [action, DIRECTIONS[source_direction]] if is_weapon else animation
         # Arming Sword's universal atlas has idle/walk, not slash frames.
         if regular_weapon and _attacking:
-            chosen_animation = "idle-%s" % DIRECTIONS[_direction]
+            chosen_animation = "idle-%s" % DIRECTIONS[source_direction]
         # Don't restart the six-frame slash every physics frame.
         if restart_attack or sprite.animation != StringName(chosen_animation):
             sprite.play(chosen_animation)
