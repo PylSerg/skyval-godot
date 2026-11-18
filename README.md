@@ -665,12 +665,11 @@ With ArkOS SSH enabled, Skyval already installed and the game **closed**
 on the console, build and deploy from the laptop with:
 
 ```bash
-bash tools/build_to_ssh.sh 192.168.1.42
+bash tools/build_to_ssh.sh
 ```
 
-Replace the sample IP with the console IP from `ssh ark@IP`.
-Alternatively, run `bash tools/build_to_ssh.sh` if the ArkOS host is
-reachable as `rg351mp.local`. This independent script reuses the same
+The default SSH target is `ark@192.168.0.162`. You can override it with
+`bash tools/build_to_ssh.sh ark@OTHER_IP` if the address changes. This independent script reuses the same
 Godot PortMaster exporter, creates **no ZIP**, and sends **only** the
 launcher and `skyval.pck` in one SSH session. It automatically locates
 `/roms/ports` or `/roms2/ports` on ArkOS, checks the existing install,
