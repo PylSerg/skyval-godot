@@ -14,6 +14,10 @@ const SLASH_FPS := 24.0
 const SLASH_FRAMES := [0, 1, 2, 3, 4, 5]
 const DIRECTIONS := ["s", "w", "e", "n"]
 const ROW_INDEX := [2, 1, 3, 0]
+# East-facing right hand is on the near side of the body sprite. The
+# generic iron sword atlas seats its grip too far forward in this pose.
+# Move only the sword artwork toward the visible hand; never swap W/E rows.
+const EAST_SWORD_GRIP_OFFSET := Vector2(-14.0, 0.0)
 const IDLE_FRAMES := [0, 0, 1]
 const WALK_FRAMES := [1, 2, 3, 4, 5, 6, 7, 8]
 const MAX_CACHED_ATLASES := 10
@@ -749,9 +753,13 @@ func _apply_animation(restart_attack: bool = false) -> void:
         var is_weapon: bool = str(sprite.name).begins_with("Weapon")
         var slash_weapon: bool = str(sprite.name).begins_with("WeaponSlash")
         var regular_weapon: bool = is_weapon and not slash_weapon
-        # All character and sword layers use the same native LPC direction.
-        # Mirroring W/E displaced the handle and hid the sword from behind.
+        # All layers follow the same native LPC direction (no mirroring).
+        # The east grip needs a local translation to the visible right hand;
+        # the other three directions keep their authored LPC offsets.
         sprite.flip_h = false
+        var sword_base_offset: Vector2 = Vector2(-64, -86) if slash_weapon else Vector2(-32, -54)
+        if is_weapon:
+            sprite.offset = sword_base_offset + (EAST_SWORD_GRIP_OFFSET if _direction == 2 else Vector2.ZERO)
         var use_oversize: bool = _attacking and _sword_slash_available
         if slash_weapon:
             sprite.visible = use_oversize
