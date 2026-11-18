@@ -645,6 +645,25 @@ code-only archives skip the already installed art. Rebuild the asset
 package after adding a new item/style that needs a new sprite. Inspect
 original LPC licensing/credits before distributing anything.
 
+## Build directly to the EASYROMS SD card
+
+With the card mounted at `/run/media/serhii/EASYROMS`, run:
+
+```bash
+bash tools/build_to_sd.sh
+```
+
+This performs the Godot build and deploys only `Skyval.sh` and
+`skyval/skyval.pck` to `/run/media/serhii/EASYROMS/ports/`.
+There is **no ZIP or manual copy step**, and the existing LPC library,
+character saves and configuration on the card remain untouched.
+The script refuses to write if the actual SD mount is missing.
+
+Only after adding new LPC artwork, run
+`bash tools/build_to_sd.sh --full-assets`; it synchronizes the
+selected game sprites incrementally with `rsync --checksum`, without
+removing existing files. See `portmaster/README.md` for full details.
+
 ## PortMaster native-controller test
 
 The launcher starts Godot via Weston and starts GPtoKEYB
