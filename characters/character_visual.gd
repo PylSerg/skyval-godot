@@ -87,6 +87,9 @@ func set_attack_progress(progress: float) -> void:
     if _attack_active and has_lpc_character() and _external_body.visible:
         _external_body.call("set_attack_progress", progress)
 
+func uses_real_sword_slash() -> bool:
+    return has_lpc_character() and _external_body.visible and bool(_external_body.call("has_sword_slash_assets"))
+
 func end_attack() -> void:
     if not _attack_active:
         return
