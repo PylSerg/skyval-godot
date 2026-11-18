@@ -609,13 +609,34 @@ avatar remains as a missing-assets fallback.
 
 All in-game strings are in
 [localization/strings.json](localization/strings.json), currently Ukrainian
-and English. The `SkyvalLocale` service also owns the persistently saved
-`input_layout` preference. Both Layout (default Nintendo) and Language
-are available in the global Settings menu and stored in
-`user://skyval_settings.cfg`. Every UI action handler uses
-`SkyvalLocale.map_joy_button()` after raw gamepad press/release latching,
-so the same mappings apply to the title/pause menu, character/save lists,
-name entry, inventory, appearance editor and both chests.
+and English. `SkyvalLocale` persists the `input_layout` preference
+(Nintendo by default) alongside language in `user://skyval_settings.cfg`.
+
+**Global input gateway:** The `SkyvalInput` autoload
+(`ui/input_manager.gd`) is the **only scene-tree `_input()` handler**
+for native joypad buttons and motion. It converts physical A/B and X/Y
+to logical face buttons **once**, using the saved layout, then routes
+the normalized event only to the highest-priority active interface.
+The main menu can still respond to Start/R3 globally while playing.
+Button releases are broadcast to registered listeners to prevent
+stuck inputs if the UI changed on the press. If Layout is switched
+while a button is held, its release keeps the mapping from that press.
+
+**For every new menu or game feature:** Do NOT add local layout remaps,
+call `map_joy_button`, or implement a second native `_input` handler.
+Register the interface once with
+`get_node("/root/SkyvalInput").call("register_listener", self, priority)`,
+then implement `skyval_accepts_input(event: InputEvent) -> bool` and
+`handle_skyval_input(event: InputEvent) -> void`.
+The event contains **logical** `InputEventJoypadButton.button_index`
+values; match `JOY_BUTTON_A/B/X/Y` normally, independent of hardware.
+Suggested priorities: NameEntry 500, global menu 400, appearance 300,
+backpack 200, world interactions 100. `SkyvalInput` handles selection,
+routing and releases, and keeps the layout entirely out of feature code.
+World analog walking and camera look continue using their original
+`Input.get_joy_axis()` readings. The same normalized actions now apply
+to the title/pause menu, character/save lists, name entry, inventory,
+appearance editor and both chests.
 
 The LPC sprites remain outside Git in the user's local resource library.
 The initial PortMaster package copies only the LPC sprites currently
