@@ -14,10 +14,11 @@ const SLASH_FPS := 24.0
 const SLASH_FRAMES := [0, 1, 2, 3, 4, 5]
 const DIRECTIONS := ["s", "w", "e", "n"]
 const ROW_INDEX := [2, 1, 3, 0]
-# The six original LPC slash frames already animate the arms and torso.
-# Do not switch the avatar's facing while those frames play: that adds an
-# extra 90-degree turn and the snap back looks like a full body spin.
-# The camera-relative 180-degree sword sweep is handled in combat VFX.
+# Test only the SOUTH-facing attack first: SOUTH -> EAST -> SOUTH.
+# Turn for the two middle slash frames, then return before the attack ends.
+# All other directions keep their original LPC slash animations.
+const SOUTH_TURN_START_FRAME := 2
+const SOUTH_TURN_END_FRAME := 4
 # East-facing right hand is on the near side of the body sprite. The
 # generic iron sword atlas seats its grip too far forward in this pose.
 # Move only the sword artwork toward the visible hand; never swap W/E rows.
@@ -667,6 +668,13 @@ func set_armor_style(new_style: String) -> bool:
     return false
 
 
+# This changes the drawn pose only. The combat facing (_direction) stays
+# fixed, so hit detection and the resting direction are unaffected.
+func _attack_visual_direction() -> int:
+    if _attacking and _direction == 0 and _attack_frame >= SOUTH_TURN_START_FRAME and _attack_frame < SOUTH_TURN_END_FRAME:
+        return 2  # EAST. In the S/W/E/N index, east = 2.
+    return _direction
+
 func start_attack(facing_direction: int) -> void:
     if not available:
         return
@@ -706,11 +714,16 @@ func set_attack_progress(progress: float) -> void:
     var frame_index: int = mini(int(_attack_progress * SLASH_FRAMES.size()),
         SLASH_FRAMES.size() - 1)
     if frame_index != _attack_frame:
+        var previous_visual_direction: int = _attack_visual_direction()
         _attack_frame = frame_index
+        if _attack_visual_direction() != previous_visual_direction:
+            # Change body, equipment and both weapon layers on the SAME frame.
+            # Frame 2: SOUTH -> EAST. Frame 4: EAST -> SOUTH.
+            _apply_animation(true)
         for sprite in _sprites:
             if not sprite.visible or sprite.sprite_frames == null:
                 continue
-            var slash_name: StringName = StringName("slash-%s" % DIRECTIONS[_direction])
+            var slash_name: StringName = StringName("slash-%s" % DIRECTIONS[_attack_visual_direction()])
             if sprite.animation != slash_name:
                 continue
             if sprite.sprite_frames.get_frame_count(slash_name) > frame_index:
@@ -752,7 +765,8 @@ func _apply_animation(restart_attack: bool = false) -> void:
     if _sprites.is_empty():
         return
     var action: String = "slash" if _attacking else ("walk" if _walking else "idle")
-    var animation: String = "%s-%s" % [action, DIRECTIONS[_direction]]
+    var visual_direction: int = _attack_visual_direction()
+    var animation: String = "%s-%s" % [action, DIRECTIONS[visual_direction]]
     for sprite in _sprites:
         var is_weapon: bool = str(sprite.name).begins_with("Weapon")
         var slash_weapon: bool = str(sprite.name).begins_with("WeaponSlash")
@@ -762,10 +776,10 @@ func _apply_animation(restart_attack: bool = false) -> void:
         # faces the camera, its right hand is on screen-left. Mirroring both
         # fg/bg weapon layers together preserves the grip and the depth split.
         # W/E and north sword sprites must remain unflipped.
-        sprite.flip_h = is_weapon and _direction == 0
+        sprite.flip_h = is_weapon and visual_direction == 0
         var sword_base_offset: Vector2 = Vector2(-64, -86) if slash_weapon else Vector2(-32, -54)
         if is_weapon:
-            sprite.offset = sword_base_offset + (EAST_SWORD_GRIP_OFFSET if _direction == 2 else Vector2.ZERO)
+            sprite.offset = sword_base_offset + (EAST_SWORD_GRIP_OFFSET if visual_direction == 2 else Vector2.ZERO)
         var use_oversize: bool = _attacking and _sword_slash_available
         if slash_weapon:
             sprite.visible = use_oversize
@@ -778,7 +792,7 @@ func _apply_animation(restart_attack: bool = false) -> void:
         # Standard arming sword atlas has idle/walk; the 128px overlays
         # provide slash frames when available.
         if regular_weapon and _attacking:
-            chosen_animation = "idle-%s" % DIRECTIONS[_direction]
+            chosen_animation = "idle-%s" % DIRECTIONS[visual_direction]
         # Don't restart the six-frame slash every physics frame.
         if restart_attack or sprite.animation != StringName(chosen_animation):
             sprite.play(chosen_animation)
