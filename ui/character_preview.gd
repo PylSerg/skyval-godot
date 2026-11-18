@@ -18,8 +18,9 @@ var facing: int = 0
 var scenic_mode: bool = false
 var framed_mode: bool = false
 
-# Keep actual 64x64 RGBA frame textures alive until the outfit changes.
-# This avoids GPU atlas-UV issues in the paused CanvasItem preview.
+# Keep a bounded LRU of 64x64 RGBA frame textures across equipment
+# changes, avoiding repeated atlas readbacks for unchanged LPC layers.
+# This also avoids the old AtlasTexture-UV portrait rendering issue.
 var _frame_cache: Dictionary = {}
 var _frame_cache_order: Array[int] = []
 # Reused SpriteFrames have stable instance IDs across armor try-ons.
