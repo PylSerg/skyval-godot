@@ -6,6 +6,7 @@ const TILE_SIZE := 16
 const GameMenuScript = preload("res://ui/game_menu.gd")
 const CharacterEditorScript = preload("res://ui/character_creator.gd")
 const TestChestScript = preload("res://world/test_chest.gd")
+const CombatScript = preload("res://game/combat_controller.gd")
 
 func _ready() -> void:
     # One source of truth for world boundaries.
@@ -27,6 +28,7 @@ func _ready() -> void:
     _ensure_test_chest()
     _ensure_armor_chest()
     _ensure_weapon_chest()
+    _ensure_combat()
 
 func _ensure_game_menu() -> void:
     if has_node("GameMenu"):
@@ -79,6 +81,16 @@ func _ensure_weapon_chest() -> void:
     # the already-existing clothing and armor chests on either side.
     chest.set("chest_spawn", Vector2(835, 620))
     add_child(chest)
+
+
+func _ensure_combat() -> void:
+    if has_node("CombatController"):
+        return
+    # Created after the game menu and chests so all gameplay systems
+    # already exist when the combat controller registers its input.
+    var combat: Node2D = CombatScript.new() as Node2D
+    combat.name = "CombatController"
+    add_child(combat)
 
 
 func _draw() -> void:
