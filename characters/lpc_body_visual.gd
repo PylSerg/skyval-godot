@@ -426,7 +426,8 @@ func _add_oversize_action(frames: SpriteFrames, atlas: Texture2D, action: String
         var animation: String = "%s-%s" % [action, DIRECTIONS[direction_index]]
         frames.add_animation(animation)
         frames.set_animation_loop(animation, false)
-        frames.set_animation_speed(animation, SLASH_FPS)
+        var fps: float = float(ONEHAND_FRAMES.size()) / 0.25 if action == "onehand" else SLASH_FPS
+        frames.set_animation_speed(animation, fps)
         var row_y: int = ROW_INDEX[direction_index] * OVERSIZE_CELL
         for frame_number in indices:
             var cell := AtlasTexture.new()
@@ -770,7 +771,7 @@ func _reset_sword_pose() -> void:
             sprite.position = Vector2.ZERO
 
 func has_sword_slash_assets() -> bool:
-    return weapon_style == "arming_iron" and _sword_slash_available
+    return weapon_style == "arming_iron" and (_sword_slash_available or _use_onehand_slash())
 
 func set_motion(direction: Vector2) -> void:
     if _attacking:
@@ -787,7 +788,9 @@ func _apply_animation(restart_attack: bool = false) -> void:
     if _sprites.is_empty():
         return
     var onehand_attack: bool = _use_onehand_slash()
-    var action: String = ("onehand" if onehand_attack else "slash") if _attacking else ("walk" if _walking else "idle")
+    var action: String = "walk" if _walking else "idle"
+    if _attacking:
+        action = "onehand" if onehand_attack else "slash"
     var visual_direction: int = _attack_visual_direction()
     var animation: String = "%s-%s" % [action, DIRECTIONS[visual_direction]]
     for sprite in _sprites:
