@@ -56,6 +56,9 @@ const FOOTWEAR_STYLES := [
 # Armor is drawn exclusively using authentic Universal LPC sheets.
 # Missing assets reject the equipment change instead of drawing fake armor.
 @export var armor_style: String = "none"
+# Arming sword uses genuine two-sided Universal LPC sheets, aligned to
+# the same 64px 4-direction walk/idle atlas as the body.
+@export var weapon_style: String = "none"
 @export var body_directory_override: String = ""
 
 signal clothing_changed(state: Dictionary)
@@ -231,6 +234,13 @@ func _load_appearance(skin: String) -> bool:
             if not vest_lining.is_empty():
                 layers.append({"name": "ArmorVestFront", "path": vest_lining, "z": 40, "required": false})
         layers.append({"name": "Armor", "path": armor_path, "z": 45, "required": true})
+    if weapon_style == "arming_iron":
+        # Official LPC arming sword has BOTH a behind-body layer (z=9)
+        # and a front-body layer (z=140). The variant is shared by both
+        # body types. Reuse our existing walk/idle animation pipeline.
+        var sword_root: String = root.path_join("weapon/sword/arming/universal")
+        layers.append({"name": "WeaponBack", "path": sword_root.path_join("bg/iron.png"), "z": 9, "required": true})
+        layers.append({"name": "WeaponFront", "path": sword_root.path_join("fg/iron.png"), "z": 140, "required": true})
 
     # Stage and validate only the changed layers. Existing sprites are
     # reused untouched, including their playing animation and atlas.
@@ -794,6 +804,7 @@ func export_appearance_state() -> Dictionary:
         "pants_style": pants_style,
         "footwear_style": footwear_style,
         "armor_style": armor_style,
+        "weapon_style": weapon_style,
     }
 
 
@@ -814,6 +825,7 @@ func apply_appearance_state(saved: Dictionary) -> bool:
         "pants_style": PANTS_STYLES,
         "footwear_style": FOOTWEAR_STYLES,
         "armor_style": ["none", "leather_vest", "reinforced_vest", "plate_cuirass"],
+        "weapon_style": ["none", "arming_iron"],
     }
     for key in supported:
         if saved.has(key) and supported[key].has(saved[key]):
@@ -841,6 +853,7 @@ func reset_appearance_state() -> void:
         "pants_style": "pants",
         "footwear_style": "boots/basic",
         "armor_style": "none",
+        "weapon_style": "none",
     })
 
 
