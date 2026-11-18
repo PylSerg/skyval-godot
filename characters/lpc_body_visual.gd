@@ -8,17 +8,18 @@ extends Node2D
 const CELL := 64
 const IDLE_Y := 1408
 const WALK_Y := 512
-const SLASH_Y := 768  # Universal LPC slash: rows 12-15 (N, W, S, E)
+const SLASH_Y := 768  # Universal LPC classic slash, 6 frames
+const ONEHAND_Y := 2944  # LPC Revised 1-Handed Slash uses backslash row 46
+const ONEHAND_FRAMES := [0, 1, 2, 3, 4, 5, 6]
 const OVERSIZE_CELL := 128
 const SLASH_FPS := 24.0
 const SLASH_FRAMES := [0, 1, 2, 3, 4, 5]
 const DIRECTIONS := ["s", "w", "e", "n"]
 const ROW_INDEX := [2, 1, 3, 0]
-# Test only the SOUTH-facing attack first: SOUTH -> EAST -> SOUTH.
-# Turn for the two middle slash frames, then return before the attack ends.
-# All other directions keep their original LPC slash animations.
-const SOUTH_TURN_START_FRAME := 2
-const SOUTH_TURN_END_FRAME := 4
+# Test SOUTH -> EAST -> SOUTH only. Keep the previous turning moments
+# (one-third and two-thirds of the swing) even with seven 1H frames.
+const SOUTH_TURN_START_PROGRESS := 1.0 / 3.0
+const SOUTH_TURN_END_PROGRESS := 2.0 / 3.0
 # East-facing right hand is on the near side of the body sprite. The
 # generic iron sword atlas seats its grip too far forward in this pose.
 # Move only the sword artwork toward the visible hand; never swap W/E rows.
@@ -94,6 +95,7 @@ var _direction: int = 0
 var _walking: bool = false
 var _attacking: bool = false
 var _sword_slash_available: bool = false
+var _onehand_slash_available: bool = false
 var _attack_progress: float = 0.0
 var _attack_frame: int = -1  # Shared frame across body, armor and both sword layers.
 var _reported_sword_fallback: bool = false
@@ -263,6 +265,12 @@ func _load_appearance(skin: String) -> bool:
         var attack_root: String = root.path_join("weapon/sword/arming/attack_slash")
         layers.append({"name": "WeaponSlashBack", "path": attack_root.path_join("bg/iron.png"), "z": 8, "required": false})
         layers.append({"name": "WeaponSlashFront", "path": attack_root.path_join("fg/iron.png"), "z": 150, "required": false})
+        # The classic slash pose moves the opposite hand. Universal LPC's
+        # revised 1-Handed Slash uses the first seven backslash frames,
+        # paired with the authentic 128px Arming Sword backslash layers.
+        var onehand_root: String = root.path_join("weapon/sword/arming/attack_backslash")
+        layers.append({"name": "WeaponOneHandBack", "path": onehand_root.path_join("bg/iron.png"), "z": 8, "required": false})
+        layers.append({"name": "WeaponOneHandFront", "path": onehand_root.path_join("fg/iron.png"), "z": 150, "required": false})
 
     # Stage and validate only the changed layers. Existing sprites are
     # reused untouched, including their playing animation and atlas.
@@ -294,8 +302,9 @@ func _load_appearance(skin: String) -> bool:
             continue
 
         var atlas: Texture2D = _load_texture(path)
-        var oversized: bool = layer_name.begins_with("WeaponSlash")
-        var min_width: int = SLASH_FRAMES.size() * OVERSIZE_CELL if oversized else 9 * CELL
+        var oversized: bool = layer_name.begins_with("WeaponSlash") or layer_name.begins_with("WeaponOneHand")
+        var oversized_frames: int = ONEHAND_FRAMES.size() if layer_name.begins_with("WeaponOneHand") else SLASH_FRAMES.size()
+        var min_width: int = oversized_frames * OVERSIZE_CELL if oversized else 9 * CELL
         var min_height: int = 4 * OVERSIZE_CELL if oversized else IDLE_Y + 4 * CELL
         if atlas == null or atlas.get_width() < min_width or atlas.get_height() < min_height:
             if bool(layer["required"]):
@@ -338,6 +347,12 @@ func _load_appearance(skin: String) -> bool:
     # Never hide the existing sword unless BOTH oversize slash sprites
     # were really loaded from the user's LPC library.
     _sword_slash_available = next_paths.has("WeaponSlashBack") and next_paths.has("WeaponSlashFront")
+    _onehand_slash_available = next_paths.has("WeaponOneHandBack") and next_paths.has("WeaponOneHandFront")
+    # Do not select the revised attack unless the body actually contains its
+    # source animation. Legacy/short LPC atlases retain the original slash.
+    for body_layer in _sprites:
+        if str(body_layer.name) == "Body" and (body_layer.sprite_frames == null or not body_layer.sprite_frames.has_animation("onehand-s")):
+            _onehand_slash_available = false
     if weapon_style == "arming_iron" and not _sword_slash_available and not _reported_sword_fallback:
         push_warning("Skyval LPC: sword attack_slash/bg + fg missing or invalid; using animated equipped-sword fallback.")
         _reported_sword_fallback = true
@@ -362,7 +377,7 @@ func _build_layer(label: String, layer_z: int, atlas: Texture2D, path: String, c
     var sprite := AnimatedSprite2D.new()
     sprite.name = label
     sprite.centered = false
-    var oversized: bool = label.begins_with("WeaponSlash")
+    var oversized: bool = label.begins_with("WeaponSlash") or label.begins_with("WeaponOneHand")
     # Align the larger attack sprites with the same character pivot.
     sprite.offset = Vector2(-64, -86) if oversized else Vector2(-32, -54)
     sprite.z_index = layer_z
@@ -376,11 +391,16 @@ func _build_layer(label: String, layer_z: int, atlas: Texture2D, path: String, c
         if frames.has_animation("default"):
             frames.remove_animation("default")
         if oversized:
-            _add_oversize_slash(frames, atlas)
+            if label.begins_with("WeaponOneHand"):
+                _add_oversize_action(frames, atlas, "onehand", ONEHAND_FRAMES)
+            else:
+                _add_oversize_action(frames, atlas, "slash", SLASH_FRAMES)
         else:
             _add_action(frames, atlas, "idle", IDLE_Y, IDLE_FRAMES, 3.0)
             _add_action(frames, atlas, "walk", WALK_Y, WALK_FRAMES, 9.0)
             _add_action(frames, atlas, "slash", SLASH_Y, SLASH_FRAMES, SLASH_FPS)
+            if atlas.get_width() >= 13 * CELL and atlas.get_height() >= ONEHAND_Y + 4 * CELL:
+                _add_action(frames, atlas, "onehand", ONEHAND_Y, ONEHAND_FRAMES, float(ONEHAND_FRAMES.size()) / 0.25)
         if label == "Armor" or label == "ArmorVestFront":
             _repair_armor_idle_frames(frames, atlas)
             _remember_armor_frames(label, path, frames)
@@ -392,7 +412,7 @@ func _add_action(frames: SpriteFrames, atlas: Texture2D, action: String, start_y
     for direction_index in range(4):
         var animation: String = "%s-%s" % [action, DIRECTIONS[direction_index]]
         frames.add_animation(animation)
-        frames.set_animation_loop(animation, action != "slash")
+        frames.set_animation_loop(animation, action != "slash" and action != "onehand")
         frames.set_animation_speed(animation, fps)
         var row_y: int = start_y + ROW_INDEX[direction_index] * CELL
         for frame_number in indices:
@@ -401,17 +421,17 @@ func _add_action(frames: SpriteFrames, atlas: Texture2D, action: String, start_y
             cell.region = Rect2(int(frame_number) * CELL, row_y, CELL, CELL)
             frames.add_frame(animation, cell)
 
-func _add_oversize_slash(frames: SpriteFrames, atlas: Texture2D) -> void:
+func _add_oversize_action(frames: SpriteFrames, atlas: Texture2D, action: String, indices: Array) -> void:
     for direction_index in range(4):
-        var animation: String = "slash-%s" % DIRECTIONS[direction_index]
+        var animation: String = "%s-%s" % [action, DIRECTIONS[direction_index]]
         frames.add_animation(animation)
         frames.set_animation_loop(animation, false)
         frames.set_animation_speed(animation, SLASH_FPS)
         var row_y: int = ROW_INDEX[direction_index] * OVERSIZE_CELL
-        for frame_number in SLASH_FRAMES:
+        for frame_number in indices:
             var cell := AtlasTexture.new()
             cell.atlas = atlas
-            cell.region = Rect2(frame_number * OVERSIZE_CELL, row_y, OVERSIZE_CELL, OVERSIZE_CELL)
+            cell.region = Rect2(int(frame_number) * OVERSIZE_CELL, row_y, OVERSIZE_CELL, OVERSIZE_CELL)
             frames.add_frame(animation, cell)
 
 # Some Universal LPC armor atlases have complete walk frames but
@@ -671,12 +691,15 @@ func set_armor_style(new_style: String) -> bool:
 # This changes the drawn pose only. The combat facing (_direction) stays
 # fixed, so hit detection and the resting direction are unaffected.
 func _attack_visual_direction() -> int:
-    if _attacking and _direction == 0 and _attack_frame >= SOUTH_TURN_START_FRAME and _attack_frame < SOUTH_TURN_END_FRAME:
+    if _attacking and _direction == 0 and _attack_progress >= SOUTH_TURN_START_PROGRESS and _attack_progress < SOUTH_TURN_END_PROGRESS:
         # Use the actual east-facing LPC row. Slash begins at Y=768,
         # not Y=704; the old offset made east/west appear swapped.
         # Keep this turn exclusive to the south-facing test.
         return 2
     return _direction
+
+func _use_onehand_slash() -> bool:
+    return _attacking and _direction == 0 and _onehand_slash_available
 
 func start_attack(facing_direction: int) -> void:
     if not available:
@@ -708,36 +731,32 @@ func end_attack() -> void:
 func set_attack_progress(progress: float) -> void:
     if not _attacking:
         return
+    var old_visual_direction: int = _attack_visual_direction()
     _attack_progress = clampf(progress, 0.0, 1.0)
-
-    # LPC body, clothes, armor and sword all have the same six slash
-    # frames. AnimatedSprite2D nodes can otherwise advance one frame apart
-    # on a low-FPS handheld, making the blade jump between the hands.
-    # Drive them from ONE combat timer, not their individual play clocks.
-    var frame_index: int = mini(int(_attack_progress * SLASH_FRAMES.size()),
-        SLASH_FRAMES.size() - 1)
-    if frame_index != _attack_frame:
-        var previous_visual_direction: int = _attack_visual_direction()
+    var new_visual_direction: int = _attack_visual_direction()
+    var action: String = "onehand" if _use_onehand_slash() else "slash"
+    var frame_count: int = ONEHAND_FRAMES.size() if _use_onehand_slash() else SLASH_FRAMES.size()
+    var frame_index: int = mini(int(_attack_progress * frame_count), frame_count - 1)
+    # Turning SOUTH -> EAST -> SOUTH is independent of sprite frame count.
+    # Preserve the previously confirmed turn timing and synchronize all layers.
+    if old_visual_direction != new_visual_direction:
+        _apply_animation(true)
+    if frame_index != _attack_frame or old_visual_direction != new_visual_direction:
         _attack_frame = frame_index
-        if _attack_visual_direction() != previous_visual_direction:
-            # Change body, equipment and both weapon layers on the SAME frame.
-            # Frame 2: SOUTH -> EAST. Frame 4: EAST -> SOUTH.
-            _apply_animation(true)
+        var attack_name: StringName = StringName("%s-%s" % [action, DIRECTIONS[new_visual_direction]])
         for sprite in _sprites:
             if not sprite.visible or sprite.sprite_frames == null:
                 continue
-            var slash_name: StringName = StringName("slash-%s" % DIRECTIONS[_attack_visual_direction()])
-            if sprite.animation != slash_name:
+            if sprite.animation != attack_name:
                 continue
-            if sprite.sprite_frames.get_frame_count(slash_name) > frame_index:
+            if sprite.sprite_frames.get_frame_count(attack_name) > frame_index:
                 sprite.pause()
                 sprite.set_frame_and_progress(frame_index, 0.0)
 
-    if _sword_slash_available:
+    if _sword_slash_available or _use_onehand_slash():
         return
 
-    # Missing authentic slash art: preserve the native idle grip.
-    # A tiny vertical bob is safe; lateral movement is not.
+    # Missing oversize sword art: preserve the existing right-hand grip.
     var lift: float = sin(_attack_progress * PI) * 2.0
     for sprite in _sprites:
         if str(sprite.name) == "WeaponBack" or str(sprite.name) == "WeaponFront":
@@ -767,31 +786,39 @@ func set_motion(direction: Vector2) -> void:
 func _apply_animation(restart_attack: bool = false) -> void:
     if _sprites.is_empty():
         return
-    var action: String = "slash" if _attacking else ("walk" if _walking else "idle")
+    var onehand_attack: bool = _use_onehand_slash()
+    var action: String = ("onehand" if onehand_attack else "slash") if _attacking else ("walk" if _walking else "idle")
     var visual_direction: int = _attack_visual_direction()
     var animation: String = "%s-%s" % [action, DIRECTIONS[visual_direction]]
     for sprite in _sprites:
         var is_weapon: bool = str(sprite.name).begins_with("Weapon")
         var slash_weapon: bool = str(sprite.name).begins_with("WeaponSlash")
-        var regular_weapon: bool = is_weapon and not slash_weapon
+        var onehand_weapon: bool = str(sprite.name).begins_with("WeaponOneHand")
+        var regular_weapon: bool = is_weapon and not slash_weapon and not onehand_weapon
         # Keep LPC's native frame direction for every character layer.
         # Only the south-facing iron sword is mirrored: when the avatar
         # faces the camera, its right hand is on screen-left. Mirroring both
         # fg/bg weapon layers together preserves the grip and the depth split.
         # W/E and north sword sprites must remain unflipped.
-        sprite.flip_h = is_weapon and visual_direction == 0
-        var sword_base_offset: Vector2 = Vector2(-64, -86) if slash_weapon else Vector2(-32, -54)
+        sprite.flip_h = is_weapon and visual_direction == 0 and not onehand_weapon
+        var sword_base_offset: Vector2 = Vector2(-64, -86) if (slash_weapon or onehand_weapon) else Vector2(-32, -54)
         if is_weapon:
             sprite.offset = sword_base_offset + (EAST_SWORD_GRIP_OFFSET if visual_direction == 2 else Vector2.ZERO)
-        var use_oversize: bool = _attacking and _sword_slash_available
-        if slash_weapon:
+        var use_oversize: bool = _attacking and _sword_slash_available and not onehand_attack
+        if onehand_weapon:
+            sprite.visible = onehand_attack
+        elif slash_weapon:
             sprite.visible = use_oversize
         elif regular_weapon:
-            sprite.visible = not use_oversize
+            sprite.visible = not (use_oversize or onehand_attack)
         if not sprite.visible:
             sprite.pause()  # Invisible sword frames must not drift out of sync.
             continue
         var chosen_animation: String = animation
+        # Older accessories may lack the revised backslash row. Use the
+        # classical pose as a visual fallback instead of blanking the layer.
+        if not is_weapon and onehand_attack and not sprite.sprite_frames.has_animation(chosen_animation):
+            chosen_animation = "slash-%s" % DIRECTIONS[visual_direction]
         # Standard arming sword atlas has idle/walk; the 128px overlays
         # provide slash frames when available.
         if regular_weapon and _attacking:
