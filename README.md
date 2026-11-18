@@ -243,6 +243,38 @@ On R36H the PortMaster launcher uses
 The `saves/` folder is ignored by Git and is created automatically.
 The UI language stays in `user://skyval_settings.cfg`.
 
+## Prototype combat (R36H / native controller)
+
+The first playable battle loop runs entirely in the 320×240 test world,
+without extra LPC imports. The controller is created automatically from
+`game/combat_controller.gd`; its two lightweight slime enemies live in
+`world/training_enemy.gd` and appear at world positions **(724, 612)**
+and **(980, 646)**, to the south/east of the prototype house.
+
+**Y** attacks in the direction the character last walked, with the
+Nintendo/Standard button translation handled once by `SkyvalInput`.
+The laptop keyboard equivalent is **J**. **A** still opens nearby
+chests. Attacks never trigger while an inventory, chest, menu, appearance
+editor or naming dialog is open. A short visible slash is drawn without
+loading new atlases; a forward cone/circle hurtbox resolves impact
+**once per swing** and a small cooldown prevents input spam.
+
+Unarmed attacks deal **1 damage**, reach **23 px**; the previously found
+**iron sword** deals **3 damage**, reaches **36 px**. Each slime has
+**9 HP**, approaches the player when close, delivers **1 damage** on
+contact with its own cooldown, reacts to hits, and reappears after
+**7 seconds**. The player has **20 HP** with a brief invulnerability
+window after each hit. A training knockout returns the player to the
+original spawn point at full health **without losing equipment**.
+
+A minimal readable HP / attack-hint overlay appears during gameplay.
+**Only player HP** is included in Quick Save and manual Save, alongside
+the existing player/inventory state. Earlier saves start with 20 HP.
+Slimes reset on load or new game and respawn during the current session;
+they are training enemies, not persistent quest progress. Combat never
+autosaves. This is a first test system, not yet a full RPG skill or
+weapon-type system.
+
 ## Test chests, backpack and equipped gear
 
 Three test chests are instantiated around the prototype house:
