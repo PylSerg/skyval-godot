@@ -243,11 +243,11 @@ On R36H the PortMaster launcher uses
 The `saves/` folder is ignored by Git and is created automatically.
 The UI language stays in `user://skyval_settings.cfg`.
 
-## Test chest, backpack and equipped clothing
+## Test chests, backpack and equipped gear
 
-Two test chests are instantiated in code on opposite sides of the
-prototype house: **Clothing** (brown) at **(905, 554)** and **Armor**
-(blue-steel) at **(745, 554)**. Walk close until the **A** prompt appears.
+Three test chests are instantiated around the prototype house:
+**Clothing** (brown) at **(905, 554)**, **Armor** (blue-steel)
+at **(745, 554)**, and **Weapons** (copper) at **(835, 620)**. Walk close until the **A** prompt appears.
 Press **A** to open it. Use D-pad up/down or the left stick to navigate.
 Press **A** on an item to mark/unmark it, then navigate to
 **Take selected / Забрати вибране** and press **A** to transfer *only*
@@ -267,8 +267,9 @@ The **armor chest** contains three distinct pieces: a leather vest
 (**Light armor +2**), reinforced vest (**Light armor +3**) and plate
 cuirass (**Heavy armor +5**). Neither chest grants items at startup:
 loot must be selected with A or collected all at once with X. Each
-chest is depleted and persisted independently. Items are unique and
-are never generated merely by cycling clothing or armor selectors.
+chest is depleted and persisted independently. The third chest contains
+one **Iron Sword / Залізний меч** (attack +3). Items are unique and
+are never generated merely by cycling clothing, armor or weapon selectors.
 
 Open the backpack with Select/L3. **Every opening resets to the first
 tab, Clothing / Одяг, with Head / Голова selected as the first field
@@ -277,8 +278,9 @@ The horizontally scrollable tabs are **Clothing / Одяг**,
 **Armor / Броня**, and **Weapons / Зброя**.
 Switch with L1/R1 or select the tabs by mouse/touch; page contents slide
 horizontally while the 3× portrait stays fixed. Tab navigation is **bounded**:
-L1 on the first tab or R1 on the last tab does nothing. **Weapons** remains
-an empty placeholder.
+L1 on the first tab or R1 on the last tab does nothing. **Weapons** now
+contains the **Main hand / Права рука** field, with an independent sword
+selector. The sword starts in its chest, not in the player's backpack.
 
 **Clothing and Armor have the same five field positions**, in order:
 **Head / Голова**, **Top / Верх**, **Bottom / Низ**,
@@ -314,8 +316,8 @@ ownership and the actual avatar; it does not save progress. Each row retains
 a `current/total` counter that follows the previewed item. The **single
 value selector** shows only the currently selected field and uses
 14px-wide arrow controls and a clipped, horizontally scrolling item name
-when necessary. The Weapons tab still shows its empty-category message
-without a useless selector. The portrait is drawn at **3×**, rotates by
+when necessary. The Weapons tab uses the same selector and preview
+for the sword, and displays **Attack / Атака +3** when equipped. The portrait is drawn at **3×**, rotates by
 90° with the right stick, and keeps the armor-class/value text below a
 gold separator. When browsing an item, the panel shows the **projected**
 armor and its change in parentheses, e.g. `+5 (+3)` or `+2 (-3)`.
@@ -359,7 +361,7 @@ Unobtainable clothes or armor are not silently added.
 
 Taking items and equipping gear only change the live session. Those
 changes are written when the player explicitly chooses Save or Quick
-Save. The backpack, equipped slots and **both chests'** remaining contents
+Save. The backpack, equipped slots and **all three chests'** remaining contents
 are included in each explicit save; the original creation profile remains
 untouched. The inventory subsystem still supports missing legacy fields
 if a profile was converted externally; automatic migration from the
@@ -650,7 +652,7 @@ routing and releases, and keeps the layout entirely out of feature code.
 World analog walking and camera look continue using their original
 `Input.get_joy_axis()` readings. The same normalized actions now apply
 to the title/pause menu, character/save lists, name entry, inventory,
-appearance editor and both chests.
+appearance editor and all three chests.
 
 The LPC sprites remain outside Git in the user's local resource library.
 The initial PortMaster package copies only the LPC sprites currently
@@ -669,13 +671,16 @@ bash tools/build_to_ssh.sh
 ```
 
 The default SSH target is `ark@192.168.0.162`. You can override it with
-`bash tools/build_to_ssh.sh ark@OTHER_IP` if the address changes. This independent script reuses the same
-Godot PortMaster exporter, creates **no ZIP**, and sends **only** the
-launcher and `skyval.pck` in one SSH session. It automatically locates
+`bash tools/build_to_ssh.sh ark@OTHER_IP` if the address changes.
+By default, this script builds and sends only the launcher and
+`skyval.pck` in one SSH session, without ZIP. For the first iron-sword
+deployment, run `bash tools/build_to_ssh.sh --sword-assets` to include
+**only two real LPC iron sword sheets**, and use the ordinary command
+for all later code updates. The script automatically locates
 `/roms/ports` or `/roms2/ports` on ArkOS, checks the existing install,
 then atomically replaces the finished files. It does not touch LPC
-resources, saves or configuration. For new art, use the separate
-`build_to_sd.sh --full-assets` workflow. Full details:
+resources, saves or configuration in normal mode. For other new art,
+use the separate `build_to_sd.sh --full-assets` workflow. Full details:
 [portmaster/README.md](portmaster/README.md).
 
 ## Build directly to the EASYROMS SD card
