@@ -5,7 +5,7 @@
 # Examples:
 #   bash tools/build_to_ssh.sh 192.168.1.42
 #   bash tools/build_to_ssh.sh ark@192.168.1.42
-#   SKYVAL_SSH_TARGET=ark@rg351mp.local bash tools/build_to_ssh.sh
+#   SKYVAL_SSH_TARGET=ark@192.168.0.162 bash tools/build_to_ssh.sh
 #
 # The user must quit Skyval on the console before running this update.
 set -euo pipefail
@@ -18,7 +18,7 @@ if [ "$#" -gt 1 ]; then
     exit 2
 fi
 
-TARGET="${SKYVAL_SSH_TARGET:-ark@rg351mp.local}"
+TARGET="${SKYVAL_SSH_TARGET:-ark@192.168.0.162}"
 if [ "$#" -eq 1 ]; then
     case "$1" in
         *@*) TARGET="$1" ;;
