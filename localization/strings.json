@@ -176,7 +176,7 @@
     "inventory.equip_hint": "A: Екіпірувати",
     "menu.confirm_accept": "Підтвердити",
     "menu.confirm_cancel": "Скасувати",
-    "combat.hp": "Здоров'я",
+    "combat.hp": "HP",
     "combat.sword_hint": "Y: Меч",
     "combat.fist_hint": "Y: Удар"
   },
