@@ -20,6 +20,8 @@ const ITEMS := {
     "leather_vest": {"slot": "armor", "style": "leather_vest", "label": "item.leather_vest", "armor_class": "light", "armor_value": 2},
     "reinforced_vest": {"slot": "armor", "style": "reinforced_vest", "label": "item.reinforced_vest", "armor_class": "light", "armor_value": 3},
     "plate_cuirass": {"slot": "armor", "style": "plate_cuirass", "label": "item.plate_cuirass", "armor_class": "heavy", "armor_value": 5},
+    # Authentic Universal LPC arming sword, iron variant (back + front).
+    "iron_sword": {"slot": "weapon", "style": "arming_iron", "label": "item.iron_sword", "attack_value": 3, "armor_class": "cloth", "armor_value": 0},
 }
 # Armor classes are data, not inferred from garment sprite paths.
 # Future LPC armor pieces will declare their own class and protection
@@ -44,6 +46,7 @@ const TEST_ARMOR_CHEST_ITEMS := [
     "reinforced_vest",
     "plate_cuirass",
 ]
+const TEST_WEAPON_CHEST_ITEMS := ["iron_sword"]
 
 # Five matching equipment areas in Clothing and Armor. Existing saved
 # names stay unchanged (shirt/pants/footwear/armor); the empty extra
@@ -59,16 +62,19 @@ const EQUIPMENT_FIELD_SLOTS := {
     "armor_bottom": "armor_bottom",
     "armor_hands": "armor_hands",
     "armor_feet": "armor_feet",
+    "weapon_mainhand": "weapon",
 }
 const EMPTY_EQUIPMENT := {
     "shirt": "", "pants": "", "footwear": "", "armor": "",
     "clothes_head": "", "clothes_hands": "",
     "armor_head": "", "armor_bottom": "", "armor_hands": "", "armor_feet": "",
+    "weapon": "",
 }
 
 var _bag: Array[String] = []
 var _chest: Array[String] = []
 var _armor_chest: Array[String] = []
+var _weapon_chest: Array[String] = []
 var _equipped: Dictionary = EMPTY_EQUIPMENT.duplicate()
 
 
@@ -84,6 +90,9 @@ func reset_for_new_game(body_type: String = "male") -> void:
     _armor_chest.clear()
     for item_id in TEST_ARMOR_CHEST_ITEMS:
         _armor_chest.append(item_id)
+    _weapon_chest.clear()
+    for item_id in TEST_WEAPON_CHEST_ITEMS:
+        _weapon_chest.append(item_id)
     set_starter_equipment(body_type)
 
 
@@ -103,7 +112,12 @@ func get_chest() -> Array[String]:
 
 
 func get_chest_items(chest_kind: String = "clothes") -> Array[String]:
-    return _armor_chest.duplicate() if chest_kind == "armor" else _chest.duplicate()
+    match chest_kind:
+        "armor":
+            return _armor_chest.duplicate()
+        "weapon":
+            return _weapon_chest.duplicate()
+    return _chest.duplicate()
 
 
 func get_equipped(slot: String) -> String:
@@ -112,6 +126,14 @@ func get_equipped(slot: String) -> String:
 
 func get_item(item_id: String) -> Dictionary:
     return ITEMS.get(item_id, {})
+
+
+func get_item_attack(item_id: String) -> int:
+    return maxi(int(get_item(item_id).get("attack_value", 0)), 0)
+
+
+func get_total_attack() -> int:
+    return get_item_attack(get_equipped("weapon"))
 
 
 # The right-hand character portrait uses these summaries for the
@@ -221,6 +243,7 @@ func get_save_state() -> Dictionary:
         "bag": _bag.duplicate(),
         "chest": _chest.duplicate(),
         "armor_chest": _armor_chest.duplicate(),
+        "weapon_chest": _weapon_chest.duplicate(),
         "equipped": _equipped.duplicate(),
     }
 
@@ -236,6 +259,9 @@ func load_save_state(data: Variant, avatar: Node) -> void:
         _armor_chest.clear()
         for item_id in TEST_ARMOR_CHEST_ITEMS:
             _armor_chest.append(item_id)
+        _weapon_chest.clear()
+        for item_id in TEST_WEAPON_CHEST_ITEMS:
+            _weapon_chest.append(item_id)
         _equipped = EMPTY_EQUIPMENT.duplicate()
         _infer_legacy_equipment(avatar)
         changed.emit()
@@ -246,6 +272,7 @@ func load_save_state(data: Variant, avatar: Node) -> void:
     var bag: Array[String] = []
     var chest: Array[String] = []
     var armor_chest: Array[String] = []
+    var weapon_chest: Array[String] = []
     var equipment: Dictionary = EMPTY_EQUIPMENT.duplicate()
 
     var saved_equipment: Variant = raw.get("equipped", {})
@@ -283,6 +310,16 @@ func load_save_state(data: Variant, avatar: Node) -> void:
                 armor_chest.append(armor_id)
                 used[armor_id] = true
 
+    # Introduce the new weapon chest to old saves exactly once. A sword
+    # already held or equipped must never be duplicated.
+    var saved_weapon_chest: Variant = raw.get("weapon_chest", TEST_WEAPON_CHEST_ITEMS)
+    if saved_weapon_chest is Array:
+        for value in saved_weapon_chest:
+            var weapon_id: String = str(value)
+            if TEST_WEAPON_CHEST_ITEMS.has(weapon_id) and not used.has(weapon_id):
+                weapon_chest.append(weapon_id)
+                used[weapon_id] = true
+
     # Migrate older saves that allowed torso clothing and armor together.
     # Armor takes precedence; a displaced shirt becomes owned bag loot.
     if not str(equipment["armor"]).is_empty() and not str(equipment["shirt"]).is_empty():
@@ -292,7 +329,16 @@ func load_save_state(data: Variant, avatar: Node) -> void:
     _bag = bag
     _chest = chest
     _armor_chest = armor_chest
+    _weapon_chest = weapon_chest
     _equipped = equipment
+    if not get_equipped("weapon").is_empty():
+        # Restore independently from the LPC base and armor.
+        if not _apply_weapon_to_avatar(avatar, get_equipped("weapon")):
+            var missing_weapon: String = get_equipped("weapon")
+            _equipped["weapon"] = ""
+            if not _bag.has(missing_weapon):
+                _bag.append(missing_weapon)
+            _apply_weapon_to_avatar(avatar, "")
     if not get_equipped("armor").is_empty():
         # If a save references missing art, keep that armor as an owned
         # item rather than claiming it is worn without a visible sprite.
@@ -323,7 +369,12 @@ func _infer_legacy_equipment(avatar: Node) -> void:
 
 
 func take_from_chest(requested: Array[String], chest_kind: String = "clothes") -> int:
-    var source: Array[String] = _armor_chest if chest_kind == "armor" else _chest
+    var source: Array[String] = _chest
+    match chest_kind:
+        "armor":
+            source = _armor_chest
+        "weapon":
+            source = _weapon_chest
     var count: int = 0
     for item_id in requested:
         if source.has(item_id) and not _bag.has(item_id):
@@ -489,6 +540,11 @@ func cycle_armor(direction: int, avatar: Node) -> bool:
 
 # One LPC rebuild applies BOTH layers in a single, validated step.
 # No intermediate frame with overlapping shirt and armor is rendered.
+func _apply_weapon_to_avatar(avatar: Node, item_id: String) -> bool:
+    var style: String = str(get_item(item_id).get("style", "none"))
+    return _apply_lpc_changes(avatar, {"weapon_style": style})
+
+
 func _apply_armor_to_avatar(avatar: Node, item_id: String) -> bool:
     var style: String = str(get_item(item_id).get("style", "none"))
     var changes: Dictionary = {"armor_style": style}
@@ -516,6 +572,9 @@ func equip(item_id: String, avatar: Node) -> bool:
     # remain equipped. All mutations happen AFTER the LPC validation.
     if slot == "armor":
         if not _apply_armor_to_avatar(avatar, item_id):
+            return false
+    elif slot == "weapon":
+        if not _apply_weapon_to_avatar(avatar, item_id):
             return false
     elif slot in ["shirt", "pants", "footwear"]:
         if not _apply_to_avatar(avatar, slot, item):
@@ -546,6 +605,9 @@ func unequip(slot: String, avatar: Node) -> bool:
         return false
     if slot == "armor":
         if not _apply_armor_to_avatar(avatar, ""):
+            return false
+    elif slot == "weapon":
+        if not _apply_weapon_to_avatar(avatar, ""):
             return false
     elif not _apply_to_avatar(avatar, slot, {"style": "none"}):
         return false
