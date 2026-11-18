@@ -672,7 +672,10 @@ func set_armor_style(new_style: String) -> bool:
 # fixed, so hit detection and the resting direction are unaffected.
 func _attack_visual_direction() -> int:
     if _attacking and _direction == 0 and _attack_frame >= SOUTH_TURN_START_FRAME and _attack_frame < SOUTH_TURN_END_FRAME:
-        return 2  # EAST. In the S/W/E/N index, east = 2.
+        # The actual LPC attack sheet displays the intended east-facing
+        # pose from direction index 1 on the console (index 2 looked west).
+        # This correction is ONLY for the SOUTH-facing attack test.
+        return 1
     return _direction
 
 func start_attack(facing_direction: int) -> void:
