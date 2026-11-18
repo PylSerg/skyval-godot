@@ -45,18 +45,36 @@ use an SSH config alias.
 --no-zip` exports a fresh PCK locally. A single SSH connection (usually
 one password prompt) streams **only `Skyval.sh` and
 `skyval/skyval.pck`**, finds the already-installed game in
-`/roms/ports` or `/roms2/ports`, stages both files on the console
+`/roms/ports` or `/roms2/ports`, stages the files on the console,
 and renames them into place after a successful transfer. Identical files
 are skipped. No ZIP, LPC sprites, saves, configurations or game logs are
-copied, removed or replaced. The script fails safely if the existing
-installation or writable SD path cannot be found; it never creates a
-second Skyval installation.
+copied, removed or replaced in this default mode. The script fails
+safely if the existing installation or writable SD path cannot be found;
+it never creates a second Skyval installation.
 
-When **new LPC sprite files** are introduced, use the separate SD
-workflow `bash tools/build_to_sd.sh --full-assets` to transfer the
-selected assets (or copy those specific files another way). The SSH
-script is intentionally **code-only**, protecting the large resource
-library from unintended bulk transfers.
+**Iron sword first install:** The new Weapons chest uses the authentic
+Universal LPC arming sword, iron variant, which has two atlas layers:
+`weapon/sword/arming/universal/bg/iron.png` and
+`weapon/sword/arming/universal/fg/iron.png`. If these sprites were
+not included in the original SD asset copy, install them **once**
+without removing the card:
+
+```bash
+bash tools/build_to_ssh.sh --sword-assets
+```
+
+This sends exactly **two extra PNGs**, taken from the local
+`~/Godot/res/addons/Universal_LPC/resources/spritesheets/` library
+(or the `LPC_SPRITES_ROOT` override). They are checked and staged before
+the new PCK is activated, and unchanged files are skipped. The existing
+other ~45,000 LPC files, saves, configurations and logs are untouched.
+Afterward, return to the regular `bash tools/build_to_ssh.sh` for all
+code updates.
+
+For **other new LPC artwork**, use the separate
+`bash tools/build_to_sd.sh --full-assets` workflow to transfer the
+selected assets, or explicitly extend the SSH asset-list for a new
+equipment item.
 
 SSH access uses ArkOS credentials; the script never stores or embeds
 passwords. SSH keys may be configured separately if desired.
