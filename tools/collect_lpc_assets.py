@@ -133,6 +133,12 @@ def main() -> int:
         for image in sorted(lining.glob("*.png")):
             add(image.relative_to(root).as_posix(), "vest_lining")
 
+    # A two-layer iron arming sword is used by the new weapon chest.
+    # These authentic Universal LPC sheets use the same walk/idle frame
+    # positions as the base body; both halves are REQUIRED for equipping.
+    for part in ("bg", "fg"):
+        add(f"weapon/sword/arming/universal/{part}/iron.png", "weapon")
+
     missing = []
     copied = Counter()
     copied_bytes = 0
@@ -151,6 +157,10 @@ def main() -> int:
         f"{base}/{gender}/light.png"
         for gender in SHAPES
         for base in ("body/bodies", "head/heads/human")
+    ]
+    required += [
+        "weapon/sword/arming/universal/bg/iron.png",
+        "weapon/sword/arming/universal/fg/iron.png",
     ]
     unavailable = [relative for relative in required if not (args.destination / relative).is_file()]
     if unavailable:
