@@ -206,10 +206,14 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
     if _opened and Time.get_ticks_msec() < _ignore_presses_before_ms:
         return
 
+    # Track the original pressed button until release, then translate
+    # its face-button action according to Standard/Nintendo layout.
+    var action_button: int = int(_locale.call("map_joy_button", event.button_index))
+
     if not _opened:
         # Wardrobe is available only during gameplay, never over startup
         # menus or a standalone appearance creation session.
-        if not appearance_window and (event.button_index == JOY_BUTTON_BACK or event.button_index == JOY_BUTTON_LEFT_STICK):
+        if not appearance_window and (action_button == JOY_BUTTON_BACK or action_button == JOY_BUTTON_LEFT_STICK):
             var game_menu: Node = get_parent().get_node_or_null("GameMenu")
             var appearance_editor: Node = get_parent().get_node_or_null("AppearanceEditor")
             if game_menu != null and (bool(game_menu.call("is_open")) or not bool(game_menu.call("has_started_session"))):
@@ -228,7 +232,7 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
         # Appearance edits retain their own optional confirmation.
         # New-character creation advances directly with X, never A.
         if not _creation_mode:
-            match event.button_index:
+            match action_button:
                 JOY_BUTTON_A:
                     _accept_appearance()
                 JOY_BUTTON_B:
@@ -239,10 +243,10 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
         return
 
     # Start/R3 belongs to GameMenu, except while creating a new character.
-    if event.button_index == JOY_BUTTON_START or event.button_index == JOY_BUTTON_RIGHT_STICK:
+    if action_button == JOY_BUTTON_START or action_button == JOY_BUTTON_RIGHT_STICK:
         return
 
-    match event.button_index:
+    match action_button:
         JOY_BUTTON_BACK, JOY_BUTTON_LEFT_STICK:
             if not appearance_window:
                 _set_open(false)
