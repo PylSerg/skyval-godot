@@ -674,6 +674,12 @@ func end_attack() -> void:
     _attack_progress = 0.0
     _attack_frame = -1
     _reset_sword_pose()
+    # The sword returns to its right-hand resting grip after the swing.
+    # A hidden normal sword layer must not resume at a random idle frame.
+    for sprite in _sprites:
+        if str(sprite.name) == "WeaponBack" or str(sprite.name) == "WeaponFront":
+            if sprite.sprite_frames != null:
+                sprite.set_frame_and_progress(0, 0.0)
     _apply_animation()
 
 # A geometry-only fallback for LPC installations without 128px slash assets.
@@ -723,6 +729,9 @@ func _reset_sword_pose() -> void:
             sprite.rotation = 0.0
             sprite.position = Vector2.ZERO
 
+func has_sword_slash_assets() -> bool:
+    return weapon_style == "arming_iron" and _sword_slash_available
+
 func set_motion(direction: Vector2) -> void:
     if _attacking:
         return  # Hold the attack facing until the swing finishes.
@@ -748,6 +757,7 @@ func _apply_animation(restart_attack: bool = false) -> void:
         elif regular_weapon:
             sprite.visible = not use_oversize
         if not sprite.visible:
+            sprite.pause()  # Invisible sword frames must not drift out of sync.
             continue
         var chosen_animation: String = animation
         # Arming Sword's universal atlas has idle/walk, not slash frames.
