@@ -105,11 +105,18 @@ bash tools/build_portmaster.sh --code-only
 
 This builds `dist/portmaster/Skyval_PortMaster_Update.zip`, with **only**
 `Skyval.sh`, `skyval/skyval.pck` and `skyval/README.txt`.
-**When new items or hairstyles are introduced into the game**, build
-`--full-assets` again to refresh the selected-resource set.
-Install it over the same `roms/ports/` path. The existing
-`skyval/resources/lpc/` is untouched. The old `--no-assets`
-argument is retained as an alias for `--code-only`.
+It also creates a **separate clean folder**:
+`dist/portmaster/update/roms/ports/`.
+You can safely copy that folder's contents to the SD card
+`roms/ports/`. It never contains `resources/lpc/`.
+
+**Do not copy `dist/portmaster/roms/ports/` for code-only updates!**
+That older full-install directory can still contain tens of thousands of
+LPC sprites, and copying it overwrites them all. Existing
+`roms/ports/skyval/resources/lpc/`, `saves/` and `conf/`
+are untouched by an update. If new item sprites or hairstyles are added,
+run `--full-assets` once to refresh the asset set.
+The old `--no-assets` argument is an alias for `--code-only`.
 
 Runtime environment: `portmaster/Skyval.sh` passes
 `SKYVAL_LPC_ROOT="$GAMEDIR/resources/lpc"` to Godot. On startup it
