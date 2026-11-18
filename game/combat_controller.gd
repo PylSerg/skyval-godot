@@ -112,6 +112,9 @@ func _begin_swing() -> void:
     _swing_hit_pending = true
     _swing_facing = _facing_vector()
     _sword_swing = _inventory != null and int(_inventory.call("get_total_attack")) > 0
+    # The hit cone and the actual LPC sprite animation share one swing timer.
+    if _appearance != null and _appearance.has_method("begin_attack"):
+        _appearance.call("begin_attack")
     queue_redraw()
 
 
@@ -141,6 +144,8 @@ func _physics_process(delta: float) -> void:
         if _swing_hit_pending and _swing_left <= SWING_DURATION - HIT_DELAY:
             _swing_hit_pending = false
             _hit_enemies()
+        if _swing_left <= 0.0 and _appearance != null and _appearance.has_method("end_attack"):
+            _appearance.call("end_attack")
         queue_redraw()
 
     for enemy in _enemies:
@@ -210,6 +215,8 @@ func reset_combat_state() -> void:
     _swing_left = 0.0
     _cooldown_left = 0.0
     _swing_hit_pending = false
+    if _appearance != null and _appearance.has_method("end_attack"):
+        _appearance.call("end_attack")
     for enemy in _enemies:
         if is_instance_valid(enemy):
             enemy.call("reset_enemy")
@@ -269,7 +276,7 @@ func _build_hud() -> void:
 func _draw() -> void:
     if _swing_left <= 0.0 or _player == null:
         return
-    # Procedural three-frame slash that follows the equipped sword.
+    # Keep the small contact trail; the actual swing now uses LPC slash frames.
     # No extra 64px atlas is decoded or reloaded during combat.
     var progress: float = 1.0 - _swing_left / SWING_DURATION
     var rotation: float = _swing_facing.angle()
