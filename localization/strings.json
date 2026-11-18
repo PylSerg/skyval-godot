@@ -175,7 +175,10 @@
     "ui.create_hero": "Створення героя",
     "inventory.equip_hint": "A: Екіпірувати",
     "menu.confirm_accept": "Підтвердити",
-    "menu.confirm_cancel": "Скасувати"
+    "menu.confirm_cancel": "Скасувати",
+    "combat.hp": "Здоров'я",
+    "combat.sword_hint": "Y: Меч",
+    "combat.fist_hint": "Y: Удар"
   },
   "en": {
     "ui.title": "Character",
@@ -353,6 +356,9 @@
     "ui.create_hero": "Create Hero",
     "inventory.equip_hint": "A: Equip item",
     "menu.confirm_accept": "Confirm",
-    "menu.confirm_cancel": "Cancel"
+    "menu.confirm_cancel": "Cancel",
+    "combat.hp": "Health",
+    "combat.sword_hint": "Y: Sword",
+    "combat.fist_hint": "Y: Punch"
   }
 }
