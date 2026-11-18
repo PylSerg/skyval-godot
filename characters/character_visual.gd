@@ -83,6 +83,10 @@ func begin_attack() -> void:
         _apply_lpc_animation()
     queue_redraw()
 
+func set_attack_progress(progress: float) -> void:
+    if _attack_active and has_lpc_character() and _external_body.visible:
+        _external_body.call("set_attack_progress", progress)
+
 func end_attack() -> void:
     if not _attack_active:
         return
