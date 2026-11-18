@@ -14,10 +14,6 @@ const SLASH_FPS := 24.0
 const SLASH_FRAMES := [0, 1, 2, 3, 4, 5]
 const DIRECTIONS := ["s", "w", "e", "n"]
 const ROW_INDEX := [2, 1, 3, 0]
-# The LPC iron arming sword artwork is rendered for the opposite hand.
-# Horizontally mirror all weapon layers, swapping W/E source directions,
-# to hold the sword in the character's RIGHT hand in every facing.
-const RIGHT_HAND_WEAPON_SOURCE := [0, 2, 1, 3]
 const IDLE_FRAMES := [0, 0, 1]
 const WALK_FRAMES := [1, 2, 3, 4, 5, 6, 7, 8]
 const MAX_CACHED_ATLASES := 10
@@ -361,7 +357,8 @@ func _build_layer(label: String, layer_z: int, atlas: Texture2D, path: String, c
     # Align the larger attack sprites with the same character pivot.
     sprite.offset = Vector2(-64, -86) if oversized else Vector2(-32, -54)
     sprite.z_index = layer_z
-    sprite.flip_h = label.begins_with("Weapon")
+    # Native LPC weapon sheets already share the body's facing/origin.
+    sprite.flip_h = false
     sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
     var frames: SpriteFrames = cached_frames
@@ -705,8 +702,7 @@ func set_attack_progress(progress: float) -> void:
         for sprite in _sprites:
             if not sprite.visible or sprite.sprite_frames == null:
                 continue
-            var source_index: int = RIGHT_HAND_WEAPON_SOURCE[_direction] if str(sprite.name).begins_with("Weapon") else _direction
-            var slash_name: StringName = StringName("slash-%s" % DIRECTIONS[source_index])
+            var slash_name: StringName = StringName("slash-%s" % DIRECTIONS[_direction])
             if sprite.animation != slash_name:
                 continue
             if sprite.sprite_frames.get_frame_count(slash_name) > frame_index:
@@ -716,8 +712,8 @@ func set_attack_progress(progress: float) -> void:
     if _sword_slash_available:
         return
 
-    # Missing authentic slash art: keep the same mirrored right-hand grip
-    # as idle/walk. A tiny vertical bob is safe; lateral movement isn't.
+    # Missing authentic slash art: preserve the native idle grip.
+    # A tiny vertical bob is safe; lateral movement is not.
     var lift: float = sin(_attack_progress * PI) * 2.0
     for sprite in _sprites:
         if str(sprite.name) == "WeaponBack" or str(sprite.name) == "WeaponFront":
@@ -753,10 +749,11 @@ func _apply_animation(restart_attack: bool = false) -> void:
         var is_weapon: bool = str(sprite.name).begins_with("Weapon")
         var slash_weapon: bool = str(sprite.name).begins_with("WeaponSlash")
         var regular_weapon: bool = is_weapon and not slash_weapon
-        # Weapon frames are drawn left-handed in LPC: flip the pixels AND
-        # use the opposite side-facing row, never one without the other.
-        var source_direction: int = RIGHT_HAND_WEAPON_SOURCE[_direction] if is_weapon else _direction
-        sprite.flip_h = is_weapon
+        # Universal LPC weapon FG/BG atlases use the same direction rows
+        # and pivot as the body. Do not mirror or swap W/E: it places the
+        # grip on the other arm and makes the north sprite disappear.
+        var source_direction: int = _direction
+        sprite.flip_h = false
         var use_oversize: bool = _attacking and _sword_slash_available
         if slash_weapon:
             sprite.visible = use_oversize
