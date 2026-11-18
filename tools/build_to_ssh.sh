@@ -17,12 +17,14 @@ BUILD_PORTS="$ROOT/dist/portmaster/update/roms/ports"
 
 TARGET="${SKYVAL_SSH_TARGET:-ark@192.168.0.162}"
 SWORD_ASSETS=false
+SLASH_ASSETS=false
 HOST_SET=false
 for option in "$@"; do
     case "$option" in
         --sword-assets) SWORD_ASSETS=true ;;
+        --slash-assets) SLASH_ASSETS=true ;;
         -*)
-            echo "Usage: bash tools/build_to_ssh.sh [host-or-ark@host] [--sword-assets]" >&2
+            echo "Usage: bash tools/build_to_ssh.sh [host-or-ark@host] [--sword-assets] [--slash-assets]" >&2
             exit 2
             ;;
         *)
@@ -93,6 +95,39 @@ if [ "$SWORD_ASSETS" = "true" ]; then
         PACKAGE_FILES+=("$dest")
     done
     echo "First-install sword assets: 2 iron sword PNGs added to SSH transfer."
+fi
+
+
+# Optional, authentic 128px sword-slash sprites (not the idle/walk sprites).
+# Installed console library has only universal/{bg,fg}, no attack_slash.
+if [ "$SLASH_ASSETS" = "true" ]; then
+    UPSTREAM="https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/master/spritesheets/weapon/sword/arming/attack_slash"
+    for part in bg fg; do
+        rel="weapon/sword/arming/attack_slash/$part/iron.png"
+        dest="$BUILD_PORTS/skyval/resources/lpc/$rel"
+        mkdir -p "$(dirname "$dest")"
+        if ! command -v curl >/dev/null 2>&1; then
+            echo "ERROR: curl is required to download the two slash PNGs." >&2
+            exit 1
+        fi
+        echo "Fetching official LPC sword slash: $part"
+        curl --fail --location --silent --show-error --retry 2 --connect-timeout 10 \
+            "$UPSTREAM/$part/iron.png" --output "$dest"
+        python3 - "$dest" <<'CHECK_PNG'
+from pathlib import Path
+import struct
+import sys
+data = Path(sys.argv[1]).read_bytes()
+valid = len(data) >= 24 and data[:8] == bytes((137,80,78,71,13,10,26,10)) and data[12:16] == b"IHDR"
+if valid:
+    width, height = struct.unpack(">II", data[16:24])
+    valid = width >= 768 and height >= 512 and width % 128 == 0 and height % 128 == 0
+if not valid:
+    sys.exit("ERROR: invalid 128px LPC slash sheet: " + sys.argv[1])
+CHECK_PNG
+        PACKAGE_FILES+=("skyval/resources/lpc/$rel")
+    done
+    echo "Two authentic slash PNGs staged for the SSH transfer."
 fi
 
 # The remote script is passed as an SSH command. Standard input remains
@@ -166,6 +201,28 @@ if [ -d "$stage/skyval/resources/lpc/weapon/sword/arming/universal" ]; then
     done
 fi
 
+
+# Install optional 128px slash frames before replacing the PCK.
+if [ -d "$stage/skyval/resources/lpc/weapon/sword/arming/attack_slash" ]; then
+    for part in bg fg; do
+        rel="weapon/sword/arming/attack_slash/$part/iron.png"
+        if [ ! -s "$stage/skyval/resources/lpc/$rel" ]; then
+            echo "ERROR: incomplete slash transfer; PCK not updated." >&2
+            exit 1
+        fi
+    done
+    for part in bg fg; do
+        rel="weapon/sword/arming/attack_slash/$part/iron.png"
+        src="$stage/skyval/resources/lpc/$rel"
+        dest="$ports/skyval/resources/lpc/$rel"
+        mkdir -p "$(dirname "$dest")"
+        if ! cmp -s "$src" "$dest"; then
+            mv -f "$src" "$dest"
+            echo "Installed LPC slash sprite: $rel"
+        fi
+    done
+fi
+
 # Rename from staging ON THE SAME SD FILESYSTEM: no partial PCK ever
 # replaces the known-good game. Skip identical files when possible.
 if cmp -s "$stage/Skyval.sh" "$ports/Skyval.sh"; then
@@ -185,7 +242,9 @@ echo "READY: Skyval deployed via SSH. Existing resources/lpc, saves and conf pre
 REMOTE_SH
 )"
 
-if [ "$SWORD_ASSETS" = "true" ]; then
+if [ "$SLASH_ASSETS" = "true" ]; then
+    echo "Uploading launcher, PCK and authentic slash sprites..."
+elif [ "$SWORD_ASSETS" = "true" ]; then
     echo "Uploading launcher, PCK and only the two required sword sheets..."
 else
     echo "Uploading only the launcher and PCK in a single SSH connection..."
