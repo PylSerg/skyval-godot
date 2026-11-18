@@ -28,19 +28,18 @@ card inside the console**. Quit the game first (return to EmulationStation),
 then run on your Kubuntu laptop:
 
 ```bash
-bash tools/build_to_ssh.sh 192.168.1.42
+bash tools/build_to_ssh.sh
 ```
 
-Replace the example IP with the address you already use for
-`ssh ark@IP`. An explicit `ark@host` also works:
+The default console address is `ark@192.168.0.162`. If it changes,
+pass the new address explicitly:
 
 ```bash
-bash tools/build_to_ssh.sh ark@192.168.1.42
+bash tools/build_to_ssh.sh ark@OTHER_IP
 ```
 
-With no argument, the script tries `ark@rg351mp.local` (this requires
-the console's hostname to resolve over mDNS). You may also set
-`SKYVAL_SSH_TARGET=ark@host` in your shell or use an SSH config alias.
+You may alternatively set `SKYVAL_SSH_TARGET=ark@host` in your shell or
+use an SSH config alias.
 
 **What happens:** The existing `tools/build_portmaster.sh --code-only
 --no-zip` exports a fresh PCK locally. A single SSH connection (usually
