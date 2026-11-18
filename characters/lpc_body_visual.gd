@@ -9,7 +9,7 @@ const CELL := 64
 const IDLE_Y := 1408
 const WALK_Y := 512
 const SLASH_Y := 768  # Universal LPC classic slash, 6 frames
-const ONEHAND_Y := 2944  # LPC Revised 1-Handed Slash uses backslash row 46
+const ONEHAND_Y := 2880  # LPC backslash-n starts at row 45; 1-Handed Slash uses first 7 frames
 const ONEHAND_FRAMES := [0, 1, 2, 3, 4, 5, 6]
 const OVERSIZE_CELL := 128
 const SLASH_FPS := 24.0
@@ -99,6 +99,7 @@ var _onehand_slash_available: bool = false
 var _attack_progress: float = 0.0
 var _attack_frame: int = -1  # Shared frame across body, armor and both sword layers.
 var _reported_sword_fallback: bool = false
+var _reported_onehand_missing: bool = false
 
 func _ready() -> void:
     texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -353,9 +354,13 @@ func _load_appearance(skin: String) -> bool:
     for body_layer in _sprites:
         if str(body_layer.name) == "Body" and (body_layer.sprite_frames == null or not body_layer.sprite_frames.has_animation("onehand-s")):
             _onehand_slash_available = false
-    if weapon_style == "arming_iron" and not _sword_slash_available and not _reported_sword_fallback:
-        push_warning("Skyval LPC: sword attack_slash/bg + fg missing or invalid; using animated equipped-sword fallback.")
-        _reported_sword_fallback = true
+    if weapon_style == "arming_iron":
+        if not _onehand_slash_available and not _reported_onehand_missing:
+            push_warning("Skyval LPC: 1-Handed Slash unavailable. Check LPC root: %s, and weapon/sword/arming/attack_backslash/{fg,bg}/iron.png. Classic slash leaves the sword near the waist if its art is missing." % root)
+            _reported_onehand_missing = true
+        if not _sword_slash_available and not _reported_sword_fallback:
+            push_warning("Skyval LPC: classic sword attack_slash/{fg,bg}/iron.png not loaded from %s; no authentic slash weapon animation." % root)
+            _reported_sword_fallback = true
 
     skin_variant = skin
     _apply_animation()
