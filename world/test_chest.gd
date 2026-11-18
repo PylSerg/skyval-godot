@@ -109,13 +109,16 @@ func _input(event: InputEvent) -> void:
         if _pressed.has(key):
             return
         _pressed[key] = true
+        # Face-button actions use the selected layout; debounce and
+        # release tracking continue to use the physical button ID.
+        var action_button: int = int(_locale.call("map_joy_button", joy.button_index))
         if _opened:
             # Let GameMenu own Start/R3, even while chest loot is visible.
-            if joy.button_index == JOY_BUTTON_START or joy.button_index == JOY_BUTTON_RIGHT_STICK:
+            if action_button == JOY_BUTTON_START or action_button == JOY_BUTTON_RIGHT_STICK:
                 return
             if Time.get_ticks_msec() < _ignore_until:
                 return
-            match joy.button_index:
+            match action_button:
                 JOY_BUTTON_B:
                     _set_open(false)
                 JOY_BUTTON_A:
@@ -132,7 +135,7 @@ func _input(event: InputEvent) -> void:
                 JOY_BUTTON_DPAD_DOWN:
                     _move_selection(1)
             get_viewport().set_input_as_handled()
-        elif joy.button_index == JOY_BUTTON_A and _can_open_from_world():
+        elif action_button == JOY_BUTTON_A and _can_open_from_world():
             _set_open(true)
             get_viewport().set_input_as_handled()
     elif event is InputEventJoypadMotion and _opened:
