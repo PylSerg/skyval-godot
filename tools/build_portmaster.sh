@@ -22,6 +22,15 @@ case "${1:-}" in
         ;;
 esac
 
+# Never reuse the FULL install's large asset folder for code-only builds.
+# This dedicated UPDATE directory contains just three small files,
+# so copying its roms/ports/ tree cannot overwrite 45,000 LPC sprites.
+if [ "$MODE" = "code" ]; then
+    OUTPUT_PORTS="$DIST/update/roms/ports"
+else
+    OUTPUT_PORTS="$DIST/roms/ports"
+fi
+
 GODOT="${GODOT_BIN:-}"
 if [ -z "$GODOT" ]; then
     for candidate in \
@@ -152,8 +161,14 @@ fi
 echo "Importing the staged project..."
 "$GODOT" --headless --path "$STAGE" --import
 
-mkdir -p "$DIST/roms/ports/skyval"
-PACK="$DIST/roms/ports/skyval/skyval.pck"
+if [ "$MODE" = "code" ]; then
+    # Remove *only* stale generated update files, never the full LPC tree.
+    # Do this after the Godot import so a failed preflight leaves last
+    # successful package intact until we're ready to export.
+    rm -rf "$DIST/update/roms/ports"
+fi
+mkdir -p "$OUTPUT_PORTS/skyval"
+PACK="$OUTPUT_PORTS/skyval/skyval.pck"
 echo "Exporting data pack..."
 "$GODOT" --headless --path "$STAGE" --export-pack "Skyval PCK" "$PACK"
 if [ ! -s "$PACK" ]; then
@@ -166,7 +181,7 @@ fi
 # three implemented armor types. The selection script reads game sources
 # directly, so later items are picked up without editing this shell file.
 # Keep files separate from the PCK for fast future code-only updates.
-LPC_OUTPUT="$DIST/roms/ports/skyval/resources/lpc"
+LPC_OUTPUT="$OUTPUT_PORTS/skyval/resources/lpc"
 if [ "$MODE" = "full" ]; then
     echo "Collecting only currently used LPC images (one-time SD transfer)..."
     mkdir -p "$(dirname "$LPC_OUTPUT")"
@@ -183,12 +198,12 @@ if [ "$MODE" = "full" ]; then
     du -sh "$LPC_OUTPUT"
 fi
 
-cp "$ROOT/portmaster/Skyval.sh" "$DIST/roms/ports/Skyval.sh"
+cp "$ROOT/portmaster/Skyval.sh" "$OUTPUT_PORTS/Skyval.sh"
 # Prevent leftovers from older keyboard-emulation builds.
-rm -f "$DIST/roms/ports/skyval/skyval.gptk"
-chmod +x "$DIST/roms/ports/Skyval.sh"
+rm -f "$OUTPUT_PORTS/skyval/skyval.gptk"
+chmod +x "$OUTPUT_PORTS/Skyval.sh"
 
-cat > "$DIST/roms/ports/skyval/README.txt" <<'EOF'
+cat > "$OUTPUT_PORTS/skyval/README.txt" <<'EOF'
 Skyval / PortMaster. Requires godot_4.7.1 and weston_pkg_0.2 (aarch64).
 FIRST INSTALL: use Skyval_PortMaster_Full.zip with selected resources/lpc.
 FUTURE UPDATES: use Skyval_PortMaster_Update.zip (launcher and PCK only).
@@ -213,7 +228,7 @@ if command -v zip >/dev/null 2>&1; then
     fi
     rm -f "$ARCHIVE"
     (
-        cd "$DIST/roms/ports"
+        cd "$OUTPUT_PORTS"
         if [ "$MODE" = "full" ]; then
             zip -q -r -0 "$ARCHIVE" "Skyval.sh" "skyval/skyval.pck" \
                 "skyval/README.txt" "skyval/resources/lpc" \
@@ -225,12 +240,13 @@ if command -v zip >/dev/null 2>&1; then
     )
     echo "READY: $ARCHIVE"
 else
-    echo "zip not found; files are in: $DIST/roms/ports/"
+    echo "zip not found; files are in: $OUTPUT_PORTS/"
 fi
 if [ "$MODE" = "full" ]; then
     echo "FIRST INSTALL: copy Skyval.sh, skyval.pck and selected resources/lpc/ to roms/ports/."
 else
-    echo "UPDATE: copy only Skyval.sh and skyval.pck; KEEP resources/lpc/ on SD."
+    echo "UPDATE: copy the clean directory $OUTPUT_PORTS/ to the SD card's roms/ports/."
+    echo "It contains only Skyval.sh, skyval.pck and README.txt. KEEP resources/lpc/ on SD."
 fi
 echo "NEVER delete the existing skyval/saves/ directory on the SD card."
 echo "Launch via EmulationStation > Ports; diagnostics: skyval/log.txt."
