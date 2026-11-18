@@ -61,7 +61,8 @@ var _settings_panel: VBoxContainer
 var _continue_panel: VBoxContainer
 var _profile_list: VBoxContainer
 var _profile_hint: Control
-var _confirm_panel: VBoxContainer
+var _confirm_panel: Panel
+var _confirm_title: Label
 var _confirm_message: Label
 var _confirm_accept: Control
 var _confirm_cancel: Control
@@ -941,27 +942,55 @@ func _build_interface() -> void:
     _profile_hint.custom_minimum_size.y = 20
     _continue_panel.add_child(_profile_hint)
 
-    # Confirmation alternatives are neutral, unhighlighted text with
-    # Nintendo-colored A/B circles. Both are left aligned and clickable.
-    _confirm_panel = VBoxContainer.new()
-    _confirm_panel.add_theme_constant_override("separation", 5)
-    stack.add_child(_confirm_panel)
+    # Render confirmations in their OWN fixed-size panel. The previous
+    # dialog lived in the same dynamically resized PanelContainer as the
+    # seven-row game menu. On the R36H, switching those layouts could
+    # stretch the parent far beyond the 320x240 viewport, leaving only
+    # a blue rectangle visible while A/B still worked.
+    #
+    # A plain Panel is deliberately used instead of PanelContainer:
+    # its geometry never follows a child's cached minimum size.
+    _confirm_panel = Panel.new()
+    _confirm_panel.name = "ConfirmationDialog"
+    _confirm_panel.position = Vector2(20, 39)
+    _confirm_panel.size = Vector2(280, 162)
+    _confirm_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+    _confirm_panel.add_theme_stylebox_override("panel", UiTheme.panel_style(0.98, 7.0))
+    _root.add_child(_confirm_panel)
+
+    var confirm_content := VBoxContainer.new()
+    confirm_content.position = Vector2(8, 8)
+    confirm_content.size = Vector2(264, 146)
+    confirm_content.add_theme_constant_override("separation", 4)
+    _confirm_panel.add_child(confirm_content)
+
+    _confirm_title = _label(17)
+    _confirm_title.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
+    _confirm_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    confirm_content.add_child(_confirm_title)
+
+    var confirm_divider := ColorRect.new()
+    confirm_divider.color = Color(0.84, 0.71, 0.49, 0.80)
+    confirm_divider.custom_minimum_size.y = 1
+    confirm_divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    confirm_content.add_child(confirm_divider)
 
     _confirm_message = _label(MIN_UI_FONT_SIZE)
     _confirm_message.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
     _confirm_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     _confirm_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    # The previous 94px reserved message height stretched short dialogs
-    # almost to the 240px viewport edge. Three lines fit in ~52px;
-    # longer names may still increase their natural minimum height.
-    _confirm_message.custom_minimum_size.y = 52
-    _confirm_panel.add_child(_confirm_message)
+    # This viewport allows around three readable lines without allowing
+    # a long save name to expand the entire confirmation window.
+    _confirm_message.custom_minimum_size.y = 54
+    confirm_content.add_child(_confirm_message)
 
     var confirm_options := VBoxContainer.new()
     confirm_options.add_theme_constant_override("separation", 4)
     confirm_options.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    _confirm_panel.add_child(confirm_options)
+    confirm_content.add_child(confirm_options)
 
+    # Preserve original Nintendo-colored glyphs, text, mouse clicks and
+    # the existing A/B logical actions from the shared input manager.
     _confirm_accept = ControllerChoiceScript.new() as Control
     _confirm_accept.call("configure", "A", _tr("menu.confirm_accept"), _font)
     _confirm_accept.connect("activated", Callable(self, "_accept_confirmation"))
@@ -1009,6 +1038,9 @@ func _style_menu_layout() -> void:
     _heading.visible = not title
     _divider.visible = not title
     _panel.add_theme_stylebox_override("panel", _title_panel_style if title else _panel_style)
+    # The independent confirmation panel never inherits list/menu sizing.
+    if not _confirm_action.is_empty():
+        return
     if title:
         var count: int = _visible_options.size()
         var height: float = 8.0 + TITLE_BUTTON_HEIGHT * count + TITLE_BUTTON_GAP * maxi(0, count - 1)
@@ -1025,9 +1057,7 @@ func _style_menu_layout() -> void:
         # More than three lines may grow the natural minimum; recenter the
         # result after Godot has calculated actual child sizes.
         var panel_size: Vector2 = Vector2(252, 224)
-        if not _confirm_action.is_empty():
-            panel_size = Vector2(280, 158)
-        elif _settings_open:
+        if _settings_open:
             panel_size = Vector2(260, 184)
         elif not _list_mode.is_empty():
             panel_size = Vector2(284, 218)
@@ -1038,7 +1068,7 @@ func _style_menu_layout() -> void:
 
 
 func _fit_non_title_panel() -> void:
-    if not _opened or _is_title_menu() or _panel == null:
+    if not _opened or _is_title_menu() or not _confirm_action.is_empty() or _panel == null:
         return
     # Godot containers can increase their size beyond the requested one
     # when wrapped text grows. Measure the real combined minimum instead
@@ -1138,8 +1168,12 @@ func _refresh_text() -> void:
     _language_caption.text = _tr("settings.language")
     _language_value.text = _tr("settings.language.en") if str(_locale.get("language")) == "en" else _tr("settings.language.uk")
     _update_settings_focus()
+    _confirm_title.text = _heading.text
     _confirm_accept.call("set_caption", _tr("menu.confirm_accept"))
     _confirm_cancel.call("set_caption", _tr("menu.confirm_cancel"))
+    # Hide the dynamic PanelContainer while the fixed 280x162 dialog is
+    # visible. It can no longer stretch or cover the confirmation content.
+    _panel.visible = _confirm_action.is_empty()
     _main_panel.visible = not _settings_open and _list_mode.is_empty() and _confirm_action.is_empty()
     _settings_panel.visible = _settings_open and _confirm_action.is_empty()
     _continue_panel.visible = not _list_mode.is_empty() and _confirm_action.is_empty()
