@@ -678,16 +678,19 @@ func set_attack_progress(progress: float) -> void:
     if not _attacking or _sword_slash_available:
         return
     _attack_progress = clampf(progress, 0.0, 1.0)
-    var sweep: float = sin(_attack_progress * PI)
-    var sign_x: float = -1.0 if _direction == 1 else 1.0
+    # Always use the character's left/right, regardless of screen direction.
+    # Godot is Y-down, so -90 degrees from facing points to character-left.
+    var facing_vector: Vector2 = [Vector2.DOWN, Vector2.LEFT,
+        Vector2.RIGHT, Vector2.UP][_direction]
+    var character_left: Vector2 = facing_vector.rotated(-PI / 2.0)
+    var lateral: float = lerpf(2.0, -2.0, _attack_progress)
+    var lift: float = sin(_attack_progress * PI) * 2.0
     for sprite in _sprites:
         if str(sprite.name) == "WeaponBack" or str(sprite.name) == "WeaponFront":
-            # This atlas contains idle/walk sprites, not attack artwork.
-            # Do not rotate its full 64px image around the character origin:
-            # that swings the visible sword *down*, away from the wrist.
-            # Keep a subtle upwards follow-through until real 128px art is installed.
+            # Idle/walk sword sheets have no slash pose. Keep a subtle,
+            # non-rotating fallback rather than flipping the whole 64px atlas.
             sprite.rotation = 0.0
-            sprite.position = Vector2(sign_x * 3.0 * sweep, -3.0 * sweep)
+            sprite.position = character_left * lateral + Vector2.UP * lift
 
 func _reset_sword_pose() -> void:
     for sprite in _sprites:
