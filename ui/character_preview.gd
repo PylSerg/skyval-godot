@@ -163,7 +163,14 @@ func _draw() -> void:
                 draw_offset = Vector2(-32, -54)
                 if DIRECTIONS[facing] == "e":
                     draw_offset += Vector2(-14, 0)
+            # Mirror only the south-facing sword, exactly as in the
+            # in-world LPC renderer. The body and all other facings stay native.
+            var mirror_south_sword: bool = str(sprite.name).begins_with("Weapon") and DIRECTIONS[facing] == "s"
+            if mirror_south_sword:
+                draw_set_transform(origin, 0.0, Vector2(-PREVIEW_SCALE, PREVIEW_SCALE))
             draw_texture(display, draw_offset)
+            if mirror_south_sword:
+                draw_set_transform(origin, 0.0, Vector2(PREVIEW_SCALE, PREVIEW_SCALE))
 
     draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
