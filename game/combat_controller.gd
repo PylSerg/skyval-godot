@@ -278,16 +278,16 @@ func _build_hud() -> void:
 func _draw() -> void:
     if _swing_left <= 0.0 or _player == null:
         return
-    # Keep the small contact trail; the actual swing now uses LPC slash frames.
-    # No extra 64px atlas is decoded or reloaded during combat.
-    var progress: float = 1.0 - _swing_left / SWING_DURATION
-    var rotation: float = _swing_facing.angle()
+    # All left/right references are from the character's own perspective.
+    # Character-left = facing rotated -90 degrees in Godot's Y-down plane.
+    # Sweep from character-left to character-right, matching the original
+    # right-handed LPC slash_128 frame order (do NOT mirror the sprites).
+    var progress: float = clampf(1.0 - _swing_left / SWING_DURATION, 0.0, 1.0)
     var center: Vector2 = _player.position + _swing_facing * 10.0
-    var arc_radius: float = (22.0 if _sword_swing else 14.0) + progress * 7.0
+    var radius: float = (22.0 if _sword_swing else 14.0) + progress * 7.0
+    var swing_angle: float = _swing_facing.angle() - 0.90 + progress * 1.80
     var arc_color: Color = Color("#fff2c6") if _sword_swing else Color("#d6a77e")
-    arc_color.a = 1.0 - progress * 0.75
-    draw_arc(center, arc_radius, rotation - 0.85, rotation + 0.85, 10, arc_color, 2.0, false)
-    if _sword_swing:
-        draw_line(center + _swing_facing.rotated(-0.8) * arc_radius,
-            center + _swing_facing.rotated(0.8) * arc_radius,
-            Color(0.93, 0.97, 0.99, 0.55 * (1.0 - progress)), 1.0)
+    arc_color.a = 0.85 * (1.0 - progress * 0.70)
+    # Only the short trail behind the blade is drawn, not a static full arc.
+    draw_arc(center, radius, swing_angle - 0.32, swing_angle + 0.05,
+        8, arc_color, 2.0, false)
