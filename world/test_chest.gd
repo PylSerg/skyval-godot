@@ -12,7 +12,7 @@ const UiTheme = preload("res://ui/skyval_theme.gd")
 const ControllerHintsScript = preload("res://ui/nintendo_hints.gd")
 
 # One shared chest UI, with independent stock and world placement.
-@export_enum("clothes", "armor") var chest_kind: String = "clothes"
+@export_enum("clothes", "armor", "weapon") var chest_kind: String = "clothes"
 @export var chest_spawn: Vector2 = Vector2(905, 554)
 
 var _opened: bool = false
@@ -256,7 +256,13 @@ func _take_items(items: Array[String]) -> void:
 func _refresh() -> void:
     if _root == null or _inventory == null:
         return
-    _heading.text = _tr("chest.armor_title") if chest_kind == "armor" else _tr("chest.title")
+    match chest_kind:
+        "armor":
+            _heading.text = _tr("chest.armor_title")
+        "weapon":
+            _heading.text = _tr("chest.weapon_title")
+        _:
+            _heading.text = _tr("chest.title")
     _hint.call("set_hint", _tr("chest.hint"))
     _empty.text = _tr("chest.empty")
     var stock: Array[String] = _inventory.call("get_chest_items", chest_kind)
@@ -371,11 +377,19 @@ func _button() -> Button:
 
 
 func _draw() -> void:
-    # Brown clothes chest and blue-steel armor chest remain distinct.
-    var is_armor: bool = chest_kind == "armor"
-    var edge: Color = Color("#243a4c") if is_armor else Color("#2b211d")
-    var body: Color = Color("#49687e") if is_armor else Color("#77482a")
-    var lid: Color = Color("#779aac") if is_armor else Color("#a86b37")
+    # Brown clothes, blue-steel armor and reddish weapon chests.
+    var edge: Color = Color("#2b211d")
+    var body: Color = Color("#77482a")
+    var lid: Color = Color("#a86b37")
+    match chest_kind:
+        "armor":
+            edge = Color("#243a4c")
+            body = Color("#49687e")
+            lid = Color("#779aac")
+        "weapon":
+            edge = Color("#4d3025")
+            body = Color("#9b5940")
+            lid = Color("#d6a35c")
     draw_rect(Rect2(-11, -9, 22, 19), edge)
     draw_rect(Rect2(-9, -7, 18, 16), body)
     draw_rect(Rect2(-9, -7, 18, 5), lid)
