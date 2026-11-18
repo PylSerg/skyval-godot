@@ -283,16 +283,22 @@ func _draw() -> void:
     if _sword_swing and _appearance != null and _appearance.has_method("uses_real_sword_slash"):
         if bool(_appearance.call("uses_real_sword_slash")):
             return
-    # All left/right references are from the character's own perspective.
-    # Character-left = facing rotated -90 degrees in Godot's Y-down plane.
-    # Sweep from character-left to character-right, matching the original
-    # right-handed LPC slash_128 frame order (do NOT mirror the sprites).
+    # Camera-relative clockwise HALF-circle from the supplied diagram.
+    # Starting blade angle -> finishing blade angle:
+    # South: right -> down -> left.
+    # North: left -> up -> right.
+    # West:  down -> left -> up.
+    # East:  up -> right -> down.
+    # Godot's positive angles rotate clockwise because screen Y points down.
+    # Body/armor/sword frames stay in their original cardinal direction;
+    # LPC slash artwork already supplies the torso/arm follow-through.
     var progress: float = clampf(1.0 - _swing_left / SWING_DURATION, 0.0, 1.0)
     var center: Vector2 = _player.position + _swing_facing * 10.0
     var radius: float = (22.0 if _sword_swing else 14.0) + progress * 7.0
-    var swing_angle: float = _swing_facing.angle() - 0.90 + progress * 1.80
+    var start_angle: float = _swing_facing.angle() - PI * 0.5
+    var swing_angle: float = start_angle + progress * PI
     var arc_color: Color = Color("#fff2c6") if _sword_swing else Color("#d6a77e")
     arc_color.a = 0.85 * (1.0 - progress * 0.70)
-    # Only the short trail behind the blade is drawn, not a static full arc.
-    draw_arc(center, radius, swing_angle - 0.32, swing_angle + 0.05,
+    # A short moving trail rather than a full stationary semicircle.
+    draw_arc(center, radius, swing_angle - 0.32, swing_angle + 0.04,
         8, arc_color, 2.0, false)
