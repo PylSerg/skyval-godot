@@ -607,6 +607,9 @@ func _capture_current_game() -> Dictionary:
     var inventory: Node = get_node_or_null("/root/SkyvalInventory")
     if inventory != null:
         data["inventory"] = inventory.call("get_save_state")
+    var combat: Node = get_parent().get_node_or_null("CombatController")
+    if combat != null:
+        data["combat"] = combat.call("get_save_state")
     return data
 
 
@@ -671,6 +674,10 @@ func _load_profile(path: String, touch_launch: bool = true) -> bool:
     var inventory: Node = get_node_or_null("/root/SkyvalInventory")
     if inventory != null:
         inventory.call("load_save_state", data.get("inventory", null), avatar)
+    var combat: Node = get_parent().get_node_or_null("CombatController")
+    if combat != null:
+        # Old saves without combat data start at full health.
+        combat.call("load_save_state", data.get("combat", {}))
     # Loading restores world state only. It NEVER writes game progress.
     # The root profile stays as the initial save (or the player's
     # pre-upgrade checkpoint) until the user explicitly saves elsewhere.
@@ -704,6 +711,9 @@ func _start_new_game() -> void:
         inventory.call("reset_for_new_game", "male")
     if player.has_method("reset_for_new_game"):
         player.call("reset_for_new_game")
+    var combat: Node = get_parent().get_node_or_null("CombatController")
+    if combat != null:
+        combat.call("reset_combat_state")
     var avatar: Node = player.get_node_or_null("CharacterVisual")
     if avatar != null and avatar.has_method("apply_starter_outfit"):
         avatar.call("apply_starter_outfit")
