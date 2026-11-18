@@ -69,7 +69,7 @@ else
     BUILT_PORTS="$ROOT/dist/portmaster/roms/ports"
 fi
 
-# Reuse the existing, tested build staging, instead of maintaining a
+# Reuse the existing PortMaster build staging instead of maintaining a
 # second Godot export implementation. No ZIPs are created.
 bash "$ROOT/tools/build_portmaster.sh" "$BUILD_MODE" --no-zip
 
