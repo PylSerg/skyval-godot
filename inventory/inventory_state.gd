@@ -264,6 +264,9 @@ func load_save_state(data: Variant, avatar: Node) -> void:
             _weapon_chest.append(item_id)
         _equipped = EMPTY_EQUIPMENT.duplicate()
         _infer_legacy_equipment(avatar)
+        # An old profile without inventory can be loaded immediately
+        # after playing a newer sword-equipped profile. Clear its art.
+        _apply_weapon_to_avatar(avatar, "")
         changed.emit()
         return
 
@@ -339,6 +342,10 @@ func load_save_state(data: Variant, avatar: Node) -> void:
             if not _bag.has(missing_weapon):
                 _bag.append(missing_weapon)
             _apply_weapon_to_avatar(avatar, "")
+    else:
+        # A pre-sword LPC save lacks weapon_style. Clear a weapon from a
+        # previously loaded character instead of leaving phantom art.
+        _apply_weapon_to_avatar(avatar, "")
     if not get_equipped("armor").is_empty():
         # If a save references missing art, keep that armor as an owned
         # item rather than claiming it is worn without a visible sprite.
