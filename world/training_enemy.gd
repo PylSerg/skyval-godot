@@ -45,8 +45,8 @@ func hurtbox_radius() -> float:
     return HURTBOX_RADIUS
 
 
-# Return 1 when the enemy successfully performs a melee attack.
-# Damage and player invulnerability are handled by CombatController.
+# Return base damage 3 on a melee hit. Equipped armor is mitigated
+# by CombatController, not by this lightweight enemy actor.
 func advance(delta: float, target: Vector2) -> int:
     if not _alive:
         _respawn_timer -= delta
@@ -67,7 +67,7 @@ func advance(delta: float, target: Vector2) -> int:
         elif _attack_timer <= 0.0:
             _attack_timer = ATTACK_INTERVAL
             queue_redraw()
-            return 1
+            return 3
     elif home_distance > 2.0:
         position = position.move_toward(spawn_position, SPEED * 0.6 * delta)
 
