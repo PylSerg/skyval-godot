@@ -121,6 +121,9 @@ func _ready() -> void:
         _inventory.connect("changed", Callable(self, "_on_inventory_changed"))
     _build_interface()
     _root.hide()
+    get_node("/root/SkyvalInput").call(
+        "register_listener", self, 300 if appearance_window else 200
+    )
 
 func _tr(key: String) -> String:
     return str(_locale.call("t", key))
@@ -183,9 +186,18 @@ func _load_cascadia_font() -> void:
     else:
         push_warning("Skyval UI: CascadiaMono-Regular.ttf not found; using Godot default font.")
 
-# Capture native gamepad input before Godot GUI focus routing.
-# Keyboard events are deliberately ignored by all gameplay menus.
-func _input(event: InputEvent) -> void:
+# SkyvalInput owns native input and passes us logical buttons only.
+# When inactive, the backpack listens solely for Select/L3 to open.
+func skyval_accepts_input(event: InputEvent) -> bool:
+    if _opened:
+        return true
+    if appearance_window or not (event is InputEventJoypadButton):
+        return false
+    var button: InputEventJoypadButton = event as InputEventJoypadButton
+    return button.pressed and button.button_index in [JOY_BUTTON_BACK, JOY_BUTTON_LEFT_STICK]
+
+
+func handle_skyval_input(event: InputEvent) -> void:
     if appearance_window and not _opened:
         return
     if event is InputEventJoypadButton:
@@ -206,9 +218,8 @@ func _handle_joy_button(event: InputEventJoypadButton) -> void:
     if _opened and Time.get_ticks_msec() < _ignore_presses_before_ms:
         return
 
-    # Track the original pressed button until release, then translate
-    # its face-button action according to Standard/Nintendo layout.
-    var action_button: int = int(_locale.call("map_joy_button", event.button_index))
+    # Face-button normalization and press tracking are centralized.
+    var action_button: int = event.button_index
 
     if not _opened:
         # Wardrobe is available only during gameplay, never over startup
