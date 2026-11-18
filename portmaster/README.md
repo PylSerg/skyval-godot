@@ -21,6 +21,47 @@ support gamepads. Native controller input has now been tested successfully
 on a physical R36H. Left-stick analog movement no longer competes with
 D-pad input; partial-tilt walking speed is verified on ArkOS/R36H.
 
+## Build and deploy directly over SSH (R36H)
+
+Once ArkOS SSH is enabled and Skyval is already installed, **leave the SD
+card inside the console**. Quit the game first (return to EmulationStation),
+then run on your Kubuntu laptop:
+
+```bash
+bash tools/build_to_ssh.sh 192.168.1.42
+```
+
+Replace the example IP with the address you already use for
+`ssh ark@IP`. An explicit `ark@host` also works:
+
+```bash
+bash tools/build_to_ssh.sh ark@192.168.1.42
+```
+
+With no argument, the script tries `ark@rg351mp.local` (this requires
+the console's hostname to resolve over mDNS). You may also set
+`SKYVAL_SSH_TARGET=ark@host` in your shell or use an SSH config alias.
+
+**What happens:** The existing `tools/build_portmaster.sh --code-only
+--no-zip` exports a fresh PCK locally. A single SSH connection (usually
+one password prompt) streams **only `Skyval.sh` and
+`skyval/skyval.pck`**, finds the already-installed game in
+`/roms/ports` or `/roms2/ports`, stages both files on the console
+and renames them into place after a successful transfer. Identical files
+are skipped. No ZIP, LPC sprites, saves, configurations or game logs are
+copied, removed or replaced. The script fails safely if the existing
+installation or writable SD path cannot be found; it never creates a
+second Skyval installation.
+
+When **new LPC sprite files** are introduced, use the separate SD
+workflow `bash tools/build_to_sd.sh --full-assets` to transfer the
+selected assets (or copy those specific files another way). The SSH
+script is intentionally **code-only**, protecting the large resource
+library from unintended bulk transfers.
+
+SSH access uses ArkOS credentials; the script never stores or embeds
+passwords. SSH keys may be configured separately if desired.
+
 ## Direct build to the EASYROMS SD card (recommended)
 
 When the card is inserted in your Kubuntu laptop, use **one command**:
