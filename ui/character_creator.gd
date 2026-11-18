@@ -19,6 +19,7 @@ const ARMOR_FIELDS := [
     "armor_head", "armor_top", "armor_bottom",
     "armor_hands", "armor_feet",
 ]
+const WEAPON_FIELDS := ["weapon_mainhand"]
 const BACKPACK_TABS := ["ui.clothes", "inventory.tab.armor", "inventory.tab.weapons"]
 const TAB_SLIDE_SECONDS := 0.18
 const TAB_HORIZONTAL_PADDING := 8
@@ -449,7 +450,7 @@ func _preview_equipment_on_character(field: String) -> void:
     if not candidate_id.is_empty() and item.is_empty():
         _restore_equipment_try_on()
         return
-    if slot not in ["armor", "shirt", "pants", "footwear"]:
+    if slot not in ["armor", "shirt", "pants", "footwear", "weapon"]:
         _restore_equipment_try_on()
         return
 
@@ -486,6 +487,8 @@ func _preview_equipment_on_character(field: String) -> void:
             desired["footwear_style"] = style
             if not candidate_id.is_empty():
                 desired["boots_variant"] = str(item.get("variant", desired.get("boots_variant", "brown")))
+        "weapon":
+            desired["weapon_style"] = style
 
     # Rendering only: no InventoryState mutation, changed signal or save.
     # The LPC renderer validates any new layers before committing the
@@ -559,7 +562,7 @@ func _current_fields() -> Array:
         return CLOTHING_FIELDS
     if _active_tab == 1:
         return ARMOR_FIELDS
-    return []
+    return WEAPON_FIELDS
 
 
 func is_open() -> bool:
@@ -1199,8 +1202,7 @@ func _rebuild_rows() -> void:
     if not appearance_window:
         _equip_hint.visible = not fields.is_empty()
     if fields.is_empty():
-        # Weapons currently have no equipment fields. Keep their tab and
-        # empty-state text without an inert selector.
+        # Keep a generic placeholder for future empty equipment categories.
         var placeholder := VBoxContainer.new()
         placeholder.add_theme_constant_override("separation", 9)
         _rows.add_child(placeholder)
@@ -1436,6 +1438,25 @@ func _refresh_armor_status() -> void:
     if appearance_window or _inventory == null:
         return
     if _armor_class_label == null or _armor_value_label == null:
+        return
+    if _active_tab == 2:
+        # Reuse the portrait's compact two-line status for attack
+        # strength when browsing the Weapon tab. This is read-only.
+        var attack: int = int(_inventory.call("get_total_attack"))
+        var projected: int = attack
+        var fields: Array = _current_fields()
+        if _selected_index >= 0 and _selected_index < fields.size():
+            var candidate: String = _selected_equipment_id(str(fields[_selected_index]))
+            projected = int(_inventory.call("get_item_attack", candidate))
+        var delta: int = projected - attack
+        _armor_class_label.text = _tr("weapon.attack")
+        _armor_value_label.text = "+%d" % projected
+        if delta != 0:
+            _armor_value_label.text += " (%s%d)" % ["+" if delta > 0 else "", delta]
+        _armor_value_label.add_theme_color_override(
+            "font_color", Color("#f0f1ed") if delta == 0 else
+            (Color("#99e1ad") if delta > 0 else Color("#ffb5a6"))
+        )
         return
 
     var armor_class: String = str(_inventory.call("get_equipped_armor_class"))
