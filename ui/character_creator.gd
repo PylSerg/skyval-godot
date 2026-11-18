@@ -1453,10 +1453,12 @@ func _refresh_armor_status() -> void:
         _armor_value_label.text = "+%d" % projected
         if delta != 0:
             _armor_value_label.text += " (%s%d)" % ["+" if delta > 0 else "", delta]
-        _armor_value_label.add_theme_color_override(
-            "font_color", Color("#f0f1ed") if delta == 0 else
-            (Color("#99e1ad") if delta > 0 else Color("#ffb5a6"))
-        )
+        var attack_color: Color = Color("#f0f1ed")
+        if delta > 0:
+            attack_color = Color("#99e1ad")
+        elif delta < 0:
+            attack_color = Color("#ffb5a6")
+        _armor_value_label.add_theme_color_override("font_color", attack_color)
         return
 
     var armor_class: String = str(_inventory.call("get_equipped_armor_class"))
