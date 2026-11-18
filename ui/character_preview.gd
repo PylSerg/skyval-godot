@@ -5,6 +5,11 @@ extends Control
 # Clockwise as seen from above: front -> facing right -> back -> left.
 const DIRECTIONS := ["s", "e", "n", "w"]
 const PREVIEW_SCALE := 3.0
+# Cropped images are only 64x64; keep a small rolling selection warm.
+# Preserve them when changing one garment so unchanged body layers
+# don't force repeated GPU readbacks and ImageTexture allocations.
+const MAX_CACHED_PREVIEW_FRAMES := 48
+const MAX_CACHED_ARMOR_CHOICES := 24
 
 var character: Node2D = null
 var facing: int = 0
@@ -16,15 +21,44 @@ var framed_mode: bool = false
 # Keep actual 64x64 RGBA frame textures alive until the outfit changes.
 # This avoids GPU atlas-UV issues in the paused CanvasItem preview.
 var _frame_cache: Dictionary = {}
-# One choice per armor layer and facing until the outfit is replaced.
-# No full-atlas rescanning while the user just keeps the menu open.
+var _frame_cache_order: Array[int] = []
+# Reused SpriteFrames have stable instance IDs across armor try-ons.
 var _armor_choice_cache: Dictionary = {}
+var _armor_choice_order: Array[String] = []
+
+
+func notify_layers_changed() -> void:
+    # Unchanged layers keep the same AtlasTexture resources, so their
+    # already cropped 64x64 preview frames remain correct.
+    queue_redraw()
 
 
 func clear_frame_cache() -> void:
+    # Explicit reset is still available when the entire render context
+    # changes, but normal equipment browsing must NOT call it.
     _frame_cache.clear()
+    _frame_cache_order.clear()
     _armor_choice_cache.clear()
+    _armor_choice_order.clear()
     queue_redraw()
+
+
+func _remember_frame(key: int, frame: Texture2D) -> void:
+    _frame_cache[key] = frame
+    _frame_cache_order.erase(key)
+    _frame_cache_order.append(key)
+    while _frame_cache_order.size() > MAX_CACHED_PREVIEW_FRAMES:
+        var oldest: int = _frame_cache_order.pop_front()
+        _frame_cache.erase(oldest)
+
+
+func _remember_armor_choice(key: String, texture: Texture2D) -> void:
+    _armor_choice_cache[key] = texture
+    _armor_choice_order.erase(key)
+    _armor_choice_order.append(key)
+    while _armor_choice_order.size() > MAX_CACHED_ARMOR_CHOICES:
+        var oldest: String = _armor_choice_order.pop_front()
+        _armor_choice_cache.erase(oldest)
 
 
 func _ready() -> void:
@@ -84,14 +118,16 @@ func _draw() -> void:
         if texture == null:
             continue
 
-        # Crop the source image to the actual 64x64 LPC frame ONCE and
-        # draw a standalone ImageTexture. Atlas UV rendering caused the
-        # solid-white portrait regression after repeated armor changes.
+        # Crop each unique 64x64 frame once, even across repeated try-ons.
+        # A standalone ImageTexture avoids the former white-portrait bug
+        # caused by AtlasTexture UV drawing in the paused canvas.
         var display: Texture2D = texture
         if texture is AtlasTexture:
             var key: int = texture.get_instance_id()
             if _frame_cache.has(key):
                 display = _frame_cache[key] as Texture2D
+                _frame_cache_order.erase(key)
+                _frame_cache_order.append(key)
             else:
                 var atlas_frame: AtlasTexture = texture as AtlasTexture
                 if atlas_frame.atlas == null:
@@ -114,7 +150,7 @@ func _draw() -> void:
                 if image == null or image.is_empty():
                     continue
                 display = ImageTexture.create_from_image(image)
-                _frame_cache[key] = display
+                _remember_frame(key, display)
         if display != null:
             draw_texture(display, sprite.offset)
 
@@ -126,27 +162,29 @@ func _draw() -> void:
 # when it is usable; otherwise select the clearest walking frame of the
 # SAME direction. This affects preview only, never world animations.
 func _select_armor_preview_frame(sprite: AnimatedSprite2D, idle_frame: Texture2D) -> Texture2D:
-    var key: String = "%d:%s" % [sprite.get_instance_id(), DIRECTIONS[facing]]
+    var key: String = "%d:%s" % [sprite.sprite_frames.get_instance_id(), DIRECTIONS[facing]]
     if _armor_choice_cache.has(key):
+        _armor_choice_order.erase(key)
+        _armor_choice_order.append(key)
         return _armor_choice_cache[key] as Texture2D
 
     var result: Texture2D = idle_frame
     var idle_atlas: AtlasTexture = idle_frame as AtlasTexture
     if idle_atlas == null or idle_atlas.atlas == null:
-        _armor_choice_cache[key] = result
+        _remember_armor_choice(key, result)
         return result
 
     var walk_name: StringName = StringName("walk-" + DIRECTIONS[facing])
     var frames: SpriteFrames = sprite.sprite_frames
     if not frames.has_animation(walk_name):
-        _armor_choice_cache[key] = result
+        _remember_armor_choice(key, result)
         return result
 
     # Read source pixels once, then score the central torso in each
     # prospective frame. No interpolation and no drawn replacement art.
     var pixels: Image = idle_atlas.atlas.get_image()
     if pixels == null or pixels.is_empty():
-        _armor_choice_cache[key] = result
+        _remember_armor_choice(key, result)
         return result
 
     var idle_score: int = _armor_torso_coverage(pixels, idle_atlas.region)
@@ -171,7 +209,7 @@ func _select_armor_preview_frame(sprite: AnimatedSprite2D, idle_frame: Texture2D
     if best_walk != null and best_walk_score >= 5 and best_walk_score > idle_score + maxi(4, int(idle_score * 0.20)):
         result = best_walk
 
-    _armor_choice_cache[key] = result
+    _remember_armor_choice(key, result)
     return result
 
 
