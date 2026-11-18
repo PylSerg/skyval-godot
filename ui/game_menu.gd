@@ -30,6 +30,7 @@ var _font: FontFile
 var _opened: bool = false
 var _main_mode: bool = true
 var _settings_open: bool = false
+var _settings_selection: int = 0 # 0: layout, 1: language
 var _list_mode: String = "" # characters, character_saves or load
 var _selected_character_id: String = ""
 var _selected_character_index: int = 0
@@ -65,6 +66,8 @@ var _confirm_message: Label
 var _confirm_accept: Control
 var _confirm_cancel: Control
 var _menu_buttons: Array[Button] = []
+var _layout_caption: Label
+var _layout_value: Label
 var _language_caption: Label
 var _language_value: Label
 var _held_buttons: Dictionary = {}
@@ -105,6 +108,7 @@ func _ready() -> void:
     _name_entry.connect("cancelled", Callable(self, "_on_name_cancelled"))
     _build_interface()
     _locale.connect("language_changed", Callable(self, "_refresh_text"))
+    _locale.connect("layout_changed", Callable(self, "_refresh_text"))
     _root.hide()
     print("Skyval GameMenu: READY (Start=", JOY_BUTTON_START, ", R3=", JOY_BUTTON_RIGHT_STICK, ")")
     # A fresh launch always shows a paused main menu before gameplay.
@@ -157,13 +161,16 @@ func _handle_button(event: InputEventJoypadButton) -> void:
             get_viewport().set_input_as_handled()
         return
 
+    # Raw button IDs are used for press/release tracking above. Translate
+    # physical Nintendo face buttons only after the latch is accepted.
+    var action_button: int = int(_locale.call("map_joy_button", event.button_index))
     if not _confirm_action.is_empty():
-        if event.button_index == JOY_BUTTON_A:
+        if action_button == JOY_BUTTON_A:
             _accept_confirmation()
-        elif event.button_index == JOY_BUTTON_B:
+        elif action_button == JOY_BUTTON_B:
             _dismiss_confirmation()
     elif not _list_mode.is_empty():
-        match event.button_index:
+        match action_button:
             JOY_BUTTON_B:
                 _back_from_list()
             JOY_BUTTON_DPAD_UP:
@@ -176,7 +183,7 @@ func _handle_button(event: InputEventJoypadButton) -> void:
                 if _list_mode == "characters" and not _listed_items.is_empty():
                     _ask_confirmation("delete")
     else:
-        match event.button_index:
+        match action_button:
             JOY_BUTTON_START, JOY_BUTTON_RIGHT_STICK:
                 if _session_started and not _settings_open:
                     _set_open(false)
@@ -186,20 +193,24 @@ func _handle_button(event: InputEventJoypadButton) -> void:
                 elif _session_started:
                     _set_open(false)
             JOY_BUTTON_DPAD_UP:
-                if not _settings_open:
+                if _settings_open:
+                    _move_settings_focus(-1)
+                else:
                     _move_selection(-1)
             JOY_BUTTON_DPAD_DOWN:
-                if not _settings_open:
+                if _settings_open:
+                    _move_settings_focus(1)
+                else:
                     _move_selection(1)
             JOY_BUTTON_DPAD_LEFT:
                 if _settings_open:
-                    _change_language(-1)
+                    _change_setting_value(-1)
             JOY_BUTTON_DPAD_RIGHT:
                 if _settings_open:
-                    _change_language(1)
+                    _change_setting_value(1)
             JOY_BUTTON_A:
                 if _settings_open:
-                    _change_language(1)
+                    _change_setting_value(1)
                 else:
                     _activate_option(_selected_option)
     get_viewport().set_input_as_handled()
@@ -226,7 +237,9 @@ func _handle_axis(event: InputEventJoypadMotion) -> void:
             if not _list_mode.is_empty() and event.axis == JOY_AXIS_LEFT_Y:
                 _move_list(direction)
             elif _settings_open and event.axis == JOY_AXIS_LEFT_X:
-                _change_language(direction)
+                _change_setting_value(direction)
+            elif _settings_open and event.axis == JOY_AXIS_LEFT_Y:
+                _move_settings_focus(direction)
             elif _list_mode.is_empty() and not _settings_open and event.axis == JOY_AXIS_LEFT_Y:
                 _move_selection(direction)
     get_viewport().set_input_as_handled()
@@ -282,8 +295,36 @@ func _set_ui_pause(is_open: bool) -> void:
 
 
 func _show_settings(show: bool) -> void:
+    if show and not _settings_open:
+        _settings_selection = 0
     _settings_open = show
     _refresh_text()
+
+
+func _move_settings_focus(direction: int) -> void:
+    if not _settings_open:
+        return
+    _settings_selection = clampi(_settings_selection + direction, 0, 1)
+    _update_settings_focus()
+
+
+func _change_setting_value(direction: int) -> void:
+    if _settings_selection == 0:
+        _change_layout(direction)
+    else:
+        _change_language(direction)
+
+
+func _update_settings_focus() -> void:
+    if _layout_caption == null or _language_caption == null:
+        return
+    # A warm active caption/value tells the player which left/right
+    # selector will respond. These are not confirmation choices.
+    var layout_selected: bool = _settings_selection == 0
+    _layout_caption.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD if layout_selected else UiTheme.INK)
+    _layout_value.add_theme_color_override("font_color", ACTIVE_HIGHLIGHT if layout_selected else UiTheme.INK)
+    _language_caption.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD if not layout_selected else UiTheme.INK)
+    _language_value.add_theme_color_override("font_color", ACTIVE_HIGHLIGHT if not layout_selected else UiTheme.INK)
 
 
 func _move_selection(direction: int) -> void:
@@ -728,12 +769,22 @@ func _on_appearance_cancelled() -> void:
     _set_open(true)
     _creation_in_progress = false
 
+func _change_layout(_direction: int) -> void:
+    if not _opened or not _settings_open:
+        return
+    _settings_selection = 0
+    var current: String = str(_locale.get("input_layout"))
+    _locale.call("set_input_layout", "standard" if current == "nintendo" else "nintendo")
+    _update_settings_focus()
+
+
 func _change_language(_direction: int) -> void:
     if not _opened or not _settings_open:
         return
-    # Keep the original left/right language selector.
+    _settings_selection = 1
     var desired: String = "en" if str(_locale.get("language")) == "uk" else "uk"
     _locale.call("set_language", desired)
+    _update_settings_focus()
 
 
 func _build_interface() -> void:
@@ -803,8 +854,35 @@ func _build_interface() -> void:
         _menu_buttons.append(option)
 
     _settings_panel = VBoxContainer.new()
-    _settings_panel.add_theme_constant_override("separation", 9)
+    _settings_panel.add_theme_constant_override("separation", 6)
     stack.add_child(_settings_panel)
+
+    # First selector: Standard / Nintendo gamepad face-button layout.
+    # Keep the established arrow/value/arrow presentation.
+    _layout_caption = _label(15)
+    _settings_panel.add_child(_layout_caption)
+
+    var layout_row := HBoxContainer.new()
+    layout_row.add_theme_constant_override("separation", 3)
+    _settings_panel.add_child(layout_row)
+
+    var layout_previous := _button()
+    layout_previous.text = "‹"
+    layout_previous.custom_minimum_size = Vector2(25, 29)
+    layout_previous.pressed.connect(_change_layout.bind(-1))
+    layout_row.add_child(layout_previous)
+
+    _layout_value = _label(MIN_UI_FONT_SIZE)
+    _layout_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    _layout_value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    _layout_value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    layout_row.add_child(_layout_value)
+
+    var layout_next := _button()
+    layout_next.text = "›"
+    layout_next.custom_minimum_size = Vector2(25, 29)
+    layout_next.pressed.connect(_change_layout.bind(1))
+    layout_row.add_child(layout_next)
 
     _language_caption = _label(15)
     _language_caption.add_theme_color_override("font_color", UiTheme.LIGHT_GOLD)
@@ -932,7 +1010,7 @@ func _style_menu_layout() -> void:
         if not _confirm_action.is_empty():
             panel_size = Vector2(280, 158)
         elif _settings_open:
-            panel_size = Vector2(260, 155)
+            panel_size = Vector2(260, 184)
         elif not _list_mode.is_empty():
             panel_size = Vector2(284, 218)
         _panel.custom_minimum_size = panel_size
@@ -1037,8 +1115,11 @@ func _refresh_text() -> void:
                 _heading.text = _tr("game.quit")
                 _confirm_message.text = _tr("game.quit_confirm")
 
+    _layout_caption.text = _tr("settings.layout")
+    _layout_value.text = _tr("settings.layout." + str(_locale.get("input_layout")))
     _language_caption.text = _tr("settings.language")
     _language_value.text = _tr("settings.language.en") if str(_locale.get("language")) == "en" else _tr("settings.language.uk")
+    _update_settings_focus()
     _confirm_accept.call("set_caption", _tr("menu.confirm_accept"))
     _confirm_cancel.call("set_caption", _tr("menu.confirm_cancel"))
     _main_panel.visible = not _settings_open and _list_mode.is_empty() and _confirm_action.is_empty()
