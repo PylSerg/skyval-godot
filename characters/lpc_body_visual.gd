@@ -8,7 +8,7 @@ extends Node2D
 const CELL := 64
 const IDLE_Y := 1408
 const WALK_Y := 512
-const SLASH_Y := 768
+const SLASH_Y := 704  # LPC standard slash rows: N=11, W=12, S=13, E=14
 const OVERSIZE_CELL := 128
 const SLASH_FPS := 24.0
 const SLASH_FRAMES := [0, 1, 2, 3, 4, 5]
@@ -680,11 +680,14 @@ func set_attack_progress(progress: float) -> void:
     _attack_progress = clampf(progress, 0.0, 1.0)
     var sweep: float = sin(_attack_progress * PI)
     var sign_x: float = -1.0 if _direction == 1 else 1.0
-    var angle: float = lerpf(-0.55, 0.85, _attack_progress) * sign_x
     for sprite in _sprites:
         if str(sprite.name) == "WeaponBack" or str(sprite.name) == "WeaponFront":
-            sprite.rotation = angle
-            sprite.position = Vector2(sign_x * 5.0 * sweep, -4.0 * sweep)
+            # This atlas contains idle/walk sprites, not attack artwork.
+            # Do not rotate its full 64px image around the character origin:
+            # that swings the visible sword *down*, away from the wrist.
+            # Keep a subtle upwards follow-through until real 128px art is installed.
+            sprite.rotation = 0.0
+            sprite.position = Vector2(sign_x * 3.0 * sweep, -3.0 * sweep)
 
 func _reset_sword_pose() -> void:
     for sprite in _sprites:
