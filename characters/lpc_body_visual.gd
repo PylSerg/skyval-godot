@@ -13,6 +13,10 @@ const ROW_INDEX := [2, 1, 3, 0]
 const IDLE_FRAMES := [0, 0, 1]
 const WALK_FRAMES := [1, 2, 3, 4, 5, 6, 7, 8]
 const MAX_CACHED_ATLASES := 10
+# Keep a few decoded armor animation sets warm for repeated try-ons.
+# The full library is NEVER preloaded; unchanged layers remain attached.
+const MAX_CACHED_ARMOR_FRAMES := 6
+const SLOW_REBUILD_WARNING_MS := 120
 const SKINS := ["light", "amber", "olive", "brown", "bronze"]
 const HAIR_COLORS := ["black", "dark_brown", "blonde", "redhead", "ash"]
 const EYE_COLORS := ["blue", "green", "brown", "gray", "purple", "yellow"]
@@ -58,12 +62,16 @@ signal clothing_changed(state: Dictionary)
 
 var available: bool = false
 var _sprites: Array[AnimatedSprite2D] = []
+# Sprite name -> source path, committed only after a fully valid swap.
+var _layer_paths: Dictionary = {}
 var _saved_outfit: Dictionary = {}
 var _last_clothing_state: Dictionary = {}
 # External PNGs are otherwise decoded on every menu selection. A small
 # bounded cache keeps the active LPC atlases in memory for quick swaps.
 var _atlas_cache: Dictionary = {}
 var _atlas_cache_order: Array[String] = []
+var _armor_frames_cache: Dictionary = {}
+var _armor_frames_order: Array[String] = []
 var _armor_path_cache: Dictionary = {}
 var _lining_path_cache: Dictionary = {}
 var _direction: int = 0
@@ -135,6 +143,8 @@ func _get_sheet_root(body_path: String) -> String:
 
 func _load_texture(path: String) -> Texture2D:
     if _atlas_cache.has(path):
+        _atlas_cache_order.erase(path)
+        _atlas_cache_order.append(path)
         return _atlas_cache[path] as Texture2D
 
     var texture: Texture2D = null
@@ -156,7 +166,34 @@ func _load_texture(path: String) -> Texture2D:
             _atlas_cache.erase(oldest)
     return texture
 
+# Armor variants are expensive to decode and repair on a handheld.
+# Reuse the exact SpriteFrames resource for the last few pieces tried on.
+# An active sprite retains its frames even after cache eviction.
+func _cached_armor_frames(label: String, path: String) -> SpriteFrames:
+    if label != "Armor" and label != "ArmorVestFront":
+        return null
+    var key: String = "%s|%s" % [label, path]
+    if not _armor_frames_cache.has(key):
+        return null
+    _armor_frames_order.erase(key)
+    _armor_frames_order.append(key)
+    return _armor_frames_cache[key] as SpriteFrames
+
+
+func _remember_armor_frames(label: String, path: String, frames: SpriteFrames) -> void:
+    if label != "Armor" and label != "ArmorVestFront":
+        return
+    var key: String = "%s|%s" % [label, path]
+    _armor_frames_cache[key] = frames
+    _armor_frames_order.erase(key)
+    _armor_frames_order.append(key)
+    while _armor_frames_order.size() > MAX_CACHED_ARMOR_FRAMES:
+        var oldest: String = _armor_frames_order.pop_front()
+        _armor_frames_cache.erase(oldest)
+
+
 func _load_appearance(skin: String) -> bool:
+    var started_ms: int = Time.get_ticks_msec()
     var body_path: String = _find_body_path(skin)
     if body_path.is_empty():
         return false
@@ -165,8 +202,8 @@ func _load_appearance(skin: String) -> bool:
         return false
 
     var human_head: String = "female" if body_type == "female" else "male"
-    # LPC layers keep their official draw order. Empty slots are omitted.
-    # Body and human head remain mandatory; clothing is optional.
+    # Keep each layer independent. A helmet/weapon can be added later
+    # without changing the body or another piece of equipment.
     var clothing_shape: String = "thin" if body_type == "female" else "male"
     var shirt_shape: String = "female" if body_type == "female" else "male"
     var footwear_z: int = 15 if footwear_style.begins_with("shoes/") else 25
@@ -176,8 +213,6 @@ func _load_appearance(skin: String) -> bool:
         {"name": "Face", "path": root.path_join("head/faces/%s/neutral/%s.png" % [human_head, skin]), "z": 101, "required": false},
         {"name": "Eyes", "path": root.path_join("eyes/human/adult/default/%s.png" % eye_variant), "z": 105, "required": false},
     ]
-    # "None" is a real hairstyle choice: omit the Hair layer entirely,
-    # rather than trying to load a nonexistent hair/none/... sprite.
     if hair_style != "none":
         layers.append({"name": "Hair", "path": root.path_join("hair/%s/adult/%s.png" % [hair_style, hair_variant]), "z": 120, "required": false})
     if pants_style != "none":
@@ -191,22 +226,35 @@ func _load_appearance(skin: String) -> bool:
         if armor_path.is_empty():
             push_warning("Skyval LPC: no compatible Universal LPC armor sheet for %s (%s)" % [armor_style, body_type])
             return false
-
         if armor_style == "leather_vest":
-            # The sleeveless layer is an OPTIONAL visual lining, not a
-            # prerequisite for equipping actual LPC leather armor.
-            # Strictly requiring every facing previously made the inventory
-            # unusable on installations without a matching color variant.
             var vest_lining: String = _find_leather_vest_lining(root)
             if not vest_lining.is_empty():
                 layers.append({"name": "ArmorVestFront", "path": vest_lining, "z": 40, "required": false})
-
         layers.append({"name": "Armor", "path": armor_path, "z": 45, "required": true})
-    # First validate all required files before creating Node2D instances.
-    # A failed outfit change must never remove the working character.
+
+    # Stage and validate only the changed layers. Existing sprites are
+    # reused untouched, including their playing animation and atlas.
+    # A failed change never removes or mutates the previous outfit.
+    var previous_sprites: Dictionary = {}
+    for old in _sprites:
+        if is_instance_valid(old):
+            previous_sprites[str(old.name)] = old
+
     var validated: Array[Dictionary] = []
     for layer in layers:
+        var layer_name: String = str(layer["name"])
         var path: String = str(layer["path"])
+        var z: int = int(layer["z"])
+        var current: AnimatedSprite2D = previous_sprites.get(layer_name) as AnimatedSprite2D
+        if current != null and str(_layer_paths.get(layer_name, "")) == path:
+            validated.append({"name": layer_name, "path": path, "z": z, "sprite": current})
+            continue
+
+        var cached_frames: SpriteFrames = _cached_armor_frames(layer_name, path)
+        if cached_frames != null:
+            validated.append({"name": layer_name, "path": path, "z": z, "frames": cached_frames})
+            continue
+
         if not _texture_exists(path):
             if bool(layer["required"]):
                 push_warning("Skyval LPC: required character layer missing: %s" % path)
@@ -219,26 +267,39 @@ func _load_appearance(skin: String) -> bool:
                 push_warning("Skyval LPC: invalid character sheet: %s" % path)
                 return false
             continue
-        validated.append({"name": str(layer["name"]), "z": int(layer["z"]), "atlas": atlas})
+        validated.append({"name": layer_name, "path": path, "z": z, "atlas": atlas})
 
-    var replacements: Array[AnimatedSprite2D] = []
-    for layer in validated:
-        var atlas: Texture2D = layer["atlas"] as Texture2D
-        replacements.append(_build_layer(str(layer["name"]), int(layer["z"]), atlas))
-
-    # Two mandatory layers: body and head. Undressed characters are valid.
-    if replacements.size() < 2:
-        for candidate in replacements:
-            candidate.free()
+    if validated.size() < 2:
         return false
 
+    # Create new nodes off-tree. Retire old nodes FIRST so Godot can keep
+    # stable layer names ("Armor" is used by the 3x portrait renderer).
+    var replacements: Array[AnimatedSprite2D] = []
+    var new_nodes: Array[AnimatedSprite2D] = []
+    var next_paths: Dictionary = {}
+    for layer in validated:
+        var layer_name: String = str(layer["name"])
+        var path: String = str(layer["path"])
+        var sprite: AnimatedSprite2D
+        if layer.has("sprite"):
+            sprite = layer["sprite"] as AnimatedSprite2D
+        else:
+            var atlas: Texture2D = layer.get("atlas") as Texture2D
+            var frames: SpriteFrames = layer.get("frames") as SpriteFrames
+            sprite = _build_layer(layer_name, int(layer["z"]), atlas, path, frames)
+            new_nodes.append(sprite)
+        sprite.z_index = int(layer["z"])
+        replacements.append(sprite)
+        next_paths[layer_name] = path
+
     for old in _sprites:
-        remove_child(old)
-        old.queue_free()
-    _sprites.clear()
-    for sprite in replacements:
+        if not replacements.has(old):
+            remove_child(old)
+            old.queue_free()
+    for sprite in new_nodes:
         add_child(sprite)
-        _sprites.append(sprite)
+    _sprites = replacements
+    _layer_paths = next_paths
 
     skin_variant = skin
     _apply_animation()
@@ -247,24 +308,36 @@ func _load_appearance(skin: String) -> bool:
     if current_state != _last_clothing_state:
         _last_clothing_state = current_state.duplicate()
         clothing_changed.emit(current_state)
+
+    var duration_ms: int = Time.get_ticks_msec() - started_ms
+    if duration_ms >= SLOW_REBUILD_WARNING_MS:
+        print("Skyval LPC: swapped %d/%d layers in %d ms (skin=%s, armor=%s)" % [
+            new_nodes.size(), _sprites.size(), duration_ms, skin_variant, armor_style
+        ])
     return true
 
-func _build_layer(label: String, layer_z: int, atlas: Texture2D) -> AnimatedSprite2D:
+
+func _build_layer(label: String, layer_z: int, atlas: Texture2D, path: String, cached_frames: SpriteFrames = null) -> AnimatedSprite2D:
     var sprite := AnimatedSprite2D.new()
     sprite.name = label
     sprite.centered = false
     sprite.offset = Vector2(-32, -54)
     sprite.z_index = layer_z
     sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-    var frames := SpriteFrames.new()
-    if frames.has_animation("default"):
-        frames.remove_animation("default")
-    _add_action(frames, atlas, "idle", IDLE_Y, IDLE_FRAMES, 3.0)
-    _add_action(frames, atlas, "walk", WALK_Y, WALK_FRAMES, 9.0)
-    if label == "Armor" or label == "ArmorVestFront":
-        _repair_armor_idle_frames(frames, atlas)
+
+    var frames: SpriteFrames = cached_frames
+    if frames == null:
+        frames = SpriteFrames.new()
+        if frames.has_animation("default"):
+            frames.remove_animation("default")
+        _add_action(frames, atlas, "idle", IDLE_Y, IDLE_FRAMES, 3.0)
+        _add_action(frames, atlas, "walk", WALK_Y, WALK_FRAMES, 9.0)
+        if label == "Armor" or label == "ArmorVestFront":
+            _repair_armor_idle_frames(frames, atlas)
+            _remember_armor_frames(label, path, frames)
     sprite.sprite_frames = frames
     return sprite
+
 
 func _add_action(frames: SpriteFrames, atlas: Texture2D, action: String, start_y: int, indices: Array, fps: float) -> void:
     for direction_index in range(4):
