@@ -86,6 +86,7 @@ var _walking: bool = false
 var _attacking: bool = false
 var _sword_slash_available: bool = false
 var _attack_progress: float = 0.0
+var _attack_frame: int = -1  # Shared frame across body, armor and both sword layers.
 var _reported_sword_fallback: bool = false
 
 func _ready() -> void:
@@ -662,35 +663,59 @@ func start_attack(facing_direction: int) -> void:
     _direction = clampi(facing_direction, 0, 3)
     _attacking = true
     _attack_progress = 0.0
+    _attack_frame = -1
     _apply_animation(true)
+    set_attack_progress(0.0)  # Lock every attack layer to the same first frame.
 
 func end_attack() -> void:
     if not _attacking:
         return
     _attacking = false
     _attack_progress = 0.0
+    _attack_frame = -1
     _reset_sword_pose()
     _apply_animation()
 
 # A geometry-only fallback for LPC installations without 128px slash assets.
 # Reuse the already loaded weapon sprites, so an attack never looks unarmed.
 func set_attack_progress(progress: float) -> void:
-    if not _attacking or _sword_slash_available:
+    if not _attacking:
         return
     _attack_progress = clampf(progress, 0.0, 1.0)
-    # Always use the character's left/right, regardless of screen direction.
-    # Godot is Y-down, so -90 degrees from facing points to character-left.
+
+    # LPC body, clothes, armor and sword all have the same six slash
+    # frames. AnimatedSprite2D nodes can otherwise advance one frame apart
+    # on a low-FPS handheld, making the blade jump between the hands.
+    # Drive them from ONE combat timer, not their individual play clocks.
+    var frame_index: int = mini(int(_attack_progress * SLASH_FRAMES.size()),
+        SLASH_FRAMES.size() - 1)
+    if frame_index != _attack_frame:
+        _attack_frame = frame_index
+        var slash_name: StringName = StringName("slash-%s" % DIRECTIONS[_direction])
+        for sprite in _sprites:
+            if not sprite.visible or sprite.sprite_frames == null:
+                continue
+            if sprite.animation != slash_name:
+                continue
+            if sprite.sprite_frames.get_frame_count(slash_name) > frame_index:
+                sprite.pause()
+                sprite.set_frame_and_progress(frame_index, 0.0)
+
+    if _sword_slash_available:
+        return
+
+    # Without authentic slash sword sheets the normal sword has only
+    # idle/walk poses. Keep its grip on the character's RIGHT side instead
+    # of sliding the idle image across the torso (which looked like a
+    # transfer between hands).
     var facing_vector: Vector2 = [Vector2.DOWN, Vector2.LEFT,
         Vector2.RIGHT, Vector2.UP][_direction]
-    var character_left: Vector2 = facing_vector.rotated(-PI / 2.0)
-    var lateral: float = lerpf(2.0, -2.0, _attack_progress)
+    var right_hand_side: Vector2 = facing_vector.rotated(PI / 2.0)
     var lift: float = sin(_attack_progress * PI) * 2.0
     for sprite in _sprites:
         if str(sprite.name) == "WeaponBack" or str(sprite.name) == "WeaponFront":
-            # Idle/walk sword sheets have no slash pose. Keep a subtle,
-            # non-rotating fallback rather than flipping the whole 64px atlas.
             sprite.rotation = 0.0
-            sprite.position = character_left * lateral + Vector2.UP * lift
+            sprite.position = right_hand_side * 2.0 + Vector2.UP * lift
 
 func _reset_sword_pose() -> void:
     for sprite in _sprites:
@@ -735,6 +760,10 @@ func _apply_animation(restart_attack: bool = false) -> void:
                 sprite.set_frame_and_progress(0, 0.0)
         elif not _attacking and not sprite.is_playing():
             sprite.play(chosen_animation)
+        if _attacking:
+            # Do not let any layer tick independently while the global
+            # combat controller is supplying its synchronized slash frame.
+            sprite.pause()
     if not _attacking:
         _reset_sword_pose()
 
