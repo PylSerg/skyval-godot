@@ -278,6 +278,11 @@ func _build_hud() -> void:
 func _draw() -> void:
     if _swing_left <= 0.0 or _player == null:
         return
+    # The authentic LPC 128px attack already contains the moving blade.
+    # Do not overlay a second blade-shaped trail on the opposite hand.
+    if _sword_swing and _appearance != null and _appearance.has_method("uses_real_sword_slash"):
+        if bool(_appearance.call("uses_real_sword_slash")):
+            return
     # All left/right references are from the character's own perspective.
     # Character-left = facing rotated -90 degrees in Godot's Y-down plane.
     # Sweep from character-left to character-right, matching the original
